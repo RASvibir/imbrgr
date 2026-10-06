@@ -2,11 +2,16 @@ import { del as blobDel, get as blobGet, put as blobPut } from "@vercel/blob";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { mediaFilePath } from "@/lib/urls";
 
 export type StorageDriver = "local" | "blob";
 
 function driver(): StorageDriver {
   return process.env.STORAGE_DRIVER === "blob" ? "blob" : "local";
+}
+
+export function storageDriver(): StorageDriver {
+  return driver();
 }
 
 const localRoot = path.join(process.cwd(), "data", "uploads");
@@ -32,7 +37,7 @@ export async function putObject(
   const filePath = path.join(localRoot, key);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, body);
-  return { key, url: `/api/media/${key}` };
+  return { key, url: mediaFilePath(key) };
 }
 
 export async function deleteObject(key: string): Promise<void> {
@@ -55,12 +60,16 @@ export function newStorageKey(ext: string): string {
 export async function readObject(key: string): Promise<Buffer | null> {
   if (driver() === "blob") {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) return null;
+    if (!token) {
+      console.error("[imbrgr/storage] BLOB_READ_WRITE_TOKEN missing while STORAGE_DRIVER=blob");
+      return null;
+    }
     try {
       const result = await blobGet(key, { access: "public", token });
       if (!result?.stream) return null;
       return Buffer.from(await new Response(result.stream).arrayBuffer());
-    } catch {
+    } catch (e) {
+      console.error("[imbrgr/storage] blob get failed", key, e);
       return null;
     }
   }

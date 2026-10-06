@@ -36,7 +36,7 @@ for (const [name, buf, mime] of [
   const id = await uploadFile(name, buf, mime);
   const post = await fetch(`${base}/api/posts/${id}`).then((r) => r.json());
   const key = post.media[0].storageKey;
-  const head = await fetch(`${base}/api/media/${key}?mime=${encodeURIComponent(mime)}`);
+  const head = await fetch(`${base}/api/media/file/${key}?mime=${encodeURIComponent(mime)}`);
   if (!head.ok) throw new Error(`media fetch failed ${name}`);
   const ct = head.headers.get("content-type");
   console.log(`OK ${name} -> /p/${id} (${ct})`);

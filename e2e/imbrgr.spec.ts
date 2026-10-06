@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import fs from "node:fs/promises";
 import path from "node:path";
 
 const png = path.join(__dirname, "fixtures/tiny.png");
@@ -11,10 +12,29 @@ test.describe("imbrgr e2e", () => {
     await expect(page.getByRole("heading", { name: /Image studio/i })).toBeVisible();
   });
 
-  test("anonymous studio import and share tab", async ({ page }) => {
+  test("anonymous studio import and share tab", async ({ page, request }) => {
     await page.goto("/studio");
     await page.locator('input[type="file"]').setInputFiles(png);
     await expect(page.getByText(/Image ready/i)).toBeVisible({ timeout: 15000 });
+    const importRes = await request.post("/api/studio/import", {
+      multipart: {
+        file: {
+          name: "tiny.png",
+          mimeType: "image/png",
+          buffer: await fs.readFile(png),
+        },
+      },
+    });
+    const imported = await importRes.json();
+    expect(imported.storageKey).toBeTruthy();
+    const fileRes = await request.get(
+      `/api/media/file/${imported.storageKey}?mime=${encodeURIComponent("image/png")}`,
+    );
+    expect(fileRes.status()).toBe(200);
+    expect(fileRes.headers()["content-type"]).toMatch(/image\//);
+    const jsonRes = await request.get(`/api/media/${imported.shortId}`);
+    expect(jsonRes.status()).toBe(200);
+    expect(jsonRes.headers()["content-type"]).toMatch(/application\/json/);
     await page.getByRole("button", { name: "Links" }).click();
     await expect(page.getByText(/Page link/i)).toBeVisible();
   });

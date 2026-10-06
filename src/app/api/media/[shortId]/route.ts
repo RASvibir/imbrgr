@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyDeleteToken } from "@/lib/anon-delete";
+import { isStorageKeySegment } from "@/lib/media-keys";
+import { mediaFilePath } from "@/lib/urls";
 import { buildShareCodes } from "@/lib/embed-codes";
 import { prisma } from "@/lib/db";
 import { canViewMedia, isMediaOwner } from "@/lib/media-access";
@@ -22,6 +24,12 @@ export async function GET(
   ctx: { params: Promise<{ shortId: string }> },
 ) {
   const { shortId } = await ctx.params;
+  if (isStorageKeySegment(shortId)) {
+    const url = new URL(req.url);
+    const target = new URL(mediaFilePath(shortId), url.origin);
+    target.search = url.search;
+    return NextResponse.redirect(target, 301);
+  }
   const actor = await getActor(req);
   const media = await prisma.media.findUnique({
     where: { shortId },
