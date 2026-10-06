@@ -40,7 +40,7 @@ export function friendlyError(raw: string | undefined | null): string {
 }
 
 export const COPY = {
-  studioTagline: "Import, tweak, dream up, and share — images, served hot.",
+  studioTagline: "Describe it, refine it, share it — images, served hot.",
   guestBanner:
     "You're browsing as a guest. Create a free account to keep images private and save more to your gallery.",
   generateWorking: "Plating your image…",

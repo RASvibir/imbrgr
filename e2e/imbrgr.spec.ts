@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const png = path.join(__dirname, "fixtures/tiny.png");
+const artifactsDir = "/opt/cursor/artifacts/screenshots";
 
 test.describe("imbrgr e2e", () => {
   test("studio page uses consumer-friendly copy", async ({ page }) => {
@@ -13,21 +14,29 @@ test.describe("imbrgr e2e", () => {
     );
   });
 
-  test("studio ?tab=generate opens Create tab immediately", async ({ page }) => {
-    await page.goto("/studio?tab=generate");
+  test("studio opens with prompt box on load", async ({ page }) => {
+    await page.goto("/studio");
     await expect(page.getByPlaceholder(/Describe the image/i)).toBeVisible({ timeout: 5000 });
     await expect(page.getByRole("button", { name: /Cook up image/i })).toBeVisible();
+    await page.screenshot({ path: `${artifactsDir}/studio-create-hero.png`, fullPage: true });
+  });
+
+  test("studio ?tab=generate legacy URL shows prompt", async ({ page }) => {
+    await page.goto("/studio?tab=generate");
+    await expect(page.getByPlaceholder(/Describe the image/i)).toBeVisible({ timeout: 5000 });
   });
 
   test("anonymous browse home and studio", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("link", { name: "Studio" })).toBeVisible();
+    await expect(page.getByRole("navigation").getByRole("link", { name: "Studio", exact: true })).toBeVisible();
+    await expect(page.getByPlaceholder(/Describe the image/i).first()).toBeVisible();
     await page.goto("/studio");
     await expect(page.getByRole("heading", { name: /Image studio/i })).toBeVisible();
   });
 
   test("anonymous studio import and share tab", async ({ page, request }) => {
     await page.goto("/studio");
+    await page.locator("summary").filter({ hasText: "Bring your own image" }).click();
     await page.locator('input[type="file"]').setInputFiles(png);
     await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 15000 });
     const importRes = await request.post("/api/studio/import", {
@@ -49,15 +58,46 @@ test.describe("imbrgr e2e", () => {
     const jsonRes = await request.get(`/api/media/${imported.shortId}`);
     expect(jsonRes.status()).toBe(200);
     expect(jsonRes.headers()["content-type"]).toMatch(/application\/json/);
-    await page.getByRole("button", { name: "Links" }).click();
+    await page.getByRole("navigation", { name: "Studio steps" }).getByRole("button", { name: "Share" }).click();
     await expect(page.getByText(/Page link/i)).toBeVisible();
   });
 
   test("anonymous AI generate mock", async ({ page }) => {
-    await page.goto("/studio?tab=generate");
+    await page.goto("/studio");
     await page.getByPlaceholder(/Describe the image/i).fill("ember burger test");
     await page.getByRole("button", { name: /Cook up image/i }).click();
     await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible();
+    await page.screenshot({ path: `${artifactsDir}/studio-after-generate.png`, fullPage: true });
+  });
+
+  test("studio refine works without assist; assist optional", async ({ page }) => {
+    await page.goto("/studio");
+    await page.getByPlaceholder(/Describe the image/i).fill("ember plate test");
+    await page.getByRole("button", { name: /Cook up image/i }).click();
+    await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByRole("button", { name: "Refine" })).toBeVisible();
+    await page.getByRole("button", { name: "Open editor" }).click();
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("checkbox", { name: /Assist/i }).check();
+    await page.getByRole("button", { name: /Suggest alt/i }).click();
+  });
+
+  test("signed-in generate refine share to gallery", async ({ page }) => {
+    await page.goto("/auth/signin");
+    await page.getByPlaceholder(/email/i).fill("e2euser@imbrgr.test");
+    await page.getByPlaceholder(/password/i).fill("password12345");
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
+
+    await page.goto("/studio");
+    await page.getByPlaceholder(/Describe the image/i).fill("gallery e2e dish");
+    await page.getByRole("button", { name: /Cook up image/i }).click();
+    await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible({ timeout: 20000 });
+    await page.getByRole("navigation", { name: "Studio steps" }).getByRole("button", { name: "Share" }).click();
+    await page.getByLabel("Title").fill(`Studio dish ${Date.now()}`);
+    await page.getByRole("button", { name: /Serve to gallery/i }).click();
+    await page.waitForURL(/\/p\//, { timeout: 15000 });
     await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible();
   });
 

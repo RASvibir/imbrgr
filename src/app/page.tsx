@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Feed } from "@/components/posts/Feed";
+import { StudioHomePrompt } from "@/components/studio/StudioHomePrompt";
 
 type Sort = "viral" | "newest" | "top";
 
@@ -19,12 +20,21 @@ export default function HomePage() {
         <p className="mt-3 max-w-xl text-[var(--text-secondary)]">
           Upload stacks, vote, comment, and share — ember glow, burger energy.
         </p>
-        <Link
-          href="/upload"
-          className="mt-5 inline-flex rounded-xl bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)]"
-        >
-          Upload
-        </Link>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            href="/studio"
+            className="inline-flex rounded-xl bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)]"
+          >
+            Open studio
+          </Link>
+          <Link
+            href="/upload"
+            className="inline-flex rounded-xl border border-[var(--border-strong)] px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)]"
+          >
+            Upload
+          </Link>
+        </div>
+        <StudioHomePrompt />
       </section>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
