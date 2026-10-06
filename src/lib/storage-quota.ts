@@ -10,10 +10,12 @@ export function quotaExceededMessage(used: bigint, quota: number): string {
 export async function getUserStorage(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { storageBytesUsed: true },
+    select: { storageBytesUsed: true, storageQuotaBytesOverride: true },
   });
   const used = user?.storageBytesUsed ?? BigInt(0);
-  const quota = userStorageQuotaBytes();
+  const quota = user?.storageQuotaBytesOverride
+    ? Number(user.storageQuotaBytesOverride)
+    : userStorageQuotaBytes();
   return { used, quota, remaining: BigInt(Math.max(0, quota - Number(used))) };
 }
 

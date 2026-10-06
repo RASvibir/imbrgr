@@ -40,6 +40,7 @@ export async function fetchFeed(params: {
   const limit = params.limit ?? 12;
   const where: Record<string, unknown> = {
     visibility: params.visibility ?? "PUBLIC",
+    hiddenByAdmin: false,
   };
   if (params.tagSlug) {
     where.tags = { some: { tag: { slug: params.tagSlug } } };
@@ -102,6 +103,7 @@ export async function searchPosts(query: string, limit = 24) {
   return prisma.post.findMany({
     where: {
       visibility: "PUBLIC",
+      hiddenByAdmin: false,
       OR: [
         { title: { contains: q } },
         { tags: { some: { tag: { OR: [{ slug: { contains: q } }, { name: { contains: q } }] } } } },

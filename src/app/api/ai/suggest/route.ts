@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { suggestAltText, suggestCaption, suggestTags } from "@/lib/ai/quick-suggest";
+import { getActor } from "@/lib/request-identity";
 
 const schema = z.object({
   context: z.string().min(1).max(500),
@@ -9,8 +9,7 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  await getActor(req);
   const body = await req.json().catch(() => ({}));
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });

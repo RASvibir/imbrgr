@@ -4,7 +4,7 @@ import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
-export function HeaderAuth() {
+export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean }) {
   const { data: session } = useSession();
   return (
     <nav className="flex items-center gap-1 sm:gap-2" aria-label="Main">
@@ -41,6 +41,14 @@ export function HeaderAuth() {
       <ThemeToggle />
       {session?.user ? (
         <>
+          {showAdminLink ? (
+            <Link
+              href="/admin"
+              className="hidden rounded-md px-3 py-2 text-sm font-semibold text-[var(--accent-primary)] hover:bg-[var(--surface-hover)] sm:inline"
+            >
+              Admin
+            </Link>
+          ) : null}
           <Link
             href="/settings"
             className="hidden rounded-md px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] sm:inline"

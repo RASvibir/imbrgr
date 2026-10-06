@@ -4,7 +4,11 @@ import { prisma } from "@/lib/db";
 import { newShortId } from "@/lib/ids";
 import { processAndStoreUpload } from "@/lib/media-save";
 import { fetchFeed, type FeedSort } from "@/lib/posts";
-import { getVoterKey } from "@/lib/voter";
+import { uploadRateLimitPerHour } from "@/lib/config";
+import { getActor } from "@/lib/request-identity";
+import { consumeRateLimit } from "@/lib/rate-limit";
+import { assertUserMayUpload } from "@/lib/user-guards";
+import { normalizeVisibility, type Visibility } from "@/lib/visibility";
 import {
   maxBytesForMime,
   parseTags,
@@ -24,7 +28,12 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
-  const { voterKey } = await getVoterKey();
+  const actor = await getActor(req);
+  const voterKey = actor.voterKey;
+  const uploadBlock = await assertUserMayUpload(actor.userId);
+  if (uploadBlock) return NextResponse.json({ error: uploadBlock }, { status: 403 });
+
+  await consumeRateLimit(`upload:${actor.userId ?? actor.ipHash}`, uploadRateLimitPerHour(), 60 * 60 * 1000);
   const form = await req.formData();
   const title = form.get("title")?.toString() ?? "";
   const description = form.get("description")?.toString();
@@ -51,8 +60,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Too many files" }, { status: 400 });
   }
 
-  const visibility =
-    parsed.data.visibility ?? (session?.user ? "PUBLIC" : "UNLISTED");
+  const altText = form.get("altText")?.toString();
+  const mature = form.get("mature") === "true";
+
+  let visibility: Visibility = "UNLISTED";
+  if (session?.user) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { defaultPostVisibility: true },
+    });
+    visibility = normalizeVisibility(
+      parsed.data.visibility ?? user?.defaultPostVisibility ?? "UNLISTED",
+    );
+  } else {
+    const anonVis = normalizeVisibility(parsed.data.visibility ?? "UNLISTED");
+    visibility = anonVis === "PRIVATE" ? "UNLISTED" : anonVis;
+  }
 
   try {
     const postShortId = newShortId();
@@ -87,6 +110,9 @@ export async function POST(req: Request) {
         sortOrder: i,
         aiGenerated,
         aiPrompt: aiPrompt || undefined,
+        altText: i === 0 ? altText : undefined,
+        mature: i === 0 ? mature : false,
+        visibility,
       });
     }
 

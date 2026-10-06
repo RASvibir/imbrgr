@@ -9,6 +9,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:seed": "tsx scripts/e2e-seed.ts",
+    "test:e2e:artifacts": "tsx scripts/capture-e2e-artifacts.mts",
+    "test:e2e:install": "playwright install chromium",
     "brand:assets": "node scripts/generate-brand-assets.mjs",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
@@ -47,6 +51,7 @@
     "png-to-ico": "^3.0.2",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "@playwright/test": "^1.51.0",
     "vitest": "^2.1.9"
   }
 }

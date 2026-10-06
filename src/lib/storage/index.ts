@@ -1,4 +1,4 @@
-import { put as blobPut, del as blobDel } from "@vercel/blob";
+import { del as blobDel, get as blobGet, put as blobPut } from "@vercel/blob";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -50,6 +50,21 @@ export async function deleteObject(key: string): Promise<void> {
 export function newStorageKey(ext: string): string {
   const safe = ext.replace(/[^a-z0-9]/gi, "").slice(0, 8) || "bin";
   return `${randomUUID()}.${safe}`;
+}
+
+export async function readObject(key: string): Promise<Buffer | null> {
+  if (driver() === "blob") {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token) return null;
+    try {
+      const result = await blobGet(key, { access: "public", token });
+      if (!result?.stream) return null;
+      return Buffer.from(await new Response(result.stream).arrayBuffer());
+    } catch {
+      return null;
+    }
+  }
+  return readLocalObject(key);
 }
 
 export async function readLocalObject(key: string): Promise<Buffer | null> {

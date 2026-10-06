@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { canViewMedia } from "@/lib/media-access";
+import { getServerActor } from "@/lib/request-identity";
 import { mediaUrl } from "@/lib/urls";
 
 export default async function ImageDirectPage({
@@ -9,11 +11,12 @@ export default async function ImageDirectPage({
   params: Promise<{ shortId: string }>;
 }) {
   const { shortId } = await params;
+  const actor = await getServerActor();
   const media = await prisma.media.findUnique({
     where: { shortId },
-    include: { post: { select: { shortId: true, title: true } } },
+    include: { post: { select: { shortId: true, title: true, visibility: true, userId: true } } },
   });
-  if (!media) notFound();
+  if (!media || !canViewMedia(media, actor)) notFound();
   const src = mediaUrl(media.storageKey, media.mimeType);
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -28,7 +31,7 @@ export default async function ImageDirectPage({
         <video src={src} controls className="w-full rounded-xl" />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" className="w-full rounded-xl" />
+        <img src={src} alt={media.altText ?? ""} className="w-full rounded-xl" />
       )}
     </div>
   );

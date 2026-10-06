@@ -19,6 +19,7 @@ type Profile = {
   bannerKey: string | null;
   links: LinkItem[] | null;
   favoritesPublic: boolean;
+  defaultPostVisibility: string;
 };
 
 export default function SettingsPage() {
@@ -58,6 +59,7 @@ export default function SettingsPage() {
         bio: profile.bio,
         links: profile.links?.filter((l) => l.label && l.url) ?? [],
         favoritesPublic: profile.favoritesPublic,
+        defaultPostVisibility: profile.defaultPostVisibility,
       }),
     });
     const data = await res.json();
@@ -199,6 +201,18 @@ export default function SettingsPage() {
             onChange={(e) => setProfile({ ...profile, favoritesPublic: e.target.checked })}
           />
           Show favorites on public profile
+        </label>
+        <label className="block text-sm">
+          Default visibility for new uploads
+          <select
+            value={profile.defaultPostVisibility}
+            onChange={(e) => setProfile({ ...profile, defaultPostVisibility: e.target.value })}
+            className="mt-1 w-full rounded-lg border px-3 py-2"
+          >
+            <option value="PUBLIC">Public</option>
+            <option value="UNLISTED">Unlisted</option>
+            <option value="PRIVATE">Private</option>
+          </select>
         </label>
         <div>
           <p className="text-sm font-medium">Links (up to 5)</p>

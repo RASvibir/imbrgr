@@ -1,15 +1,14 @@
 services:
   postgres:
     image: postgres:16-alpine
-    restart: unless-stopped
     environment:
       POSTGRES_USER: imbrgr
       POSTGRES_PASSWORD: imbrgr
       POSTGRES_DB: imbrgr
     ports:
       - "5432:5432"
-    volumes:
-      - imbrgr_pg:/var/lib/postgresql/data
-
-volumes:
-  imbrgr_pg:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U imbrgr"]
+      interval: 3s
+      timeout: 5s
+      retries: 10

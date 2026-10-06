@@ -1,24 +1,31 @@
 "use client";
 
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
+import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { StorageMeter } from "@/components/storage/StorageMeter";
-
 type StagedFile = { file: File; preview: string };
 
 export function UploadForm() {
   const router = useRouter();
+  const { data: session } = useSession();
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<StagedFile[]>([]);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [tags, setTags] = useState("");
-  const [visibility, setVisibility] = useState<"PUBLIC" | "UNLISTED">("UNLISTED");
+  const [settings, setSettings] = useState<ImageSettingsValues>({
+    title: "",
+    description: "",
+    tags: "",
+    altText: "",
+    mature: false,
+    visibility: "UNLISTED",
+  });
   const [urlInput, setUrlInput] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
+  const [deleteToken, setDeleteToken] = useState<string | null>(null);
 
   const addFiles = useCallback((list: FileList | File[]) => {
     const next: StagedFile[] = [];
@@ -77,16 +84,18 @@ export function UploadForm() {
 
   const submit = async () => {
     setError("");
-    if (!title.trim() || files.length === 0) {
+    if (!settings.title?.trim() || files.length === 0) {
       setError("Title and at least one file required");
       return;
     }
     setBusy(true);
     const form = new FormData();
-    form.set("title", title);
-    form.set("description", description);
-    form.set("tags", tags);
-    form.set("visibility", visibility);
+    form.set("title", settings.title ?? "");
+    form.set("description", settings.description ?? "");
+    form.set("tags", settings.tags ?? "");
+    form.set("visibility", settings.visibility ?? "UNLISTED");
+    form.set("altText", settings.altText ?? "");
+    form.set("mature", settings.mature ? "true" : "false");
     files.forEach((f) => form.append("files", f.file));
     const res = await fetch("/api/posts", { method: "POST", body: form });
     const data = await res.json();
@@ -95,6 +104,7 @@ export function UploadForm() {
       setError(data.error ?? "Upload failed");
       return;
     }
+    if (data.deleteToken) setDeleteToken(data.deleteToken);
     router.push(`/p/${data.shortId}`);
   };
 
@@ -168,35 +178,20 @@ export function UploadForm() {
         </div>
       ) : null}
 
-      <div className="space-y-3">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title"
-          className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-2"
-        />
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description (optional)"
-          rows={3}
-          className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-2"
-        />
-        <input
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-          placeholder="Tags (comma or # separated)"
-          className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-2"
-        />
-        <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-          <input
-            type="checkbox"
-            checked={visibility === "PUBLIC"}
-            onChange={(e) => setVisibility(e.target.checked ? "PUBLIC" : "UNLISTED")}
+      <section className="rounded-xl border border-[var(--border-subtle)] p-4">
+        <h2 className="font-semibold">Image settings</h2>
+        <div className="mt-3">
+          <ImageSettingsPanel
+            signedIn={Boolean(session?.user)}
+            values={settings}
+            onChange={setSettings}
           />
-          Public (unchecked = unlisted; anonymous uploads default unlisted)
-        </label>
-      </div>
+        </div>
+      </section>
+
+      {deleteToken ? (
+        <p className="text-xs text-[var(--text-muted)]">Save your guest delete token: <code>{deleteToken}</code></p>
+      ) : null}
 
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
       <button
@@ -211,6 +206,7 @@ export function UploadForm() {
       {editIdx != null && files[editIdx] ? (
         <ImageEditor
           imageSrc={files[editIdx].preview}
+          studioMode
           onCancel={() => setEditIdx(null)}
           onExport={(blob) => replaceFile(editIdx, blob)}
         />
