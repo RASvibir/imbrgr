@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/layout/Header";
+import { SessionProvider } from "@/components/providers/SessionProvider";
 import { ThemeScript } from "@/components/theme/ThemeScript";
 import "./globals.css";
 
@@ -79,11 +80,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeScript />
       </head>
       <body className="min-h-full flex flex-col">
-        <Header />
-        <main className="flex-1">{children}</main>
+        <SessionProvider>
+          <Header />
+          <main className="flex-1">{children}</main>
         <footer className="border-t border-[var(--border-subtle)] py-8 text-center text-sm text-[var(--text-muted)]">
           © {new Date().getFullYear()} imbrgr · ChloReform Studios · Irie Pharm
         </footer>
+        </SessionProvider>
       </body>
     </html>
   );

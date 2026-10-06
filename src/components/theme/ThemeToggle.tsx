@@ -17,14 +17,14 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("system");
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "system";
+    return (localStorage.getItem("imbrgr-theme") as Theme | null) ?? "system";
+  });
 
   useEffect(() => {
-    const stored = localStorage.getItem("imbrgr-theme") as Theme | null;
-    const initial = stored ?? "system";
-    setTheme(initial);
-    applyTheme(initial);
-  }, []);
+    applyTheme(theme);
+  }, [theme]);
 
   function cycle() {
     const order: Theme[] = ["system", "light", "dark"];

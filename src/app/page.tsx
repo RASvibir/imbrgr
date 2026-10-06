@@ -1,56 +1,50 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { Feed } from "@/components/posts/Feed";
+
+type Sort = "viral" | "newest" | "top";
 
 export default function HomePage() {
+  const [sort, setSort] = useState<Sort>("viral");
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <section className="relative overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-8 sm:p-12 shadow-[var(--glow-ember)]">
-        <div
-          className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--accent-primary)] opacity-15 blur-3xl"
-          aria-hidden
-        />
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+      <section className="mb-10 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-6 sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-widest text-[var(--accent-amber)]">
           images, served hot
         </p>
-        <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-[var(--text-primary)] sm:text-5xl">
-          The internet&apos;s{" "}
-          <span className="bg-gradient-to-r from-[var(--accent-primary)] to-[var(--accent-secondary)] bg-clip-text text-transparent">
-            visual snack
-          </span>
-        </h1>
-        <p className="mt-4 max-w-xl text-lg text-[var(--text-secondary)]">
-          imbrgr stacks your uploads like a tech burger: pixels, frames, and share links — glowing ember
-          orange, with a wink at &ldquo;img&rdquo; culture and zero borrowed mascots.
+        <h1 className="mt-2 text-3xl font-bold sm:text-4xl">The internet&apos;s visual snack</h1>
+        <p className="mt-3 max-w-xl text-[var(--text-secondary)]">
+          Upload stacks, vote, comment, and share — ember glow, burger energy.
         </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            href="/upload"
-            className="inline-flex items-center rounded-xl bg-[var(--accent-primary)] px-5 py-3 text-sm font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)] transition hover:bg-[var(--accent-primary-hover)]"
-          >
-            Upload something
-          </Link>
-          <Link
-            href="/tags"
-            className="inline-flex items-center rounded-xl border border-[var(--border-strong)] bg-[var(--surface-base)] px-5 py-3 text-sm font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
-          >
-            Browse tags
-          </Link>
-        </div>
+        <Link
+          href="/upload"
+          className="mt-5 inline-flex rounded-xl bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)]"
+        >
+          Upload
+        </Link>
       </section>
 
-      <section className="mt-12">
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Gallery feed</h2>
-        <p className="mt-2 text-[var(--text-secondary)]">
-          Popular, newest, and top posts will appear here as the platform comes online.
-        </p>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((n) => (
-            <div
-              key={n}
-              className="aspect-video rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-sunken)]/50"
-            />
-          ))}
-        </div>
-      </section>
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        {(["viral", "newest", "top"] as Sort[]).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setSort(s)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize ${
+              sort === s
+                ? "bg-[var(--accent-primary)] text-[var(--on-accent)]"
+                : "border border-[var(--border-subtle)] text-[var(--text-secondary)]"
+            }`}
+          >
+            {s === "viral" ? "Most viral" : s}
+          </button>
+        ))}
+      </div>
+
+      <Feed key={sort} sort={sort} />
     </div>
   );
 }
