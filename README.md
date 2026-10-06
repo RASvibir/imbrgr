@@ -74,7 +74,11 @@ npm run test:e2e:artifacts   # optional screenshots → /opt/cursor/artifacts
 
 ### Private images & Vercel Blob
 
-Production uses a **public** Blob store (`imbrgr13-media`). Private files are never listed in feeds/search and `/api/media/*` returns **404** to non-owners, with `Cache-Control: private, no-store`. Direct Blob CDN URLs are not exposed in the UI; however, anyone who obtained a raw Blob URL could still fetch the object. For stricter isolation, use a private Blob store or proxy-only delivery and rotate storage keys when visibility changes from public to private.
+On Vercel set **`STORAGE_DRIVER=blob`** and **`BLOB_READ_WRITE_TOKEN`** (required for uploads and for `/api/media/file/*` streaming). Without them, production defaults to local disk and files 404.
+
+Image bytes are served at **`/api/media/file/<storageKey>`** (e.g. `/api/media/file/uuid.jpg?mime=image%2Fjpeg`). JSON metadata stays at **`/api/media/<shortId>`**.
+
+Production uses a **public** Blob store (`imbrgr13-media`). Private files are never listed in feeds/search and the file route returns **404** to non-owners, with `Cache-Control: private, no-store`. Direct Blob CDN URLs are not exposed in the UI; however, anyone who obtained a raw Blob URL could still fetch the object. For stricter isolation, use a private Blob store or proxy-only delivery and rotate storage keys when visibility changes from public to private.
 
 Do not commit `.env`, `.neon`, or connection strings.
 

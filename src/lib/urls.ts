@@ -3,8 +3,14 @@ export function profileImageUrl(storageKey: string | null | undefined): string |
   return mediaUrl(storageKey, "image/jpeg");
 }
 
+/** Path only (no query) for binary media bytes — never collides with `/api/media/[shortId]` JSON API. */
+export function mediaFilePath(storageKey: string): string {
+  const segments = storageKey.split("/").map((s) => encodeURIComponent(s));
+  return `/api/media/file/${segments.join("/")}`;
+}
+
 export function mediaUrl(storageKey: string, mimeType?: string): string {
-  const base = `/api/media/${storageKey}`;
+  const base = mediaFilePath(storageKey);
   if (mimeType) {
     return `${base}?mime=${encodeURIComponent(mimeType)}`;
   }
