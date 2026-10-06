@@ -68,11 +68,12 @@ test.describe("imbrgr e2e", () => {
     await page.getByPlaceholder(/email/i).fill(email);
     await page.getByPlaceholder(/password/i).fill("password12345");
     await page.getByRole("button", { name: /sign in/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
 
     await page.goto("/upload");
     await page.locator('input[type="file"]').setInputFiles(png);
-    await page.getByPlaceholder("Title").fill("Private e2e post");
-    await page.getByText("Private").click();
+    await page.getByLabel("Title").fill("Private e2e post");
+    await page.getByRole("radio", { name: /Private/i }).check();
     await page.getByRole("button", { name: /Serve it hot/i }).click();
     await page.waitForURL(/\/p\//);
     const postUrl = page.url();
@@ -80,7 +81,7 @@ test.describe("imbrgr e2e", () => {
     const anon = await context.browser()?.newContext();
     const anonPage = await anon!.newPage();
     await anonPage.goto(postUrl);
-    await expect(anonPage.getByText(/not found|404|Loading/i)).toBeVisible();
+    await expect(anonPage.getByText(/private or does not exist/i)).toBeVisible({ timeout: 15000 });
     await anon?.close();
   });
 });

@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:seed": "tsx scripts/e2e-seed.ts",
+    "test:e2e:artifacts": "tsx scripts/capture-e2e-artifacts.mts",
     "test:e2e:install": "playwright install chromium",
     "brand:assets": "node scripts/generate-brand-assets.mjs",
     "postinstall": "prisma generate",

@@ -7,6 +7,7 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   workers: 1,
+  timeout: 60_000,
   reporter: "list",
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000",
@@ -24,6 +25,7 @@ export default defineConfig({
       DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED ?? "postgresql://imbrgr:imbrgr@localhost:5432/imbrgr?schema=public",
       NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3000",
       SUPERADMIN_USERNAMES: "e2eadmin,vibir",
+      STORAGE_DRIVER: "local",
     },
   },
 });
