@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { StorageMeter } from "@/components/storage/StorageMeter";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { STYLES } from "@/lib/ai/styles";
+import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { mediaUrl } from "@/lib/urls";
 
 type StudioAsset = {
@@ -30,8 +31,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export function ImageStudio() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  const { data: session } = useSession();
   const params = useSearchParams();
   const initialTab = (params.get("tab") as Tab) || "import";
 
@@ -58,17 +58,18 @@ export function ImageStudio() {
   const [style, setStyle] = useState("");
   const [aspect, setAspect] = useState<keyof typeof ASPECT_PRESETS>("1:1");
   const [variations, setVariations] = useState(1);
-  const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number } | null>(null);
+  const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number; type?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [aiEditText, setAiEditText] = useState("");
   const [suggestions, setSuggestions] = useState<{ caption?: string; alt?: string; tags?: string[] }>({});
+  const [deleteToken, setDeleteToken] = useState<string | null>(null);
+  const [settings, setSettings] = useState<ImageSettingsValues>({
+    altText: "",
+    mature: false,
+    visibility: "UNLISTED",
+  });
 
   useEffect(() => {
-    if (status === "unauthenticated") router.push("/auth/signin?callbackUrl=/studio");
-  }, [status, router]);
-
-  useEffect(() => {
-    if (!session?.user) return;
     void fetch("/api/ai/usage").then((r) => r.json()).then(setUsage).catch(() => undefined);
   }, [session?.user]);
 
@@ -93,12 +94,14 @@ export function ImageStudio() {
     setErr("");
     const form = new FormData();
     form.set("file", file);
+    form.set("visibility", settings.visibility ?? "UNLISTED");
     const res = await fetch("/api/studio/import", { method: "POST", body: form });
     const data = await res.json();
     if (!res.ok) {
       setErr(data.error ?? "Import failed");
       return;
     }
+    if (data.deleteToken) setDeleteToken(data.deleteToken);
     await setActiveAsset(data);
     setTab("edit");
   };
@@ -179,6 +182,7 @@ export function ImageStudio() {
         style: style || undefined,
         safe: true,
         variations,
+        visibility: settings.visibility,
       }),
     });
     const data = await res.json();
@@ -188,6 +192,7 @@ export function ImageStudio() {
       return;
     }
     setUsage(data.usage);
+    if (data.deleteToken) setDeleteToken(data.deleteToken);
     const primary = data.variations?.[0] ?? data;
     await setActiveAsset({
       shortId: primary.mediaShortId,
@@ -275,11 +280,23 @@ export function ImageStudio() {
     else setSuggestions((s) => ({ ...s, alt: data.text }));
   };
 
-  if (status === "loading") {
-    return <p className="p-8 text-center text-[var(--text-muted)]">Loading studio…</p>;
-  }
-
+  const signedIn = Boolean(session?.user);
   const preview = asset ? mediaUrl(asset.storageKey, asset.mimeType) : null;
+
+  const saveMediaSettings = async () => {
+    if (!asset) return;
+    await fetch(`/api/media/${asset.shortId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        altText: settings.altText,
+        mature: settings.mature,
+        visibility: settings.visibility,
+      }),
+    });
+    await refreshShare(asset.shortId);
+    setMsg("Image settings saved");
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6" onPaste={onPaste}>
@@ -294,7 +311,13 @@ export function ImageStudio() {
         </div>
         {usage ? (
           <p className="mt-2 text-xs text-[var(--text-secondary)]">
-            AI generations today: {usage.remaining} / {usage.limit} left
+            AI generations today: {usage.remaining} / {usage.limit} left ({usage.type === "anonymous" ? "guest" : "account"})
+          </p>
+        ) : null}
+        {!signedIn ? (
+          <p className="mt-2 rounded-lg border border-[var(--accent-primary)]/40 bg-[var(--surface-raised)] p-3 text-sm">
+            You&apos;re using the studio as a guest.{" "}
+            <Link href="/auth/signup" className="font-medium text-[var(--accent-primary)]">Create an account</Link> for private images and higher AI limits.
           </p>
         ) : null}
       </header>
@@ -480,7 +503,26 @@ export function ImageStudio() {
         </section>
       ) : null}
 
-      {tab === "share" && share ? <div className="mt-6"><ShareLinks share={share} /></div> : null}
+      {tab === "share" ? (
+        <div className="mt-6 space-y-4">
+          <ImageSettingsPanel
+            signedIn={signedIn}
+            values={settings}
+            onChange={(v) => setSettings(v)}
+            compact
+          />
+          <button type="button" onClick={saveMediaSettings} className="rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]">
+            Save image settings
+          </button>
+          {deleteToken ? (
+            <p className="rounded-lg border border-[var(--warning)]/50 bg-[var(--surface-raised)] p-3 text-xs">
+              <strong>Guest delete token</strong> (save this to remove your upload later):{" "}
+              <code className="break-all">{deleteToken}</code>
+            </p>
+          ) : null}
+          {share ? <ShareLinks share={share} /> : null}
+        </div>
+      ) : null}
       {tab === "share" && !share ? (
         <p className="mt-6 text-sm text-[var(--text-muted)]">Save or import an image to get share links.</p>
       ) : null}

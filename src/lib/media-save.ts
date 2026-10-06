@@ -10,6 +10,8 @@ import {
   assertUserCanStore,
   removeUserStorage,
 } from "@/lib/storage-quota";
+import { hashDeleteToken, newDeleteToken } from "@/lib/anon-delete";
+import { normalizeVisibility, type Visibility } from "@/lib/visibility";
 import { MAX_VIDEO_DURATION_SEC, VIDEO_MIME, validateUploadMime } from "@/lib/validation";
 import { probeVideoDurationSec } from "@/lib/video-duration";
 
@@ -48,6 +50,9 @@ export async function processAndStoreUpload(params: {
   parentMediaId?: string;
   postId?: string;
   sortOrder?: number;
+  visibility?: Visibility;
+  altText?: string;
+  mature?: boolean;
 }) {
   const { userId, voterKey } = params;
   const { buffer: out, mime: outMime } = await prepareUploadBuffer(params.buffer, params.mime, {
@@ -73,10 +78,16 @@ export async function processAndStoreUpload(params: {
     }
   }
 
+  const anonToken = !userId && voterKey ? newDeleteToken() : null;
   const media = await prisma.media.create({
     data: {
       shortId: newShortId(),
       userId,
+      voterKey: userId ? null : voterKey,
+      visibility: normalizeVisibility(params.visibility ?? (userId ? "UNLISTED" : "UNLISTED")),
+      altText: params.altText,
+      mature: params.mature ?? false,
+      deleteTokenHash: anonToken ? hashDeleteToken(anonToken) : null,
       postId: params.postId,
       parentMediaId: params.parentMediaId,
       sortOrder: params.sortOrder ?? 0,
@@ -94,7 +105,7 @@ export async function processAndStoreUpload(params: {
   if (userId) await addUserStorage(userId, out.byteLength);
   else if (voterKey) await addAnonymousStorage(voterKey, out.byteLength);
 
-  return media;
+  return Object.assign(media, { deleteToken: anonToken });
 }
 
 export async function replaceMediaInPlace(params: {

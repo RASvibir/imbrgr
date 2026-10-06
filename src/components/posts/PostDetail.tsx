@@ -3,9 +3,13 @@
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
-import { mediaUrl, siteUrl } from "@/lib/urls";
+import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
+import { ShareLinks } from "@/components/share/ShareLinks";
+import { buildShareCodes } from "@/lib/embed-codes";
+import { mediaUrl } from "@/lib/urls";
+import type { Visibility } from "@/lib/visibility";
 
 type Media = {
   shortId: string;
@@ -14,6 +18,8 @@ type Media = {
   width: number | null;
   height: number | null;
   aiEdited?: boolean;
+  altText?: string | null;
+  mature?: boolean;
 };
 
 type Comment = {
@@ -52,24 +58,35 @@ export function PostDetail({ shortId }: { shortId: string }) {
   const [reportReason, setReportReason] = useState("");
   const [msg, setMsg] = useState("");
   const [editMedia, setEditMedia] = useState<Media | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [ownerSettings, setOwnerSettings] = useState<ImageSettingsValues | null>(null);
 
   useEffect(() => {
     void fetch(`/api/posts/${shortId}`)
-      .then((r) => r.json())
-      .then(setPost);
+      .then(async (r) => {
+        if (!r.ok) {
+          setNotFound(true);
+          return null;
+        }
+        return r.json();
+      })
+      .then((p) => {
+        if (p) {
+          setPost(p);
+          setOwnerSettings({
+            title: p.title,
+            description: p.description ?? "",
+            tags: p.tags.map((t: { tag: { name: string } }) => t.tag.name).join(", "),
+            altText: p.media[0]?.altText ?? "",
+            mature: p.media[0]?.mature ?? false,
+            visibility: p.visibility as Visibility,
+          });
+        }
+      });
     void fetch(`/api/posts/${shortId}/comments`)
       .then((r) => r.json())
       .then(setComments);
   }, [shortId]);
-
-  const directLinks = useMemo(() => {
-    if (!post) return [];
-    return post.media.map((m) => ({
-      shortId: m.shortId,
-      url: siteUrl(`/i/${m.shortId}`),
-      raw: siteUrl(mediaUrl(m.storageKey, m.mimeType)),
-    }));
-  }, [post]);
 
   const vote = async (value: number) => {
     const res = await fetch(`/api/posts/${shortId}/vote`, {
@@ -120,13 +137,25 @@ export function PostDetail({ shortId }: { shortId: string }) {
     router.push("/");
   };
 
-  const setVisibility = async (visibility: string) => {
-    await fetch(`/api/posts/${shortId}`, {
+  const saveOwnerSettings = async () => {
+    if (!ownerSettings || !post) return;
+    const tags = ownerSettings.tags?.split(/[,\s#]+/).filter(Boolean) ?? [];
+    const res = await fetch(`/api/posts/${shortId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visibility }),
+      body: JSON.stringify({
+        title: ownerSettings.title,
+        description: ownerSettings.description,
+        visibility: ownerSettings.visibility,
+        tags,
+        media: post.media[0]
+          ? [{ shortId: post.media[0].shortId, altText: ownerSettings.altText, mature: ownerSettings.mature }]
+          : [],
+      }),
     });
-    setPost((p) => (p ? { ...p, visibility } : p));
+    const updated = await res.json();
+    if (res.ok) setPost(updated);
+    setMsg("Settings saved");
   };
 
   const report = async () => {
@@ -139,11 +168,12 @@ export function PostDetail({ shortId }: { shortId: string }) {
     setMsg("Report submitted");
   };
 
+  if (notFound) {
+    return <p className="p-8 text-center text-[var(--text-muted)]">This post is private or does not exist.</p>;
+  }
   if (!post) {
     return <p className="text-[var(--text-muted)]">Loading post…</p>;
   }
-
-  const embed = `<a href="${siteUrl(`/p/${shortId}`)}"><img src="${siteUrl(mediaUrl(post.media[0]?.storageKey ?? "", post.media[0]?.mimeType))}" alt="${post.title}"/></a>`;
 
   const threaded = comments.filter((c) => !c.parentId);
   const children = (parentId: string) => comments.filter((c) => c.parentId === parentId);
@@ -194,7 +224,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
                 <video src={src} controls className="w-full" />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={src} alt="" className="w-full" />
+                <img src={src} alt={m.altText ?? ""} className="w-full" />
               )}
               {session?.user?.id === post.userId && m.mimeType.startsWith("image/") ? (
                 <button
@@ -222,32 +252,43 @@ export function PostDetail({ shortId }: { shortId: string }) {
         ))}
       </div>
 
-      <section className="rounded-xl border border-[var(--border-subtle)] p-4 text-sm">
-        <h2 className="font-semibold">Share</h2>
-        <p className="mt-2 break-all text-[var(--text-muted)]">Post: {siteUrl(`/p/${shortId}`)}</p>
-        {directLinks.map((l) => (
-          <p key={l.shortId} className="mt-1 break-all text-[var(--text-muted)]">
-            Image: {l.url} · Direct: {l.raw}
-          </p>
-        ))}
-        <label className="mt-3 block text-xs text-[var(--text-muted)]">Embed HTML</label>
-        <textarea readOnly value={embed} rows={2} className="mt-1 w-full rounded border bg-[var(--surface-base)] p-2 text-xs" />
-      </section>
+      {post.visibility !== "PRIVATE" ? (
+        <ShareLinks
+          title="Share & embed"
+          share={buildShareCodes(
+            post.media[0]?.shortId ?? shortId,
+            post.media[0]?.storageKey ?? "",
+            post.media[0]?.mimeType ?? "image/jpeg",
+            post.title,
+          )}
+        />
+      ) : (
+        <p className="text-sm text-[var(--text-muted)]">Private posts are not shareable via public embed links.</p>
+      )}
 
-      {session?.user?.id === post.userId ? (
-        <section className="flex flex-wrap gap-2">
-          <select
-            value={post.visibility}
-            onChange={(e) => setVisibility(e.target.value)}
-            className="rounded border px-2 py-1 text-sm"
-          >
-            <option value="PUBLIC">Public</option>
-            <option value="UNLISTED">Unlisted</option>
-            <option value="HIDDEN">Hidden</option>
-          </select>
-          <button type="button" onClick={deletePost} className="rounded-lg border border-[var(--danger)] px-3 py-1 text-sm text-[var(--danger)]">
-            Delete post
-          </button>
+      {session?.user?.id === post.userId && ownerSettings ? (
+        <section className="rounded-xl border border-[var(--border-subtle)] p-4">
+          <h2 className="font-semibold">Image settings</h2>
+          <div className="mt-3">
+            <ImageSettingsPanel signedIn values={ownerSettings} onChange={setOwnerSettings} />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button type="button" onClick={saveOwnerSettings} className="rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]">
+              Save settings
+            </button>
+            {post.media[0] ? (
+              <a
+                href={mediaUrl(post.media[0].storageKey, post.media[0].mimeType)}
+                download
+                className="rounded-lg border px-4 py-2 text-sm"
+              >
+                Download original
+              </a>
+            ) : null}
+            <button type="button" onClick={deletePost} className="rounded-lg border border-[var(--danger)] px-3 py-2 text-sm text-[var(--danger)]">
+              Delete post
+            </button>
+          </div>
         </section>
       ) : null}
 

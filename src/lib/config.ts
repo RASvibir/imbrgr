@@ -15,3 +15,21 @@ export function aiDailyLimit(): number {
   if (raw) return Number.parseInt(raw, 10);
   return 20;
 }
+
+export function anonAiDailyLimit(): number {
+  const raw = process.env.ANON_AI_DAILY_LIMIT;
+  if (raw) return Number.parseInt(raw, 10);
+  return 5;
+}
+
+export function uploadRateLimitPerHour(): number {
+  const raw = process.env.UPLOAD_RATE_LIMIT_PER_HOUR;
+  if (raw) return Number.parseInt(raw, 10);
+  return 60;
+}
+
+export function aiRateLimitPerHour(): number {
+  const raw = process.env.AI_RATE_LIMIT_PER_HOUR;
+  if (raw) return Number.parseInt(raw, 10);
+  return 30;
+}

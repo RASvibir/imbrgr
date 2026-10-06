@@ -28,7 +28,7 @@ export const postInputSchema = z.object({
   title: z.string().min(1).max(300),
   description: z.string().max(10000).optional(),
   tags: z.array(z.string().min(1).max(40)).max(20).optional(),
-  visibility: z.enum(["PUBLIC", "UNLISTED", "HIDDEN"]).optional(),
+  visibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE", "HIDDEN"]).optional(),
 });
 
 export const commentInputSchema = z.object({

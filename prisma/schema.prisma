@@ -7,6 +7,12 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  USER
+  ADMIN
+  SUPERADMIN
+}
+
 model User {
   id                String    @id @default(cuid())
   email             String    @unique
@@ -18,8 +24,15 @@ model User {
   bannerKey         String?
   links             Json?
   favoritesPublic   Boolean   @default(true)
-  storageBytesUsed  BigInt    @default(0)
-  createdAt         DateTime  @default(now())
+  storageBytesUsed       BigInt    @default(0)
+  defaultPostVisibility      String    @default("UNLISTED")
+  role                       UserRole  @default(USER)
+  banned                     Boolean   @default(false)
+  suspended                  Boolean   @default(false)
+  storageQuotaBytesOverride  BigInt?
+  aiDailyLimitOverride       Int?
+  createdAt                  DateTime  @default(now())
+  adminAuditLogs             AdminAuditLog[]
   posts             Post[]
   comments          Comment[]
   postVotes         PostVote[]
@@ -78,9 +91,10 @@ model Post {
   upvoteCount   Int        @default(0)
   downvoteCount Int        @default(0)
   viewCount     Int        @default(0)
-  aiGenerated   Boolean    @default(false)
-  aiPrompt      String?    @db.Text
-  createdAt     DateTime   @default(now())
+  aiGenerated    Boolean    @default(false)
+  aiPrompt       String?    @db.Text
+  hiddenByAdmin  Boolean    @default(false)
+  createdAt      DateTime   @default(now())
   media         Media[]
   tags          PostTag[]
   votes         PostVote[]
@@ -101,6 +115,11 @@ model Media {
   post           Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId         String?
   user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  voterKey       String?
+  visibility     String   @default("UNLISTED")
+  altText        String?
+  mature         Boolean  @default(false)
+  deleteTokenHash String?
   parentMediaId  String?
   parent         Media?   @relation("MediaVersions", fields: [parentMediaId], references: [id], onDelete: SetNull)
   versions       Media[]  @relation("MediaVersions")
@@ -118,6 +137,8 @@ model Media {
   @@index([postId])
   @@index([userId])
   @@index([parentMediaId])
+  @@index([voterKey])
+  @@index([visibility])
 }
 
 model Tag {
@@ -199,8 +220,35 @@ model Report {
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  reason    String
-  createdAt DateTime @default(now())
+  reason     String
+  status     String   @default("OPEN")
+  resolvedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([status])
+}
+
+model SiteSetting {
+  id                      String   @id @default("global")
+  anonymousUploadsEnabled Boolean  @default(true)
+  anonymousAiEnabled      Boolean  @default(true)
+  anonAiDailyLimit        Int?
+  announcementBanner      String?
+  updatedAt               DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  actor       User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+  action      String
+  targetType  String?
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([createdAt])
 }
 
 model AnonymousStorage {
@@ -217,6 +265,22 @@ model AiGenerationUsage {
 
   @@unique([userId, day])
   @@index([userId])
+}
+
+model AiAnonymousUsage {
+  id     String   @id @default(cuid())
+  ipHash String
+  day    DateTime @db.Date
+  count  Int      @default(0)
+
+  @@unique([ipHash, day])
+  @@index([ipHash])
+}
+
+model ApiRateLimit {
+  bucketKey String   @id
+  count     Int      @default(0)
+  resetAt   DateTime
 }
 
 model AiPromptCache {
