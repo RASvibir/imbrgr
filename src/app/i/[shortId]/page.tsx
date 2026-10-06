@@ -17,9 +17,13 @@ export default async function ImageDirectPage({
   const src = mediaUrl(media.storageKey, media.mimeType);
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <p className="mb-4 text-sm text-[var(--text-muted)]">
-        <Link href={`/p/${media.post.shortId}`}>{media.post.title}</Link>
-      </p>
+      {media.post ? (
+        <p className="mb-4 text-sm text-[var(--text-muted)]">
+          <Link href={`/p/${media.post.shortId}`}>{media.post.title}</Link>
+        </p>
+      ) : (
+        <p className="mb-4 text-sm text-[var(--text-muted)]">Standalone media</p>
+      )}
       {media.mimeType.startsWith("video/") ? (
         <video src={src} controls className="w-full rounded-xl" />
       ) : (

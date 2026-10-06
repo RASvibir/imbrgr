@@ -33,6 +33,7 @@ export async function POST(req: Request) {
     data: {
       email: email.toLowerCase(),
       username: username.toLowerCase(),
+      displayName: username,
       passwordHash,
     },
   });

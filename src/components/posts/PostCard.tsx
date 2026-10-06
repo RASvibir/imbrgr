@@ -6,6 +6,7 @@ type PostCardData = {
   title: string;
   score: number;
   viewCount: number;
+  aiGenerated?: boolean;
   media: {
     storageKey: string;
     mimeType: string;
@@ -24,6 +25,11 @@ export function PostCard({ post }: { post: PostCardData }) {
       className="group overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition hover:border-[var(--accent-primary)] hover:shadow-[var(--shadow-ember)]"
     >
       <div className="relative aspect-video bg-[var(--surface-sunken)]">
+        {post.aiGenerated ? (
+          <span className="absolute left-2 top-2 z-10 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+            AI
+          </span>
+        ) : null}
         {src ? (
           thumb.mimeType.startsWith("video/") ? (
             <video src={src} className="h-full w-full object-cover" muted playsInline />

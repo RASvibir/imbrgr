@@ -8,19 +8,28 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  username     String    @unique
-  passwordHash String
-  createdAt    DateTime  @default(now())
-  posts        Post[]
-  comments     Comment[]
-  postVotes    PostVote[]
-  commentVotes CommentVote[]
-  favorites    Favorite[]
-  reports      Report[]
-  accounts     Account[]
-  sessions     Session[]
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String    @unique
+  passwordHash      String
+  displayName       String?
+  bio               String?   @db.Text
+  avatarKey         String?
+  bannerKey         String?
+  links             Json?
+  favoritesPublic   Boolean   @default(true)
+  storageBytesUsed  BigInt    @default(0)
+  createdAt         DateTime  @default(now())
+  posts             Post[]
+  comments          Comment[]
+  postVotes         PostVote[]
+  commentVotes      CommentVote[]
+  favorites         Favorite[]
+  reports           Report[]
+  accounts          Account[]
+  sessions          Session[]
+  mediaAssets       Media[]
+  aiUsage           AiGenerationUsage[]
 }
 
 model Account {
@@ -58,44 +67,56 @@ model VerificationToken {
 }
 
 model Post {
-  id          String     @id @default(cuid())
-  shortId     String     @unique
-  userId      String?
-  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
-  title       String
-  description String?
-  visibility  String     @default("UNLISTED")
-  score       Int        @default(0)
-  upvoteCount Int        @default(0)
-  downvoteCount Int      @default(0)
-  viewCount   Int        @default(0)
-  createdAt   DateTime   @default(now())
-  media       Media[]
-  tags        PostTag[]
-  votes       PostVote[]
-  favorites   Favorite[]
-  comments    Comment[]
-  reports     Report[]
+  id            String     @id @default(cuid())
+  shortId       String     @unique
+  userId        String?
+  user          User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  visibility    String     @default("UNLISTED")
+  score         Int        @default(0)
+  upvoteCount   Int        @default(0)
+  downvoteCount Int        @default(0)
+  viewCount     Int        @default(0)
+  aiGenerated   Boolean    @default(false)
+  aiPrompt      String?    @db.Text
+  createdAt     DateTime   @default(now())
+  media         Media[]
+  tags          PostTag[]
+  votes         PostVote[]
+  favorites     Favorite[]
+  comments      Comment[]
+  reports       Report[]
 
   @@index([createdAt])
   @@index([score])
   @@index([visibility])
+  @@index([userId])
 }
 
 model Media {
-  id          String  @id @default(cuid())
-  shortId     String  @unique
-  postId      String
-  post        Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
-  storageKey  String
-  mimeType    String
-  byteSize    Int
-  width       Int?
-  height      Int?
-  durationSec Float?
-  sortOrder   Int     @default(0)
+  id             String   @id @default(cuid())
+  shortId        String   @unique
+  postId         String?
+  post           Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  parentMediaId  String?
+  parent         Media?   @relation("MediaVersions", fields: [parentMediaId], references: [id], onDelete: SetNull)
+  versions       Media[]  @relation("MediaVersions")
+  storageKey     String
+  mimeType       String
+  byteSize       Int
+  width          Int?
+  height         Int?
+  durationSec    Float?
+  sortOrder      Int      @default(0)
+  aiGenerated    Boolean  @default(false)
+  aiPrompt       String?  @db.Text
 
   @@index([postId])
+  @@index([userId])
+  @@index([parentMediaId])
 }
 
 model Tag {
@@ -145,6 +166,7 @@ model Comment {
 
   @@index([postId])
   @@index([parentId])
+  @@index([userId])
 }
 
 model CommentVote {
@@ -178,4 +200,20 @@ model Report {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   reason    String
   createdAt DateTime @default(now())
+}
+
+model AnonymousStorage {
+  voterKey  String @id
+  bytesUsed BigInt @default(0)
+}
+
+model AiGenerationUsage {
+  id     String   @id @default(cuid())
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day    DateTime @db.Date
+  count  Int      @default(0)
+
+  @@unique([userId, day])
+  @@index([userId])
 }

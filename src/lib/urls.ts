@@ -1,3 +1,8 @@
+export function profileImageUrl(storageKey: string | null | undefined): string | null {
+  if (!storageKey) return null;
+  return mediaUrl(storageKey, "image/jpeg");
+}
+
 export function mediaUrl(storageKey: string, mimeType?: string): string {
   const base = `/api/media/${storageKey}`;
   if (mimeType) {

@@ -13,6 +13,7 @@ export const postCardSelect = {
   downvoteCount: true,
   viewCount: true,
   visibility: true,
+  aiGenerated: true,
   createdAt: true,
   user: { select: { id: true, username: true } },
   media: {

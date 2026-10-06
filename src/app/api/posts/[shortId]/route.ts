@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deleteObject } from "@/lib/storage";
+import { removeUserStorage } from "@/lib/storage-quota";
 
 export async function GET(
   _req: Request,
@@ -11,7 +12,9 @@ export async function GET(
   const post = await prisma.post.findUnique({
     where: { shortId },
     include: {
-      user: { select: { id: true, username: true } },
+      user: {
+        select: { id: true, username: true, displayName: true, avatarKey: true },
+      },
       media: { orderBy: { sortOrder: "asc" } },
       tags: { include: { tag: true } },
     },
@@ -68,6 +71,7 @@ export async function DELETE(
   }
   for (const m of post.media) {
     await deleteObject(m.storageKey);
+    if (post.userId) await removeUserStorage(post.userId, m.byteSize);
   }
   await prisma.post.delete({ where: { id: post.id } });
   return NextResponse.json({ ok: true });

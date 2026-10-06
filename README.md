@@ -13,7 +13,11 @@ Built by **ChloReform Studios** (Irie Pharm · Victor Birkle). Visual identity: 
 - Gallery feeds: viral (hot score), newest, top — infinite scroll
 - Tag index and per-tag feeds
 - Post page: votes, favorites, views, threaded comments, share/embed panel
-- Accounts (email/username + password), profiles (`/u/{username}`) with posts, favorites, comments
+- Accounts (self-serve sign-up), editable **settings** (username, display name, avatar/banner with crop, bio, links, public/private favorites, storage meter, account delete)
+- Public profiles (`/u/{username}`): posts, favorites (if public), comments, stats
+- **Storage quotas** per user (default 1 GB, `USER_STORAGE_QUOTA_BYTES`) and smaller anonymous cap; server-enforced on every upload
+- In-browser **image editor** on upload and on your own images (crop, rotate, filters, annotate, undo/redo; save as new version or replace)
+- **AI generator** (`/create/ai`): prompt enhance (Ollama → Groq → Gemini), Pollinations Flux render, daily cap (`AI_DAILY_LIMIT`), AI badge on posts
 - Anonymous uploads default to **unlisted**; owners can set public / unlisted / hidden, delete posts, report content
 - Search across titles and tags
 - Ember burger brand system, light/dark themes, responsive layout
@@ -41,6 +45,12 @@ Copy `.env.example` to `.env`, or after linking Neon run `neon env pull` (never 
 | `STORAGE_DRIVER` | No | `local` (default) or `blob` |
 | `BLOB_READ_WRITE_TOKEN` | If blob | Vercel Blob token |
 | `NEXT_PUBLIC_SITE_URL` | No | Canonical URL for share links |
+| `USER_STORAGE_QUOTA_BYTES` | No | Per-account storage cap (default 1 GiB) |
+| `ANON_STORAGE_QUOTA_BYTES` | No | Guest upload cap (default 50 MiB) |
+| `AI_DAILY_LIMIT` | No | AI generations per user per UTC day (default 20) |
+| `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_API_KEY` | No | First tier for prompt enhance |
+| `GROQ_API_KEY` | No | Second tier (Llama 3.3) |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | No | Third tier for prompt enhance |
 
 Do not commit `.env`, `.neon`, or connection strings.
 
@@ -102,7 +112,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run start` | Run production server |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` | Vitest (ranking, validation) |
+| `npm run test` | Vitest (ranking, validation, storage quota, AI usage & prompt failover) |
 | `npm run db:migrate` | Create/apply migrations in dev (`migrate dev`) |
 | `npm run db:migrate:deploy` | Apply migrations (`migrate deploy`) — use on Neon/production |
 | `npm run db:seed` | Seed demo data |

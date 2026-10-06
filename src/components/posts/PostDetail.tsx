@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { ImageEditor } from "@/components/editor/ImageEditor";
 import { mediaUrl, siteUrl } from "@/lib/urls";
 
 type Media = {
@@ -32,6 +33,8 @@ type Post = {
   downvoteCount: number;
   viewCount: number;
   visibility: string;
+  aiGenerated?: boolean;
+  aiPrompt?: string | null;
   userId: string | null;
   user: { username: string } | null;
   media: Media[];
@@ -47,6 +50,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [msg, setMsg] = useState("");
+  const [editMedia, setEditMedia] = useState<Media | null>(null);
 
   useEffect(() => {
     void fetch(`/api/posts/${shortId}`)
@@ -148,6 +152,11 @@ export function PostDetail({ shortId }: { shortId: string }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">{post.title}</h1>
+          {post.aiGenerated ? (
+            <span className="mt-1 inline-block rounded bg-[var(--surface-hover)] px-2 py-0.5 text-xs font-medium text-[var(--accent-primary)]">
+              AI generated
+            </span>
+          ) : null}
           <p className="mt-1 text-sm text-[var(--text-muted)]">
             {post.user ? (
               <Link href={`/u/${post.user.username}`}>@{post.user.username}</Link>
@@ -183,6 +192,15 @@ export function PostDetail({ shortId }: { shortId: string }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={src} alt="" className="w-full" />
               )}
+              {session?.user?.id === post.userId && m.mimeType.startsWith("image/") ? (
+                <button
+                  type="button"
+                  className="mt-2 text-sm text-[var(--accent-primary)]"
+                  onClick={() => setEditMedia(m)}
+                >
+                  Edit image
+                </button>
+              ) : null}
             </div>
           );
         })}
@@ -278,6 +296,28 @@ export function PostDetail({ shortId }: { shortId: string }) {
         </ul>
       </section>
       {msg ? <p className="text-sm text-[var(--text-muted)]">{msg}</p> : null}
+
+      {editMedia ? (
+        <ImageEditor
+          imageSrc={mediaUrl(editMedia.storageKey, editMedia.mimeType)}
+          onCancel={() => setEditMedia(null)}
+          onExport={async (blob, mode) => {
+            const form = new FormData();
+            form.set("file", blob, "edit.jpg");
+            form.set("mode", mode);
+            const res = await fetch(`/api/media/${editMedia.shortId}/edit`, { method: "POST", body: form });
+            if (res.ok) {
+              const updated = await fetch(`/api/posts/${shortId}`).then((r) => r.json());
+              setPost(updated);
+              setEditMedia(null);
+              setMsg("Image updated");
+            } else {
+              const data = await res.json();
+              setMsg(data.error ?? "Edit failed");
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

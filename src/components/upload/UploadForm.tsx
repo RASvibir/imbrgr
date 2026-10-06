@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
+import { ImageEditor } from "@/components/editor/ImageEditor";
+import { StorageMeter } from "@/components/storage/StorageMeter";
 
 type StagedFile = { file: File; preview: string };
 
@@ -16,6 +18,7 @@ export function UploadForm() {
   const [urlInput, setUrlInput] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editIdx, setEditIdx] = useState<number | null>(null);
 
   const addFiles = useCallback((list: FileList | File[]) => {
     const next: StagedFile[] = [];
@@ -24,6 +27,17 @@ export function UploadForm() {
     });
     setFiles((f) => [...f, ...next].slice(0, 20));
   }, []);
+
+  const replaceFile = (index: number, blob: Blob) => {
+    const file = new File([blob], `edited-${index}.jpg`, { type: "image/jpeg" });
+    const preview = URL.createObjectURL(blob);
+    setFiles((list) => {
+      const copy = [...list];
+      copy[index] = { file, preview };
+      return copy;
+    });
+    setEditIdx(null);
+  };
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -86,12 +100,15 @@ export function UploadForm() {
 
   return (
     <div className="space-y-6" onPaste={onPaste}>
+      <StorageMeter />
+
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
         className="rounded-2xl border-2 border-dashed border-[var(--border-strong)] bg-[var(--surface-raised)] p-8 text-center"
       >
         <p className="text-[var(--text-secondary)]">Drag & drop, paste, or pick files (images + short video)</p>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">Images ~20 MB · Video ~100 MB / 60 s max</p>
         <button
           type="button"
           className="mt-4 rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
@@ -128,13 +145,24 @@ export function UploadForm() {
       {files.length > 0 ? (
         <div className="flex flex-wrap gap-2">
           {files.map((f, i) => (
-            <div key={i} className="relative h-20 w-20 overflow-hidden rounded-lg border">
-              {f.file.type.startsWith("video/") ? (
-                <video src={f.preview} className="h-full w-full object-cover" />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={f.preview} alt="" className="h-full w-full object-cover" />
-              )}
+            <div key={i} className="relative">
+              <div className="relative h-20 w-20 overflow-hidden rounded-lg border">
+                {f.file.type.startsWith("video/") ? (
+                  <video src={f.preview} className="h-full w-full object-cover" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={f.preview} alt="" className="h-full w-full object-cover" />
+                )}
+              </div>
+              {f.file.type.startsWith("image/") ? (
+                <button
+                  type="button"
+                  className="mt-1 w-full text-center text-xs text-[var(--accent-primary)]"
+                  onClick={() => setEditIdx(i)}
+                >
+                  Edit
+                </button>
+              ) : null}
             </div>
           ))}
         </div>
@@ -179,6 +207,14 @@ export function UploadForm() {
       >
         {busy ? "Uploading…" : "Serve it hot"}
       </button>
+
+      {editIdx != null && files[editIdx] ? (
+        <ImageEditor
+          imageSrc={files[editIdx].preview}
+          onCancel={() => setEditIdx(null)}
+          onExport={(blob) => replaceFile(editIdx, blob)}
+        />
+      ) : null}
     </div>
   );
 }

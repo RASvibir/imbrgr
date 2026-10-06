@@ -12,7 +12,7 @@ export const VIDEO_MIME = new Set(["video/mp4", "video/webm"]);
 export const ALLOWED_MIME = new Set([...IMAGE_MIME, ...VIDEO_MIME]);
 
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
-export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 export const MAX_VIDEO_DURATION_SEC = 60;
 
 export function maxBytesForMime(mime: string): number {

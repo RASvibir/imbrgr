@@ -60,3 +60,22 @@ export async function readLocalObject(key: string): Promise<Buffer | null> {
     return null;
   }
 }
+
+/** Best-effort byte size for quota adjustments when replacing profile assets. */
+export async function getStoredObjectSize(key: string): Promise<number> {
+  if (driver() === "blob") {
+    const base = process.env.NEXT_PUBLIC_BLOB_BASE_URL;
+    if (base) {
+      const res = await fetch(`${base.replace(/\/$/, "")}/${key}`, { method: "HEAD" });
+      const len = res.headers.get("content-length");
+      if (len) return Number.parseInt(len, 10);
+    }
+    return 0;
+  }
+  try {
+    const st = await fs.stat(path.join(localRoot, key));
+    return st.size;
+  } catch {
+    return 0;
+  }
+}

@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { newShortId } from "@/lib/ids";
-import { extForMime, imageMeta } from "@/lib/media-process";
+import { processAndStoreUpload } from "@/lib/media-save";
 import { fetchFeed, type FeedSort } from "@/lib/posts";
-import { newStorageKey, putObject } from "@/lib/storage";
+import { getVoterKey } from "@/lib/voter";
 import {
   maxBytesForMime,
   parseTags,
@@ -24,11 +24,14 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const session = await auth();
+  const { voterKey } = await getVoterKey();
   const form = await req.formData();
   const title = form.get("title")?.toString() ?? "";
   const description = form.get("description")?.toString();
   const tagsRaw = form.get("tags")?.toString() ?? "";
   const visibilityInput = form.get("visibility")?.toString();
+  const aiGenerated = form.get("aiGenerated") === "true";
+  const aiPrompt = form.get("aiPrompt")?.toString();
 
   const parsed = postInputSchema.safeParse({
     title,
@@ -51,75 +54,63 @@ export async function POST(req: Request) {
   const visibility =
     parsed.data.visibility ?? (session?.user ? "PUBLIC" : "UNLISTED");
 
-  const postShortId = newShortId();
-  const mediaRecords: {
-    shortId: string;
-    storageKey: string;
-    mimeType: string;
-    byteSize: number;
-    width: number | null;
-    height: number | null;
-    sortOrder: number;
-  }[] = [];
-
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const mime = file.type || "application/octet-stream";
-    if (!validateUploadMime(mime)) {
-      return NextResponse.json({ error: `Unsupported type: ${mime}` }, { status: 400 });
-    }
-    const buf = Buffer.from(await file.arrayBuffer());
-    if (buf.byteLength > maxBytesForMime(mime)) {
-      return NextResponse.json({ error: "File too large" }, { status: 400 });
-    }
-    let width: number | null = null;
-    let height: number | null = null;
-    if (mime.startsWith("image/") && mime !== "image/gif") {
-      try {
-        const meta = await imageMeta(buf);
-        width = meta.width;
-        height = meta.height;
-      } catch {
-        /* keep null */
-      }
-    }
-    const key = newStorageKey(extForMime(mime));
-    await putObject(key, buf, mime);
-    mediaRecords.push({
-      shortId: newShortId(),
-      storageKey: key,
-      mimeType: mime,
-      byteSize: buf.byteLength,
-      width,
-      height,
-      sortOrder: i,
+  try {
+    const postShortId = newShortId();
+    const post = await prisma.post.create({
+      data: {
+        shortId: postShortId,
+        userId: session?.user?.id ?? null,
+        title: parsed.data.title,
+        description: parsed.data.description,
+        visibility,
+        aiGenerated,
+        aiPrompt: aiPrompt || undefined,
+      },
     });
-  }
 
-  const tagSlugs = parsed.data.tags ?? [];
-  const tagRows = await Promise.all(
-    tagSlugs.map(async (name) => {
-      const slug = slugifyTag(name);
-      return prisma.tag.upsert({
-        where: { slug },
-        create: { slug, name },
-        update: {},
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const mime = file.type || "application/octet-stream";
+      if (!validateUploadMime(mime)) {
+        return NextResponse.json({ error: `Unsupported type: ${mime}` }, { status: 400 });
+      }
+      const buf = Buffer.from(await file.arrayBuffer());
+      if (buf.byteLength > maxBytesForMime(mime)) {
+        return NextResponse.json({ error: "File too large" }, { status: 400 });
+      }
+      await processAndStoreUpload({
+        buffer: buf,
+        mime,
+        userId: session?.user?.id ?? null,
+        voterKey: session?.user ? null : voterKey,
+        postId: post.id,
+        sortOrder: i,
+        aiGenerated,
+        aiPrompt: aiPrompt || undefined,
       });
-    }),
-  );
+    }
 
-  const post = await prisma.post.create({
-    data: {
-      shortId: postShortId,
-      userId: session?.user?.id ?? null,
-      title: parsed.data.title,
-      description: parsed.data.description,
-      visibility,
-      media: { create: mediaRecords },
-      tags: { create: tagRows.map((t) => ({ tagId: t.id })) },
-    },
-    include: { media: true },
-  });
+    const tagSlugs = parsed.data.tags ?? [];
+    const tagRows = await Promise.all(
+      tagSlugs.map(async (name) => {
+        const slug = slugifyTag(name);
+        return prisma.tag.upsert({
+          where: { slug },
+          create: { slug, name },
+          update: {},
+        });
+      }),
+    );
+    if (tagRows.length) {
+      await prisma.postTag.createMany({
+        data: tagRows.map((t) => ({ postId: post.id, tagId: t.id })),
+        skipDuplicates: true,
+      });
+    }
 
-  return NextResponse.json({ shortId: post.shortId });
+    return NextResponse.json({ shortId: post.shortId });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Upload failed";
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
 }
