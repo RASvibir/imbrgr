@@ -24,41 +24,68 @@ Built by **ChloReform Studios** (Irie Pharm · Victor Birkle). Visual identity: 
 |--------|------------|
 | App | Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4 |
 | Auth | Auth.js (next-auth) credentials + JWT sessions |
-| Database | Prisma 7 + **SQLite** file locally (`data/imbrgr.db`) |
+| Database | **Prisma 7** + **PostgreSQL** ([Neon](https://neon.tech) in production) |
+| Neon config | `@neon/config` + root [`neon.ts`](./neon.ts) (owner runs `neon link` / `neon deploy` on their machine) |
 | Storage | Local disk (`data/uploads`) or **Vercel Blob** (`STORAGE_DRIVER=blob`) |
-
-### Production (Vercel)
-
-Serverless deployments need a hosted database (SQLite files are not durable on Vercel). Recommended:
-
-1. Create a **Neon** or **Vercel Postgres** database.
-2. Change `provider` in `prisma/schema.prisma` to `postgresql` and use `@prisma/adapter-pg` in `src/lib/db.ts` (see [Prisma docs](https://www.prisma.io/docs)).
-3. Set `DATABASE_URL` in Vercel env.
-4. Set `STORAGE_DRIVER=blob` and `BLOB_READ_WRITE_TOKEN`.
 
 ## Environment variables
 
-Copy `.env.example` to `.env`:
+Copy `.env.example` to `.env`, or after linking Neon run `neon env pull` (never commit `.env`).
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Yes | `file:./data/imbrgr.db` for local SQLite |
+| `DATABASE_URL` | Yes | **Pooled** Postgres URL — app runtime (`@prisma/adapter-pg`) |
+| `DATABASE_URL_UNPOOLED` | Yes for migrations | **Direct** URL — Prisma `migrate` / `db execute` |
+| `NEON_BRANCH` | No | Branch name from Neon CLI (informational) |
 | `AUTH_SECRET` | Yes | Session signing (`openssl rand -base64 32`) |
 | `STORAGE_DRIVER` | No | `local` (default) or `blob` |
 | `BLOB_READ_WRITE_TOKEN` | If blob | Vercel Blob token |
 | `NEXT_PUBLIC_SITE_URL` | No | Canonical URL for share links |
-| `NEXT_PUBLIC_BLOB_BASE_URL` | If blob | Public blob base for media URLs |
 
-Do not commit `.env` or secrets.
+Do not commit `.env`, `.neon`, or connection strings.
+
+## Local database (Docker)
+
+```bash
+docker compose up -d
+cp .env.example .env
+# DATABASE_URL and DATABASE_URL_UNPOOLED can be the same local URL
+npm run db:migrate:deploy
+npm run db:seed
+```
+
+## Neon (production)
+
+On a machine with the Neon CLI linked to project `purple-sea-37945850` (branch `production`):
+
+```bash
+neon env pull   # writes DATABASE_URL + DATABASE_URL_UNPOOLED (+ NEON_BRANCH) to .env
+```
+
+Apply migrations against the **unpooled** URL (Prisma config reads `DATABASE_URL_UNPOOLED` automatically):
+
+```bash
+export $(grep -v '^#' .env | xargs)   # or use dotenv
+npm run db:migrate:deploy
+```
+
+For a new migration during development:
+
+```bash
+npm run db:migrate
+```
+
+Deploy app env to Vercel with at least `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (for build-time migrate if you run it in CI).
 
 ## Local setup
 
 ```bash
 npm install
 cp .env.example .env
-npm run db:push
-npm run db:seed          # optional demo user + posts
-npm run brand:assets     # favicons / OG from SVG
+docker compose up -d
+npm run db:migrate:deploy
+npm run db:seed
+npm run brand:assets
 npm run dev
 ```
 
@@ -76,16 +103,17 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run test` | Vitest (ranking, validation) |
-| `npm run db:push` | Apply Prisma schema |
+| `npm run db:migrate` | Create/apply migrations in dev (`migrate dev`) |
+| `npm run db:migrate:deploy` | Apply migrations (`migrate deploy`) — use on Neon/production |
 | `npm run db:seed` | Seed demo data |
 | `npm run brand:assets` | Export PNG/ICO brand assets |
 
 ## Deploy to Vercel
 
-1. Import the GitHub repo in Vercel.
-2. Set env vars (`AUTH_SECRET`, `DATABASE_URL`, blob storage as above).
-3. Build command: `npm run build` (runs `prisma generate` via `postinstall`).
-4. Run migrations/`db push` against production DB once.
+1. Import the GitHub repo.
+2. Set `DATABASE_URL` (pooled), `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, and blob vars as needed.
+3. Run `npm run db:migrate:deploy` against production (CI step or once manually).
+4. `npm run build` (runs `prisma generate` via `postinstall`).
 
 ## License
 
