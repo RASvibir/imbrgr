@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { StorageMeter } from "@/components/storage/StorageMeter";
@@ -39,13 +39,19 @@ function parseStudioTab(raw: string | null | undefined): Tab {
 
 const GENERATE_CLIENT_TIMEOUT_MS = 90_000;
 
-export function ImageStudio({ defaultTab }: { defaultTab?: string }) {
+export function ImageStudio({
+  defaultTab,
+  initialPrompt,
+}: {
+  defaultTab?: string;
+  initialPrompt?: string;
+}) {
   const router = useRouter();
   const { data: session } = useSession();
   const params = useSearchParams();
-  const tabFromUrl = parseStudioTab(defaultTab ?? params.get("tab"));
-
-  const [tab, setTab] = useState<Tab>(tabFromUrl);
+  const urlTab = parseStudioTab(defaultTab ?? params.get("tab"));
+  const [tabOverride, setTabOverride] = useState<Tab | null>(null);
+  const tab = tabOverride ?? urlTab;
   const [asset, setAsset] = useState<StudioAsset | null>(null);
   const [share, setShare] = useState<{
     pageUrl: string;
@@ -63,7 +69,9 @@ export function ImageStudio({ defaultTab }: { defaultTab?: string }) {
   const [quality, setQuality] = useState(85);
   const [maxWidth, setMaxWidth] = useState(1920);
 
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(() =>
+    initialPrompt ? decodeURIComponent(initialPrompt) : "",
+  );
   const [enhance, setEnhance] = useState(true);
   const [style, setStyle] = useState("");
   const [aspect, setAspect] = useState<keyof typeof ASPECT_PRESETS>("1:1");
@@ -84,17 +92,8 @@ export function ImageStudio({ defaultTab }: { defaultTab?: string }) {
     visibility: "UNLISTED",
   });
 
-  useEffect(() => {
-    setTab(parseStudioTab(defaultTab ?? params.get("tab")));
-  }, [defaultTab, params]);
-
-  useEffect(() => {
-    const fromUrl = params.get("prompt");
-    if (fromUrl) setPrompt(decodeURIComponent(fromUrl));
-  }, [params]);
-
   const selectTab = (next: Tab) => {
-    setTab(next);
+    setTabOverride(next);
     router.replace(`/studio?tab=${next}`, { scroll: false });
   };
 

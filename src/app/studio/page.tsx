@@ -6,10 +6,10 @@ export default async function StudioPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const { tab } = await searchParams;
+  const { tab, prompt } = await searchParams;
   return (
     <Suspense fallback={<p className="p-8 text-center text-[var(--text-muted)]">Loading studio…</p>}>
-      <ImageStudio defaultTab={tab} />
+      <ImageStudio defaultTab={tab} initialPrompt={prompt} />
     </Suspense>
   );
 }
