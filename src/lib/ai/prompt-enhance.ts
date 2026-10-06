@@ -23,7 +23,16 @@ function extractOllamaText(data: unknown): string {
   return "";
 }
 
+function ollamaReachable(): boolean {
+  const host = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
+  if (process.env.NODE_ENV === "production") {
+    return !/localhost|127\.0\.0\.1/.test(host);
+  }
+  return true;
+}
+
 async function ollamaEnhance(userPrompt: string): Promise<string> {
+  if (!ollamaReachable()) throw new Error("ollama_skip");
   const host = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
   const model = process.env.OLLAMA_MODEL ?? "llama3.2";
   const headers: Record<string, string> = { "Content-Type": "application/json" };

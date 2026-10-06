@@ -6,6 +6,7 @@ import { useCallback, useRef, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { StorageMeter } from "@/components/storage/StorageMeter";
+import { COPY, friendlyError } from "@/lib/user-messages";
 type StagedFile = { file: File; preview: string };
 
 export function UploadForm() {
@@ -73,7 +74,7 @@ export function UploadForm() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error ?? "URL fetch failed");
+      setError(friendlyError(data.error ?? "URL fetch failed"));
       return;
     }
     const bytes = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
@@ -101,7 +102,7 @@ export function UploadForm() {
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
-      setError(data.error ?? "Upload failed");
+      setError(friendlyError(data.error ?? "Upload failed"));
       return;
     }
     if (data.deleteToken) setDeleteToken(data.deleteToken);
@@ -190,7 +191,7 @@ export function UploadForm() {
       </section>
 
       {deleteToken ? (
-        <p className="text-xs text-[var(--text-muted)]">Save your guest delete token: <code>{deleteToken}</code></p>
+        <p className="text-xs text-[var(--text-muted)]">{COPY.guestDeleteHint} <code>{deleteToken}</code></p>
       ) : null}
 
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}

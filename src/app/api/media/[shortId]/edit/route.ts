@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isMediaOwner } from "@/lib/media-access";
 import { processAndStoreUpload, replaceMediaInPlace } from "@/lib/media-save";
+import { getActor } from "@/lib/request-identity";
+import { normalizeVisibility } from "@/lib/visibility";
 
 const schema = z.object({
   mode: z.enum(["replace", "version"]),
@@ -12,13 +15,12 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ shortId: string }> },
 ) {
+  const actor = await getActor(req);
   const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { shortId } = await ctx.params;
   const media = await prisma.media.findUnique({ where: { shortId }, include: { post: true } });
   if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const ownerId = media.userId ?? media.post?.userId;
-  if (ownerId !== session.user.id) {
+  if (!isMediaOwner(media, actor)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (!media.mimeType.startsWith("image/")) {
@@ -36,6 +38,9 @@ export async function POST(
 
   try {
     if (parsed.data.mode === "replace") {
+      if (!session?.user) {
+        return NextResponse.json({ error: "Sign in to replace the original file" }, { status: 401 });
+      }
       await replaceMediaInPlace({
         mediaId: media.id,
         userId: session.user.id,
@@ -49,11 +54,12 @@ export async function POST(
     const created = await processAndStoreUpload({
       buffer: buf,
       mime: file.type || "image/jpeg",
-      userId: session.user.id,
-      voterKey: null,
+      userId: actor.userId,
+      voterKey: actor.userId ? null : actor.voterKey,
       parentMediaId: parentId,
       postId: media.postId ?? undefined,
       sortOrder: media.sortOrder,
+      visibility: normalizeVisibility(media.visibility),
     });
 
     return NextResponse.json({ shortId: created.shortId, mode: "version" });

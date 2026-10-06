@@ -5,6 +5,20 @@ import path from "node:path";
 const png = path.join(__dirname, "fixtures/tiny.png");
 
 test.describe("imbrgr e2e", () => {
+  test("studio page uses consumer-friendly copy", async ({ page }) => {
+    await page.goto("/studio");
+    const text = (await page.locator("main").innerText()).toLowerCase();
+    expect(text).not.toMatch(
+      /pollinations|gemini|ollama|groq|flux|daily ai|ai generations|generate with|enhance prompt|cached repeats|token|\/ 50 mb/,
+    );
+  });
+
+  test("studio ?tab=generate opens Create tab immediately", async ({ page }) => {
+    await page.goto("/studio?tab=generate");
+    await expect(page.getByPlaceholder(/Describe the image/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: /Cook up image/i })).toBeVisible();
+  });
+
   test("anonymous browse home and studio", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: "Studio" })).toBeVisible();
@@ -15,7 +29,7 @@ test.describe("imbrgr e2e", () => {
   test("anonymous studio import and share tab", async ({ page, request }) => {
     await page.goto("/studio");
     await page.locator('input[type="file"]').setInputFiles(png);
-    await expect(page.getByText(/Image ready/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 15000 });
     const importRes = await request.post("/api/studio/import", {
       multipart: {
         file: {
@@ -42,8 +56,9 @@ test.describe("imbrgr e2e", () => {
   test("anonymous AI generate mock", async ({ page }) => {
     await page.goto("/studio?tab=generate");
     await page.getByPlaceholder(/Describe the image/i).fill("ember burger test");
-    await page.getByRole("button", { name: /Generate with Flux/i }).click();
-    await expect(page.getByText(/Image ready|Working/i)).toBeVisible({ timeout: 20000 });
+    await page.getByRole("button", { name: /Cook up image/i }).click();
+    await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible();
   });
 
   test("admin: e2eadmin sees Admin link and loads console", async ({ page }) => {

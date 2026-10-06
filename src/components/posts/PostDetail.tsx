@@ -185,7 +185,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
           <h1 className="text-3xl font-bold">{post.title}</h1>
           {post.aiGenerated ? (
             <span className="mt-1 inline-block rounded bg-[var(--surface-hover)] px-2 py-0.5 text-xs font-medium text-[var(--accent-primary)]">
-              AI generated
+              Created here
             </span>
           ) : null}
           <p className="mt-1 text-sm text-[var(--text-muted)]">
@@ -218,7 +218,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
           return (
             <div key={m.shortId} className="relative overflow-hidden rounded-xl border">
               {m.aiEdited ? (
-                <span className="absolute left-2 top-2 z-10 rounded bg-black/60 px-2 py-0.5 text-xs text-white">AI edited</span>
+                <span className="absolute left-2 top-2 z-10 rounded bg-black/60 px-2 py-0.5 text-xs text-white">Edited here</span>
               ) : null}
               {m.mimeType.startsWith("video/") ? (
                 <video src={src} controls className="w-full" />

@@ -8,17 +8,18 @@ import {
   assertCanGenerateAiForAnonymous,
   assertCanGenerateAiForUser,
   generationsNeededForRequest,
-  getAiUsageToday,
-  getAnonymousAiUsageToday,
   recordAiGenerationSuccess,
   recordAnonymousAiSuccess,
 } from "@/lib/ai/usage";
 import { aiRateLimitPerHour } from "@/lib/config";
 import { processAndStoreUpload } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
+import { friendlyError } from "@/lib/user-messages";
 import { assertUserMayUseAi } from "@/lib/user-guards";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import type { Visibility } from "@/lib/visibility";
+
+export const maxDuration = 120;
 
 const schema = z.object({
   prompt: z.string().min(3).max(500),
@@ -49,16 +50,14 @@ export async function POST(req: Request) {
     } else {
       await assertCanGenerateAiForAnonymous(actor.ipHash, needed);
     }
-    const usageBefore = actor.userId
-      ? await getAiUsageToday(actor.userId)
-      : await getAnonymousAiUsageToday(actor.ipHash);
-
     let prompt = parsed.data.prompt;
-    let enhanceSource: string | undefined;
     if (parsed.data.enhance) {
-      const enhanced = await enhancePrompt(prompt, { style: parsed.data.style });
-      prompt = enhanced.prompt;
-      enhanceSource = enhanced.source;
+      try {
+        const enhanced = await enhancePrompt(prompt, { style: parsed.data.style });
+        prompt = enhanced.prompt;
+      } catch {
+        /* use original prompt */
+      }
     }
 
     const fullPrompt = buildFluxPrompt(prompt, parsed.data.style);
@@ -107,26 +106,16 @@ export async function POST(req: Request) {
     if (actor.userId) await recordAiGenerationSuccess(actor.userId, needed);
     else await recordAnonymousAiSuccess(actor.ipHash, needed);
 
-    const usageAfter = actor.userId
-      ? await getAiUsageToday(actor.userId)
-      : await getAnonymousAiUsageToday(actor.ipHash);
-
     const primary = results[0];
     return NextResponse.json({
       mediaShortId: primary.mediaShortId,
       storageKey: primary.storageKey,
       deleteToken: primary.deleteToken,
-      prompt: fullPrompt,
-      enhanceSource,
-      imageProvider: aiMockEnabled() ? "mock" : "pollinations",
-      seeds: results.map((r) => r.seed),
       variations: results,
-      usage: usageAfter,
-      checkedAt: usageBefore,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Generation failed";
-    const status = msg.includes("limit") || msg.includes("Too many") ? 429 : 400;
-    return NextResponse.json({ error: msg }, { status });
+    const raw = e instanceof Error ? e.message : "Generation failed";
+    const status = raw.includes("resting") || raw.includes("plating") ? 429 : 400;
+    return NextResponse.json({ error: friendlyError(raw) }, { status });
   }
 }
