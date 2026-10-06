@@ -8,7 +8,15 @@ test.describe("imbrgr e2e", () => {
   test("studio page uses consumer-friendly copy", async ({ page }) => {
     await page.goto("/studio");
     const text = (await page.locator("main").innerText()).toLowerCase();
-    expect(text).not.toMatch(/pollinations|gemini|ollama|groq|flux|daily ai|token/);
+    expect(text).not.toMatch(
+      /pollinations|gemini|ollama|groq|flux|daily ai|ai generations|generate with|enhance prompt|cached repeats|token|\/ 50 mb/,
+    );
+  });
+
+  test("studio ?tab=generate opens Create tab immediately", async ({ page }) => {
+    await page.goto("/studio?tab=generate");
+    await expect(page.getByPlaceholder(/Describe the image/i)).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole("button", { name: /Cook up image/i })).toBeVisible();
   });
 
   test("anonymous browse home and studio", async ({ page }) => {

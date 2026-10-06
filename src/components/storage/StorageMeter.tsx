@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 
 type StorageInfo = { used: string; quota: number; remaining: string; type: string };
 
-export function StorageMeter({ className }: { className?: string }) {
+export function StorageMeter({
+  className,
+  hideForGuest = true,
+}: {
+  className?: string;
+  hideForGuest?: boolean;
+}) {
   const [info, setInfo] = useState<StorageInfo | null>(null);
 
   useEffect(() => {
@@ -15,6 +21,7 @@ export function StorageMeter({ className }: { className?: string }) {
   }, []);
 
   if (!info) return null;
+  if (hideForGuest && info.type === "anonymous") return null;
   const used = Number(info.used);
   const pct = Math.min(100, (used / info.quota) * 100);
   return (

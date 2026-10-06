@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { StorageMeter } from "@/components/storage/StorageMeter";
@@ -33,13 +33,20 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "share", label: "Links" },
 ];
 
-export function ImageStudio() {
+function parseStudioTab(raw: string | null | undefined): Tab {
+  if (raw && TABS.some((t) => t.id === raw)) return raw as Tab;
+  return "import";
+}
+
+const GENERATE_CLIENT_TIMEOUT_MS = 90_000;
+
+export function ImageStudio({ defaultTab }: { defaultTab?: string }) {
   const router = useRouter();
   const { data: session } = useSession();
   const params = useSearchParams();
-  const initialTab = (params.get("tab") as Tab) || "import";
+  const tabFromUrl = parseStudioTab(defaultTab ?? params.get("tab"));
 
-  const [tab, setTab] = useState<Tab>(initialTab);
+  const [tab, setTab] = useState<Tab>(tabFromUrl);
   const [asset, setAsset] = useState<StudioAsset | null>(null);
   const [share, setShare] = useState<{
     pageUrl: string;
@@ -76,6 +83,15 @@ export function ImageStudio() {
     visibility: "UNLISTED",
   });
 
+  useEffect(() => {
+    setTab(parseStudioTab(defaultTab ?? params.get("tab")));
+  }, [defaultTab, params]);
+
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    router.replace(`/studio?tab=${next}`, { scroll: false });
+  };
+
   const refreshShare = useCallback(async (shortId: string) => {
     const res = await fetch(`/api/media/${shortId}`);
     if (res.ok) {
@@ -106,7 +122,7 @@ export function ImageStudio() {
     }
     if (data.deleteToken) setDeleteToken(data.deleteToken);
     await setActiveAsset(normalizeStudioAsset(data));
-    setTab("edit");
+    selectTab("edit");
   };
 
   const importFromUrl = async () => {
@@ -167,45 +183,57 @@ export function ImageStudio() {
       return;
     }
     await setActiveAsset(normalizeStudioAsset(data));
-    setTab("share");
+    selectTab("share");
   };
 
   const generate = async () => {
     setErr("");
     setBusy(true);
     const preset = ASPECT_PRESETS[aspect];
-    const res = await fetch("/api/ai/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        enhance,
-        width: preset.width,
-        height: preset.height,
-        style: style || undefined,
-        safe: true,
-        variations,
-        visibility: settings.visibility,
-      }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      setKitchenOpen(false);
-      setErr(friendlyError(data.error ?? "Generation failed"));
-      return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), GENERATE_CLIENT_TIMEOUT_MS);
+    try {
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          prompt,
+          enhance,
+          width: preset.width,
+          height: preset.height,
+          style: style || undefined,
+          safe: true,
+          variations,
+          visibility: settings.visibility,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setKitchenOpen(false);
+        setErr(friendlyError(data.error ?? "Generation failed"));
+        return;
+      }
+      setKitchenOpen(true);
+      if (data.deleteToken) setDeleteToken(data.deleteToken);
+      const primary = data.variations?.[0] ?? data;
+      await setActiveAsset(
+        normalizeStudioAsset({
+          mediaShortId: primary.mediaShortId ?? data.mediaShortId,
+          storageKey: primary.storageKey ?? data.storageKey,
+          mimeType: "image/png",
+        }),
+      );
+      selectTab("share");
+    } catch (e) {
+      const aborted = e instanceof DOMException && e.name === "AbortError";
+      setErr(
+        friendlyError(aborted ? "image_gen_timeout" : e instanceof Error ? e.message : "Generation failed"),
+      );
+    } finally {
+      window.clearTimeout(timer);
+      setBusy(false);
     }
-    setKitchenOpen(true);
-    if (data.deleteToken) setDeleteToken(data.deleteToken);
-    const primary = data.variations?.[0] ?? data;
-    await setActiveAsset(
-      normalizeStudioAsset({
-        mediaShortId: primary.mediaShortId ?? data.mediaShortId,
-        storageKey: primary.storageKey ?? data.storageKey,
-        mimeType: "image/png",
-      }),
-    );
-    setTab("share");
   };
 
   const saveEditorBlob = async (blob: Blob) => {
@@ -365,7 +393,7 @@ export function ImageStudio() {
           <button
             key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => selectTab(t.id)}
             className={`whitespace-nowrap rounded-t-lg px-3 py-2 text-sm font-medium ${
               tab === t.id
                 ? "bg-[var(--surface-raised)] text-[var(--accent-primary)]"

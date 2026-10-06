@@ -21,8 +21,17 @@ export function friendlyError(raw: string | undefined | null): string {
   if (lower.includes("guest ai is temporarily disabled")) {
     return "Image magic is on a short break for guests — try again later or sign in.";
   }
-  if (lower.includes("generation failed") || lower.includes("pollinations") || lower.includes("gemini")) {
+  if (
+    lower.includes("generation failed") ||
+    lower.includes("pollinations") ||
+    lower.includes("gemini") ||
+    lower.includes("image_gen") ||
+    /\b(4|5)\d{2}\b/.test(lower)
+  ) {
     return "We couldn't finish that image — tweak your description and try again.";
+  }
+  if (lower.includes("upstream_timeout") || lower.includes("timeout")) {
+    return "That took too long to finish — try a simpler description or try again in a moment.";
   }
   if (lower.includes("invalid") && lower.includes("prompt")) {
     return "Tell us a bit more about what you want to see (a few words at least).";
