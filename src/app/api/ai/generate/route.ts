@@ -2,26 +2,26 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { defaultImageProvider } from "@/lib/ai/image-provider";
+import { buildFluxPrompt } from "@/lib/ai/image-prompt";
 import { enhancePrompt } from "@/lib/ai/prompt-enhance";
-import { assertCanGenerateAi, getAiUsageToday, recordAiGenerationSuccess } from "@/lib/ai/usage";
+import {
+  assertCanGenerateAi,
+  generationsNeededForRequest,
+  getAiUsageToday,
+  recordAiGenerationSuccess,
+} from "@/lib/ai/usage";
 import { processAndStoreUpload } from "@/lib/media-save";
 
 const schema = z.object({
   prompt: z.string().min(3).max(500),
   enhance: z.boolean().optional(),
-  width: z.number().int().min(256).max(1536).optional(),
-  height: z.number().int().min(256).max(1536).optional(),
-  seed: z.number().int().optional(),
+  width: z.number().int().min(512).max(1536).optional(),
+  height: z.number().int().min(512).max(1536).optional(),
+  seed: z.number().int().min(0).optional(),
   style: z.string().max(40).optional(),
   safe: z.boolean().optional(),
+  variations: z.number().int().min(1).max(4).optional(),
 });
-
-const STYLES: Record<string, string> = {
-  photo: "photorealistic, cinematic lighting",
-  anime: "anime illustration style",
-  ember: "warm ember orange glow, high contrast",
-  sketch: "pencil sketch, crosshatching",
-};
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -31,48 +31,70 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
+  const needed = generationsNeededForRequest({ variations: parsed.data.variations });
+
   try {
-    await assertCanGenerateAi(session.user.id);
+    await assertCanGenerateAi(session.user.id, needed);
     const usageBefore = await getAiUsageToday(session.user.id);
 
     let prompt = parsed.data.prompt;
     let enhanceSource: string | undefined;
     if (parsed.data.enhance) {
-      const enhanced = await enhancePrompt(prompt);
+      const enhanced = await enhancePrompt(prompt, { style: parsed.data.style });
       prompt = enhanced.prompt;
       enhanceSource = enhanced.source;
     }
-    const styleSuffix = parsed.data.style ? STYLES[parsed.data.style] : undefined;
-    const fullPrompt = styleSuffix ? `${prompt}, ${styleSuffix}` : prompt;
 
+    const fullPrompt = buildFluxPrompt(prompt, parsed.data.style);
     const width = parsed.data.width ?? 1024;
     const height = parsed.data.height ?? 1024;
-    const gen = await defaultImageProvider.generate({
-      prompt: fullPrompt,
-      width,
-      height,
-      seed: parsed.data.seed,
-      safe: parsed.data.safe ?? true,
-    });
+    const baseSeed = parsed.data.seed ?? Math.floor(Math.random() * 2_147_483_647);
 
-    const media = await processAndStoreUpload({
-      buffer: gen.buffer,
-      mime: gen.mimeType,
-      userId: session.user.id,
-      voterKey: null,
-      aiGenerated: true,
-      aiPrompt: fullPrompt,
-    });
+    const results: {
+      mediaShortId: string;
+      storageKey: string;
+      seed: number;
+    }[] = [];
 
-    await recordAiGenerationSuccess(session.user.id);
+    for (let i = 0; i < needed; i++) {
+      const seed = parsed.data.seed != null ? baseSeed + i : baseSeed + i * 9973;
+      const gen = await defaultImageProvider.generate({
+        prompt: fullPrompt,
+        width,
+        height,
+        seed,
+        safe: parsed.data.safe ?? true,
+      });
+
+      const media = await processAndStoreUpload({
+        buffer: gen.buffer,
+        mime: gen.mimeType,
+        userId: session.user.id,
+        voterKey: null,
+        aiGenerated: true,
+        aiPrompt: fullPrompt,
+        losslessPng: true,
+      });
+
+      results.push({
+        mediaShortId: media.shortId,
+        storageKey: media.storageKey,
+        seed: gen.seed,
+      });
+    }
+
+    await recordAiGenerationSuccess(session.user.id, needed);
     const usageAfter = await getAiUsageToday(session.user.id);
 
+    const primary = results[0];
     return NextResponse.json({
-      mediaShortId: media.shortId,
-      storageKey: media.storageKey,
+      mediaShortId: primary.mediaShortId,
+      storageKey: primary.storageKey,
       prompt: fullPrompt,
       enhanceSource,
-      imageProvider: gen.provider,
+      imageProvider: "pollinations",
+      seeds: results.map((r) => r.seed),
+      variations: results,
       usage: usageAfter,
       checkedAt: usageBefore,
     });

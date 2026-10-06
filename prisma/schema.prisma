@@ -112,6 +112,7 @@ model Media {
   durationSec    Float?
   sortOrder      Int      @default(0)
   aiGenerated    Boolean  @default(false)
+  aiEdited       Boolean  @default(false)
   aiPrompt       String?  @db.Text
 
   @@index([postId])
@@ -216,4 +217,15 @@ model AiGenerationUsage {
 
   @@unique([userId, day])
   @@index([userId])
+}
+
+model AiPromptCache {
+  id             String   @id @default(cuid())
+  cacheKey       String   @unique
+  enhancedPrompt String   @db.Text
+  source         String
+  createdAt      DateTime @default(now())
+  lastUsedAt     DateTime @default(now())
+
+  @@index([lastUsedAt])
 }

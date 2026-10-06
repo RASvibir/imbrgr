@@ -5,6 +5,7 @@ export const IMAGE_MIME = new Set([
   "image/png",
   "image/gif",
   "image/webp",
+  "image/avif",
 ]);
 
 export const VIDEO_MIME = new Set(["video/mp4", "video/webm"]);

@@ -13,7 +13,7 @@ import {
 import { MAX_VIDEO_DURATION_SEC, VIDEO_MIME, validateUploadMime } from "@/lib/validation";
 import { probeVideoDurationSec } from "@/lib/video-duration";
 
-export async function prepareUploadBuffer(buffer: Buffer, mime: string) {
+export async function prepareUploadBuffer(buffer: Buffer, mime: string, opts?: { losslessPng?: boolean }) {
   if (!validateUploadMime(mime)) throw new Error(`Unsupported type: ${mime}`);
 
   if (VIDEO_MIME.has(mime)) {
@@ -25,7 +25,11 @@ export async function prepareUploadBuffer(buffer: Buffer, mime: string) {
   }
 
   if (mime.startsWith("image/") && mime !== "image/gif") {
-    const out = await sharp(buffer).rotate().withMetadata({ exif: undefined }).jpeg({ quality: 90 }).toBuffer();
+    if (opts?.losslessPng || mime === "image/png") {
+      const out = await sharp(buffer).rotate().withMetadata({ exif: undefined }).png({ compressionLevel: 6 }).toBuffer();
+      return { buffer: out, mime: "image/png" };
+    }
+    const out = await sharp(buffer).rotate().withMetadata({ exif: undefined }).jpeg({ quality: 92 }).toBuffer();
     return { buffer: out, mime: "image/jpeg" };
   }
 
@@ -38,13 +42,17 @@ export async function processAndStoreUpload(params: {
   userId: string | null;
   voterKey: string | null;
   aiGenerated?: boolean;
+  aiEdited?: boolean;
   aiPrompt?: string;
+  losslessPng?: boolean;
   parentMediaId?: string;
   postId?: string;
   sortOrder?: number;
 }) {
   const { userId, voterKey } = params;
-  const { buffer: out, mime: outMime } = await prepareUploadBuffer(params.buffer, params.mime);
+  const { buffer: out, mime: outMime } = await prepareUploadBuffer(params.buffer, params.mime, {
+    losslessPng: params.losslessPng,
+  });
 
   if (userId) await assertUserCanStore(userId, out.byteLength);
   else if (voterKey) await assertAnonymousCanStore(voterKey, out.byteLength);
@@ -78,6 +86,7 @@ export async function processAndStoreUpload(params: {
       width,
       height,
       aiGenerated: params.aiGenerated ?? false,
+      aiEdited: params.aiEdited ?? false,
       aiPrompt: params.aiPrompt,
     },
   });
