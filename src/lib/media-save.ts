@@ -1,0 +1,169 @@
+import sharp from "sharp";
+import { prisma } from "@/lib/db";
+import { newShortId } from "@/lib/ids";
+import { extForMime, imageMeta } from "@/lib/media-process";
+import { deleteObject, getStoredObjectSize, newStorageKey, putObject } from "@/lib/storage";
+import {
+  addAnonymousStorage,
+  addUserStorage,
+  assertAnonymousCanStore,
+  assertUserCanStore,
+  removeUserStorage,
+} from "@/lib/storage-quota";
+import { MAX_VIDEO_DURATION_SEC, VIDEO_MIME, validateUploadMime } from "@/lib/validation";
+import { probeVideoDurationSec } from "@/lib/video-duration";
+
+export async function prepareUploadBuffer(buffer: Buffer, mime: string) {
+  if (!validateUploadMime(mime)) throw new Error(`Unsupported type: ${mime}`);
+
+  if (VIDEO_MIME.has(mime)) {
+    const dur = probeVideoDurationSec(buffer, mime);
+    if (dur != null && dur > MAX_VIDEO_DURATION_SEC) {
+      throw new Error(`Video too long (max ${MAX_VIDEO_DURATION_SEC}s)`);
+    }
+    return { buffer, mime };
+  }
+
+  if (mime.startsWith("image/") && mime !== "image/gif") {
+    const out = await sharp(buffer).rotate().withMetadata({ exif: undefined }).jpeg({ quality: 90 }).toBuffer();
+    return { buffer: out, mime: "image/jpeg" };
+  }
+
+  return { buffer, mime };
+}
+
+export async function processAndStoreUpload(params: {
+  buffer: Buffer;
+  mime: string;
+  userId: string | null;
+  voterKey: string | null;
+  aiGenerated?: boolean;
+  aiPrompt?: string;
+  parentMediaId?: string;
+  postId?: string;
+  sortOrder?: number;
+}) {
+  const { userId, voterKey } = params;
+  const { buffer: out, mime: outMime } = await prepareUploadBuffer(params.buffer, params.mime);
+
+  if (userId) await assertUserCanStore(userId, out.byteLength);
+  else if (voterKey) await assertAnonymousCanStore(voterKey, out.byteLength);
+  else throw new Error("Sign in or use anonymous session");
+
+  const key = newStorageKey(extForMime(outMime));
+  await putObject(key, out, outMime);
+
+  let width: number | null = null;
+  let height: number | null = null;
+  if (outMime.startsWith("image/")) {
+    try {
+      const meta = await imageMeta(out);
+      width = meta.width;
+      height = meta.height;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const media = await prisma.media.create({
+    data: {
+      shortId: newShortId(),
+      userId,
+      postId: params.postId,
+      parentMediaId: params.parentMediaId,
+      sortOrder: params.sortOrder ?? 0,
+      storageKey: key,
+      mimeType: outMime,
+      byteSize: out.byteLength,
+      width,
+      height,
+      aiGenerated: params.aiGenerated ?? false,
+      aiPrompt: params.aiPrompt,
+    },
+  });
+
+  if (userId) await addUserStorage(userId, out.byteLength);
+  else if (voterKey) await addAnonymousStorage(voterKey, out.byteLength);
+
+  return media;
+}
+
+export async function replaceMediaInPlace(params: {
+  mediaId: string;
+  userId: string;
+  buffer: Buffer;
+  mime: string;
+}) {
+  const media = await prisma.media.findUnique({ where: { id: params.mediaId } });
+  if (!media) throw new Error("Not found");
+
+  const { buffer: out, mime: outMime } = await prepareUploadBuffer(params.buffer, params.mime);
+  const delta = out.byteLength - media.byteSize;
+  if (delta > 0) await assertUserCanStore(params.userId, delta);
+
+  const key = newStorageKey(extForMime(outMime));
+  await putObject(key, out, outMime);
+
+  let width: number | null = null;
+  let height: number | null = null;
+  if (outMime.startsWith("image/")) {
+    try {
+      const meta = await imageMeta(out);
+      width = meta.width;
+      height = meta.height;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  await deleteObject(media.storageKey);
+  await prisma.media.update({
+    where: { id: media.id },
+    data: {
+      storageKey: key,
+      mimeType: outMime,
+      byteSize: out.byteLength,
+      width,
+      height,
+    },
+  });
+
+  if (delta > 0) await addUserStorage(params.userId, delta);
+  else if (delta < 0) await removeUserStorage(params.userId, -delta);
+
+  return media;
+}
+
+export async function storeUserProfileImage(params: {
+  userId: string;
+  kind: "avatar" | "banner";
+  buffer: Buffer;
+  mime: string;
+}) {
+  const user = await prisma.user.findUnique({ where: { id: params.userId } });
+  if (!user) throw new Error("Not found");
+
+  const { buffer: out, mime: outMime } = await prepareUploadBuffer(params.buffer, params.mime);
+
+  const oldKey = params.kind === "avatar" ? user.avatarKey : user.bannerKey;
+  const oldBytes = oldKey ? await getStoredObjectSize(oldKey) : 0;
+  const delta = out.byteLength - oldBytes;
+  if (delta > 0) await assertUserCanStore(params.userId, delta);
+
+  if (oldKey) {
+    await deleteObject(oldKey);
+  }
+
+  const key = newStorageKey(extForMime(outMime));
+  await putObject(key, out, outMime);
+
+  if (delta > 0) await addUserStorage(params.userId, delta);
+  else if (delta < 0) await removeUserStorage(params.userId, -delta);
+
+  await prisma.user.update({
+    where: { id: params.userId },
+    data: params.kind === "avatar" ? { avatarKey: key } : { bannerKey: key },
+  });
+
+  return { storageKey: key };
+}

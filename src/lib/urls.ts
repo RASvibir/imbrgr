@@ -1,0 +1,25 @@
+export function profileImageUrl(storageKey: string | null | undefined): string | null {
+  if (!storageKey) return null;
+  return mediaUrl(storageKey, "image/jpeg");
+}
+
+export function mediaUrl(storageKey: string, mimeType?: string): string {
+  const base = `/api/media/${storageKey}`;
+  if (mimeType) {
+    return `${base}?mime=${encodeURIComponent(mimeType)}`;
+  }
+  return base;
+}
+
+export function postUrl(shortId: string): string {
+  return `/p/${shortId}`;
+}
+
+export function imagePageUrl(shortId: string): string {
+  return `/i/${shortId}`;
+}
+
+export function siteUrl(path = ""): string {
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  return `${base.replace(/\/$/, "")}${path}`;
+}

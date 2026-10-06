@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 52" role="img" aria-label="imbrgr logo">
+  <defs>
+    <linearGradient id="logo-bun" x1="20" y1="4" x2="20" y2="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="55%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+    <linearGradient id="logo-ember" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#db2777"/>
+    </linearGradient>
+    <linearGradient id="logo-wm-ember" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="50%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <linearGradient id="logo-wm-accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f43f5e"/>
+      <stop offset="100%" stop-color="#db2777"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(2,2) scale(1.35)">
+    <rect x="4" y="21" width="24" height="7" rx="3.5" fill="url(#logo-bun)"/>
+    <rect x="5" y="18" width="22" height="3" rx="1.5" fill="#9a3412"/>
+    <rect x="5.5" y="10.5" width="21" height="7" rx="2" fill="#141210" stroke="#f97316" stroke-width="1.2"/>
+    <rect x="7.5" y="12.5" width="3" height="3" rx="0.5" fill="#f97316"/>
+    <rect x="11.5" y="12.5" width="3" height="3" rx="0.5" fill="#fbbf24"/>
+    <rect x="15.5" y="12.5" width="3" height="3" rx="0.5" fill="#f97316"/>
+    <path d="M21.5 16.2V13.2M20.2 14.4l1.3-1.2 1.3 1.2" stroke="url(#logo-ember)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <rect x="4" y="4" width="24" height="7" rx="3.5" fill="url(#logo-bun)"/>
+  </g>
+  <text x="58" y="35" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="30" font-weight="700" letter-spacing="-0.045em">
+    <tspan fill="url(#logo-wm-ember)">imbr</tspan><tspan fill="url(#logo-wm-accent)">gr</tspan>
+  </text>
+</svg>

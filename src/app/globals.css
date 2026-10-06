@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/* imbrgr ember design tokens — dark (charcoal + ember) is the default brand surface */
+:root {
+  color-scheme: dark;
+
+  --ember-charcoal: #1c1412;
+  --ember-charcoal-deep: #141210;
+  --ember-warm-white: #f5ebe3;
+  --ember-warm-muted: #5c4f47;
+  --ember-orange: #ea580c;
+  --ember-orange-bright: #f97316;
+  --ember-amber: #fbbf24;
+  --ember-rose: #f43f5e;
+  --ember-magenta: #db2777;
+
+  --surface-base: #141210;
+  --surface-raised: #1c1816;
+  --surface-sunken: #0f0d0c;
+  --surface-hover: #262220;
+  --border-subtle: #3d3530;
+  --border-strong: #524840;
+
+  --text-primary: #f5ebe3;
+  --text-secondary: #c4b5a8;
+  --text-muted: #9a8b82;
+  --text-inverse: #1c1412;
+
+  --accent-primary: #f97316;
+  --accent-primary-hover: #fb923c;
+  --accent-secondary: #f43f5e;
+  --accent-magenta: #e879f9;
+  --accent-amber: #fbbf24;
+  --on-accent: #1c1412;
+
+  --ring: #fbbf24;
+  --shadow-ember: 0 4px 28px -4px rgb(249 115 22 / 0.4);
+  --glow-ember: 0 0 48px -6px rgb(251 191 36 / 0.35);
+
+  --success: #15803d;
+  --danger: #b91c1c;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --surface-base: #faf7f4;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f0e8e0;
+  --surface-hover: #ebe3da;
+  --border-subtle: #ddd2c8;
+  --border-strong: #c4b5a8;
+
+  --text-primary: #1c1412;
+  --text-secondary: #5c4f47;
+  --text-muted: #7a6b62;
+  --text-inverse: #f5ebe3;
+
+  --accent-primary: #c2410c;
+  --accent-primary-hover: #ea580c;
+  --accent-secondary: #be185d;
+  --accent-magenta: #db2777;
+  --accent-amber: #d97706;
+  --on-accent: #fffaf5;
+
+  --ring: #ea580c;
+  --shadow-ember: 0 4px 24px -4px rgb(234 88 12 / 0.35);
+  --glow-ember: 0 0 40px -8px rgb(249 115 22 / 0.45);
+}
+
+@theme inline {
+  --color-background: var(--surface-base);
+  --color-foreground: var(--text-primary);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent-primary);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-border: var(--border-subtle);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background-image: radial-gradient(
+    ellipse 120% 80% at 50% -20%,
+    rgb(249 115 22 / 0.08),
+    transparent 55%
+  );
+  background-attachment: fixed;
+}
+
+[data-theme="light"] body {
+  background-image: none;
+}
