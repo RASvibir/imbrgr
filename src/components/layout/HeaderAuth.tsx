@@ -21,10 +21,10 @@ export function HeaderAuth() {
         Upload
       </Link>
       <Link
-        href="/create/ai"
-        className="hidden rounded-md px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] sm:inline"
+        href="/studio"
+        className="rounded-md px-2 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] sm:px-3"
       >
-        AI
+        Studio
       </Link>
       <Link
         href="/tags"

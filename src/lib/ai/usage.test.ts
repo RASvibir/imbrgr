@@ -22,6 +22,12 @@ describe("AI usage limiting", () => {
     findUnique.mockReset();
   });
 
+  it("assertCanGenerateAi throws when batch exceeds remaining", async () => {
+    findUnique.mockResolvedValue({ count: 19 });
+    const { assertCanGenerateAi } = await import("./usage");
+    await expect(assertCanGenerateAi("user-1", 2)).rejects.toThrow(/Daily AI limit/);
+  });
+
   it("assertCanGenerateAi throws when at daily limit", async () => {
     findUnique.mockResolvedValue({ count: 20 });
     const { assertCanGenerateAi } = await import("./usage");

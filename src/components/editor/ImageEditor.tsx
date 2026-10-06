@@ -6,6 +6,7 @@ import Cropper, { type Area } from "react-easy-crop";
 type Props = {
   imageSrc: string;
   aspectPreset?: number;
+  studioMode?: boolean;
   onExport: (blob: Blob, mode: "replace" | "version") => void;
   onCancel: () => void;
 };
@@ -43,7 +44,7 @@ function applyFilter(ctx: CanvasRenderingContext2D, w: number, h: number, filter
   ctx.putImageData(img, 0, 0);
 }
 
-export function ImageEditor({ imageSrc, aspectPreset, onExport, onCancel }: Props) {
+export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCancel }: Props) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -57,6 +58,8 @@ export function ImageEditor({ imageSrc, aspectPreset, onExport, onCancel }: Prop
   const [overlayText, setOverlayText] = useState("");
   const [history, setHistory] = useState<string[]>([imageSrc]);
   const [histIdx, setHistIdx] = useState(0);
+  const [compare, setCompare] = useState(false);
+  const [outWidth, setOutWidth] = useState<number | "">("");
   const cropArea = useRef<Area | null>(null);
   const drawCanvas = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
@@ -71,8 +74,10 @@ export function ImageEditor({ imageSrc, aspectPreset, onExport, onCancel }: Prop
     const image = await createImageBitmap(await (await fetch(src)).blob());
     const area = cropArea.current ?? { x: 0, y: 0, width: image.width, height: image.height };
     const canvas = document.createElement("canvas");
-    canvas.width = area.width;
-    canvas.height = area.height;
+    const targetW = studioMode && outWidth ? Math.min(4096, Math.max(64, outWidth)) : area.width;
+    const scale = studioMode && outWidth ? targetW / area.width : 1;
+    canvas.width = Math.round(area.width * scale);
+    canvas.height = Math.round(area.height * scale);
     const ctx = canvas.getContext("2d")!;
     const exp = exposure / 100;
     ctx.filter = `brightness(${brightness * exp}%) contrast(${contrast}%) saturate(${saturation}%)`;
@@ -151,12 +156,13 @@ export function ImageEditor({ imageSrc, aspectPreset, onExport, onCancel }: Prop
   }
 
   const profileMode = aspectPreset != null;
+  const compareSrc = compare ? imageSrc : src;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/80 p-4">
       <div className="relative mx-auto h-[50vh] w-full max-w-3xl overflow-hidden rounded-xl bg-[var(--surface-raised)]">
         <Cropper
-          image={src}
+          image={compareSrc}
           crop={crop}
           zoom={zoom}
           rotation={rotation}
@@ -199,7 +205,31 @@ export function ImageEditor({ imageSrc, aspectPreset, onExport, onCancel }: Prop
           <button type="button" className="rounded border px-2 py-1" onClick={() => setRotation((r) => r + 90)}>Rotate</button>
           <button type="button" className="rounded border px-2 py-1" onClick={() => setFlipH((f) => !f)}>Flip</button>
           <button type="button" className="rounded border px-2 py-1" onClick={snapshotHistory}>Apply snapshot</button>
+          {!profileMode ? (
+            <button
+              type="button"
+              className={`rounded border px-2 py-1 ${compare ? "bg-[var(--accent-primary)]" : ""}`}
+              onPointerDown={() => setCompare(true)}
+              onPointerUp={() => setCompare(false)}
+              onPointerLeave={() => setCompare(false)}
+            >
+              Hold compare
+            </button>
+          ) : null}
         </div>
+        {studioMode ? (
+          <label className="flex items-center gap-2 text-sm">
+            Output width (px, optional)
+            <input
+              type="number"
+              min={64}
+              max={4096}
+              value={outWidth}
+              onChange={(e) => setOutWidth(e.target.value ? +e.target.value : "")}
+              className="w-28 rounded border px-2 py-1"
+            />
+          </label>
+        ) : null}
         <label className="flex items-center gap-2">Brightness
           <input type="range" min={50} max={150} value={brightness} onChange={(e) => setBrightness(+e.target.value)} />
         </label>
@@ -223,13 +253,13 @@ export function ImageEditor({ imageSrc, aspectPreset, onExport, onCancel }: Prop
           <button type="button" className="rounded border px-3 py-1" disabled={histIdx <= 0} onClick={() => setHistIdx((i) => i - 1)}>Undo</button>
           <button type="button" className="rounded border px-3 py-1" disabled={histIdx >= history.length - 1} onClick={() => setHistIdx((i) => i + 1)}>Redo</button>
           <button type="button" className="rounded border px-3 py-1" onClick={onCancel}>Cancel</button>
-          {profileMode ? (
+          {profileMode || studioMode ? (
             <button
               type="button"
               className="rounded bg-[var(--accent-primary)] px-3 py-1 font-semibold text-[var(--on-accent)]"
-              onClick={async () => onExport(await renderExport(), "replace")}
+              onClick={async () => onExport(await renderExport(), studioMode ? "version" : "replace")}
             >
-              Save
+              {studioMode ? "Save to studio" : "Save"}
             </button>
           ) : (
             <>

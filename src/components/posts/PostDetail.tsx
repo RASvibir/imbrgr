@@ -13,6 +13,7 @@ type Media = {
   mimeType: string;
   width: number | null;
   height: number | null;
+  aiEdited?: boolean;
 };
 
 type Comment = {
@@ -185,7 +186,10 @@ export function PostDetail({ shortId }: { shortId: string }) {
         {post.media.map((m) => {
           const src = mediaUrl(m.storageKey, m.mimeType);
           return (
-            <div key={m.shortId} className="overflow-hidden rounded-xl border">
+            <div key={m.shortId} className="relative overflow-hidden rounded-xl border">
+              {m.aiEdited ? (
+                <span className="absolute left-2 top-2 z-10 rounded bg-black/60 px-2 py-0.5 text-xs text-white">AI edited</span>
+              ) : null}
               {m.mimeType.startsWith("video/") ? (
                 <video src={src} controls className="w-full" />
               ) : (

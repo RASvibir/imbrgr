@@ -17,7 +17,8 @@ Built by **ChloReform Studios** (Irie Pharm · Victor Birkle). Visual identity: 
 - Public profiles (`/u/{username}`): posts, favorites (if public), comments, stats
 - **Storage quotas** per user (default 1 GB, `USER_STORAGE_QUOTA_BYTES`) and smaller anonymous cap; server-enforced on every upload
 - In-browser **image editor** on upload and on your own images (crop, rotate, filters, annotate, undo/redo; save as new version or replace)
-- **AI generator** (`/create/ai`): prompt enhance (Ollama → Groq → Gemini), Pollinations Flux render, daily cap (`AI_DAILY_LIMIT`), AI badge on posts
+- **Image studio** (`/studio`): import (upload / paste / URL), convert (PNG/JPEG/WebP/AVIF + resize), manual editor, AI Flux generation, Gemini natural-language edits, share/embed links
+- Prompt enhance: Ollama Cloud → Groq; Gemini only for complex prompts or fallback; cached repeats in Postgres (`AiPromptCache`)
 - Anonymous uploads default to **unlisted**; owners can set public / unlisted / hidden, delete posts, report content
 - Search across titles and tags
 - Ember burger brand system, light/dark themes, responsive layout
@@ -50,7 +51,9 @@ Copy `.env.example` to `.env`, or after linking Neon run `neon env pull` (never 
 | `AI_DAILY_LIMIT` | No | AI generations per user per UTC day (default 20) |
 | `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_API_KEY` | No | First tier for prompt enhance |
 | `GROQ_API_KEY` | No | Second tier (Llama 3.3) |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | No | Third tier for prompt enhance |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | No | Gemini for complex prompt enhance + image edits |
+| `GEMINI_IMAGE_MODEL` | No | Gemini model for natural-language image edits (studio) |
+| `POLLINATIONS_API_KEY` | No | Optional key for `gen.pollinations.ai` Flux renders |
 
 Do not commit `.env`, `.neon`, or connection strings.
 
