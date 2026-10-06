@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# imbrgr
 
-## Getting Started
+**images, served hot** — community image and short-video hosting for [imbrgr.website](https://imbrgr.website).
 
-First, run the development server:
+Built by **ChloReform Studios** (Irie Pharm · Victor Birkle). Brand system and ember palette are documented in [BRANDING.md](./BRANDING.md).
+
+> **Disclaimer:** imbrgr is not affiliated with, endorsed by, or connected to Imgur. This project does not use Imgur’s name, logos, trademarks, or visual identity.
+
+## Stack
+
+- [Next.js](https://nextjs.org) (App Router) + TypeScript + Tailwind CSS
+- Postgres (production) · local-friendly storage patterns (in progress)
+- Deploy target: [Vercel](https://vercel.com)
+
+## Getting started
 
 ```bash
+npm install
+npm run brand:assets   # regenerate favicons / OG image from SVG sources
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm run start` | Run production server |
+| `npm run lint` | ESLint |
+| `npm run brand:assets` | Export PNG/ICO brand assets from `public/*.svg` |
 
-## Learn More
+## Environment
 
-To learn more about Next.js, take a look at the following resources:
+Copy `.env.example` when present and set variables for database, auth, and blob storage. Do not commit secrets.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proprietary — ChloReform Studios / Irie Pharm unless otherwise noted.
