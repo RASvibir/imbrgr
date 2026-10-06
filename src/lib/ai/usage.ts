@@ -36,14 +36,14 @@ export async function getAnonymousAiUsageToday(ipHash: string) {
 export async function assertCanGenerateAiForUser(userId: string, needed = 1) {
   const { used, limit, remaining } = await getAiUsageToday(userId);
   if (remaining < needed || used + needed > limit) {
-    throw new Error(`Daily AI limit reached (${limit}/day). Try again tomorrow.`);
+    throw new Error("The kitchen's resting for today — swing by tomorrow, or sign in to keep cooking.");
   }
 }
 
 export async function assertCanGenerateAiForAnonymous(ipHash: string, needed = 1) {
   const { used, limit, remaining } = await getAnonymousAiUsageToday(ipHash);
   if (remaining < needed || used + needed > limit) {
-    throw new Error(`Daily guest AI limit reached (${limit}/day). Sign in for more.`);
+    throw new Error("The kitchen's resting for today — swing by tomorrow, or sign in to keep cooking.");
   }
 }
 

@@ -3,14 +3,17 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { StorageMeter } from "@/components/storage/StorageMeter";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { STYLES } from "@/lib/ai/styles";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
+import { normalizeStudioAsset } from "@/lib/studio-asset";
+import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaUrl } from "@/lib/urls";
+import { useRouter } from "next/navigation";
 
 type StudioAsset = {
   shortId: string;
@@ -26,11 +29,12 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "import", label: "Import" },
   { id: "convert", label: "Convert" },
   { id: "edit", label: "Edit" },
-  { id: "generate", label: "AI generate" },
+  { id: "generate", label: "Create" },
   { id: "share", label: "Links" },
 ];
 
 export function ImageStudio() {
+  const router = useRouter();
   const { data: session } = useSession();
   const params = useSearchParams();
   const initialTab = (params.get("tab") as Tab) || "import";
@@ -58,20 +62,19 @@ export function ImageStudio() {
   const [style, setStyle] = useState("");
   const [aspect, setAspect] = useState<keyof typeof ASPECT_PRESETS>("1:1");
   const [variations, setVariations] = useState(1);
-  const [usage, setUsage] = useState<{ used: number; limit: number; remaining: number; type?: string } | null>(null);
+  const [kitchenOpen, setKitchenOpen] = useState(true);
   const [busy, setBusy] = useState(false);
   const [aiEditText, setAiEditText] = useState("");
   const [suggestions, setSuggestions] = useState<{ caption?: string; alt?: string; tags?: string[] }>({});
   const [deleteToken, setDeleteToken] = useState<string | null>(null);
   const [settings, setSettings] = useState<ImageSettingsValues>({
+    title: "",
+    description: "",
+    tags: "",
     altText: "",
     mature: false,
     visibility: "UNLISTED",
   });
-
-  useEffect(() => {
-    void fetch("/api/ai/usage").then((r) => r.json()).then(setUsage).catch(() => undefined);
-  }, [session?.user]);
 
   const refreshShare = useCallback(async (shortId: string) => {
     const res = await fetch(`/api/media/${shortId}`);
@@ -84,7 +87,7 @@ export function ImageStudio() {
   const setActiveAsset = useCallback(
     async (next: StudioAsset) => {
       setAsset(next);
-      setMsg("Image ready in studio");
+      setMsg(COPY.imageReady);
       await refreshShare(next.shortId);
     },
     [refreshShare],
@@ -98,11 +101,11 @@ export function ImageStudio() {
     const res = await fetch("/api/studio/import", { method: "POST", body: form });
     const data = await res.json();
     if (!res.ok) {
-      setErr(data.error ?? "Import failed");
+      setErr(friendlyError(data.error ?? "Import failed"));
       return;
     }
     if (data.deleteToken) setDeleteToken(data.deleteToken);
-    await setActiveAsset(data);
+    await setActiveAsset(normalizeStudioAsset(data));
     setTab("edit");
   };
 
@@ -160,10 +163,10 @@ export function ImageStudio() {
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
-      setErr(data.error ?? "Convert failed");
+      setErr(friendlyError(data.error ?? "Convert failed"));
       return;
     }
-    await setActiveAsset(data);
+    await setActiveAsset(normalizeStudioAsset(data));
     setTab("share");
   };
 
@@ -188,18 +191,21 @@ export function ImageStudio() {
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
-      setErr(data.error ?? "Generation failed");
+      setKitchenOpen(false);
+      setErr(friendlyError(data.error ?? "Generation failed"));
       return;
     }
-    setUsage(data.usage);
+    setKitchenOpen(true);
     if (data.deleteToken) setDeleteToken(data.deleteToken);
     const primary = data.variations?.[0] ?? data;
-    await setActiveAsset({
-      shortId: primary.mediaShortId,
-      storageKey: data.storageKey,
-      mimeType: "image/png",
-    });
-    setTab("edit");
+    await setActiveAsset(
+      normalizeStudioAsset({
+        mediaShortId: primary.mediaShortId ?? data.mediaShortId,
+        storageKey: primary.storageKey ?? data.storageKey,
+        mimeType: "image/png",
+      }),
+    );
+    setTab("share");
   };
 
   const saveEditorBlob = async (blob: Blob) => {
@@ -210,17 +216,19 @@ export function ImageStudio() {
     const res = await fetch(`/api/media/${asset.shortId}/edit`, { method: "POST", body: form });
     const data = await res.json();
     if (!res.ok) {
-      setErr(data.error ?? "Save failed");
+      setErr(friendlyError(data.error ?? "Save failed"));
       return;
     }
     const meta = await fetch(`/api/media/${data.shortId}`).then((r) => r.json());
-    await setActiveAsset({
-      shortId: data.shortId,
-      storageKey: meta.storageKey,
-      mimeType: meta.mimeType,
-      width: meta.width,
-      height: meta.height,
-    });
+    await setActiveAsset(
+      normalizeStudioAsset({
+        shortId: data.shortId,
+        storageKey: meta.storageKey,
+        mimeType: meta.mimeType,
+        width: meta.width,
+        height: meta.height,
+      }),
+    );
     setEditing(false);
   };
 
@@ -236,17 +244,18 @@ export function ImageStudio() {
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
-      setErr(data.error ?? "AI edit failed");
+      setErr(friendlyError(data.error ?? "AI edit failed"));
       return;
     }
-    setUsage(data.usage);
-    await setActiveAsset({
-      shortId: data.mediaShortId,
-      storageKey: data.storageKey,
-      mimeType: "image/png",
-    });
+    await setActiveAsset(
+      normalizeStudioAsset({
+        mediaShortId: data.mediaShortId,
+        storageKey: data.storageKey,
+        mimeType: "image/png",
+      }),
+    );
     setAiEditText("");
-    setMsg("AI edit saved as new version");
+    setMsg(COPY.settingsSaved);
   };
 
   const autoEnhance = async () => {
@@ -260,10 +269,10 @@ export function ImageStudio() {
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
-      setErr(data.error ?? "Auto-enhance failed");
+      setErr(friendlyError(data.error ?? "Auto-enhance failed"));
       return;
     }
-    await setActiveAsset({ shortId: data.shortId, storageKey: data.storageKey, mimeType: data.mimeType });
+    await setActiveAsset(normalizeStudioAsset(data));
   };
 
   const runSuggest = async (type: "caption" | "alt" | "tags") => {
@@ -295,7 +304,35 @@ export function ImageStudio() {
       }),
     });
     await refreshShare(asset.shortId);
-    setMsg("Image settings saved");
+    setMsg(COPY.settingsSaved);
+  };
+
+  const publishToGallery = async () => {
+    if (!asset || !signedIn) return;
+    setErr("");
+    setBusy(true);
+    const title = settings.title?.trim() || "Untitled";
+    const tags =
+      settings.tags?.split(/[,\s#]+/).map((t) => t.trim()).filter(Boolean) ?? [];
+    const res = await fetch("/api/posts/from-media", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title,
+        description: settings.description || undefined,
+        tags,
+        visibility: settings.visibility ?? "PUBLIC",
+        mediaShortIds: [asset.shortId],
+      }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) {
+      setErr(friendlyError(data.error ?? "Could not publish"));
+      return;
+    }
+    setMsg(COPY.publishSuccess);
+    router.push(`/p/${data.shortId}`);
   };
 
   return (
@@ -303,21 +340,22 @@ export function ImageStudio() {
       <header>
         <h1 className="text-3xl font-bold">Image studio</h1>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          Import, convert, edit, generate, and share — one flow.{" "}
+          {COPY.studioTagline}{" "}
           <Link href="/upload" className="text-[var(--accent-primary)]">Classic upload</Link>
         </p>
         <div className="mt-4 max-w-md">
           <StorageMeter />
         </div>
-        {usage ? (
-          <p className="mt-2 text-xs text-[var(--text-secondary)]">
-            AI generations today: {usage.remaining} / {usage.limit} left ({usage.type === "anonymous" ? "guest" : "account"})
+        {!kitchenOpen ? (
+          <p className="mt-2 text-xs text-[var(--text-muted)]">
+            The kitchen&apos;s resting for now — try again later or{" "}
+            <Link href="/auth/signin" className="text-[var(--accent-primary)]">sign in</Link> for more.
           </p>
         ) : null}
         {!signedIn ? (
           <p className="mt-2 rounded-lg border border-[var(--accent-primary)]/40 bg-[var(--surface-raised)] p-3 text-sm">
-            You&apos;re using the studio as a guest.{" "}
-            <Link href="/auth/signup" className="font-medium text-[var(--accent-primary)]">Create an account</Link> for private images and higher AI limits.
+            {COPY.guestBanner}{" "}
+            <Link href="/auth/signup" className="font-medium text-[var(--accent-primary)]">Create an account</Link>
           </p>
         ) : null}
       </header>
@@ -432,8 +470,8 @@ export function ImageStudio() {
             </button>
           </div>
           <div className="rounded-xl border border-[var(--border-subtle)] p-4">
-            <h3 className="font-semibold">AI assistant</h3>
-            <p className="text-xs text-[var(--text-muted)]">Natural-language edits use Gemini and count toward your daily AI limit.</p>
+            <h3 className="font-semibold">Describe a tweak</h3>
+            <p className="text-xs text-[var(--text-muted)]">{COPY.aiAssistantBlurb}</p>
             <textarea
               value={aiEditText}
               onChange={(e) => setAiEditText(e.target.value)}
@@ -447,7 +485,7 @@ export function ImageStudio() {
               onClick={aiNaturalEdit}
               className="mt-2 rounded-lg border border-[var(--accent-primary)] px-4 py-2 text-sm text-[var(--accent-primary)]"
             >
-              Apply AI edit
+              {COPY.applyAiEdit}
             </button>
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" onClick={() => runSuggest("caption")} className="rounded border px-2 py-1 text-xs">Suggest caption</button>
@@ -472,7 +510,7 @@ export function ImageStudio() {
           />
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={enhance} onChange={(e) => setEnhance(e.target.checked)} />
-            Enhance prompt (skips when already detailed; cached repeats are free)
+            {COPY.enhancePrompt}
           </label>
           <div className="flex flex-wrap gap-2">
             <select value={style} onChange={(e) => setStyle(e.target.value)} className="rounded border px-2 py-1 text-sm">
@@ -498,7 +536,7 @@ export function ImageStudio() {
             onClick={generate}
             className="rounded-xl bg-[var(--accent-primary)] px-6 py-2 font-semibold text-[var(--on-accent)] disabled:opacity-50"
           >
-            {busy ? "Working…" : "Generate with Flux"}
+            {busy ? COPY.generateWorking : COPY.generateCta}
           </button>
         </section>
       ) : null}
@@ -511,12 +549,31 @@ export function ImageStudio() {
             onChange={(v) => setSettings(v)}
             compact
           />
-          <button type="button" onClick={saveMediaSettings} className="rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]">
-            Save image settings
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={saveMediaSettings} className="rounded-lg border border-[var(--border-strong)] px-4 py-2 text-sm font-medium">
+              Save details
+            </button>
+            {signedIn ? (
+              <button
+                type="button"
+                disabled={busy || !settings.title?.trim()}
+                onClick={publishToGallery}
+                className="rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
+              >
+                {COPY.publishCta}
+              </button>
+            ) : (
+              <p className="text-sm text-[var(--text-muted)]">
+                <Link href="/auth/signup" className="text-[var(--accent-primary)]">Sign up</Link> to add this to the gallery.
+              </p>
+            )}
+          </div>
+          {signedIn && !settings.title?.trim() ? (
+            <p className="text-xs text-[var(--text-muted)]">Add a title above to serve this to the gallery.</p>
+          ) : null}
           {deleteToken ? (
             <p className="rounded-lg border border-[var(--warning)]/50 bg-[var(--surface-raised)] p-3 text-xs">
-              <strong>Guest delete token</strong> (save this to remove your upload later):{" "}
+              {COPY.guestDeleteHint}{" "}
               <code className="break-all">{deleteToken}</code>
             </p>
           ) : null}

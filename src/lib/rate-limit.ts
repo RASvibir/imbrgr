@@ -12,7 +12,7 @@ export async function consumeRateLimit(bucketKey: string, limit: number, windowM
     return;
   }
   if (row.count >= limit) {
-    throw new Error("Too many requests. Please slow down and try again shortly.");
+    throw new Error("We're plating as fast as we can — pause a moment and try again.");
   }
   await prisma.apiRateLimit.update({
     where: { bucketKey },

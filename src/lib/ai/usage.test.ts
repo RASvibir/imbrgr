@@ -40,13 +40,13 @@ describe("AI usage limiting", () => {
   it("assertCanGenerateAi throws when batch exceeds remaining", async () => {
     usageFindUnique.mockResolvedValue({ count: 19 });
     const { assertCanGenerateAi } = await import("./usage");
-    await expect(assertCanGenerateAi("user-1", 2)).rejects.toThrow(/Daily AI limit/);
+    await expect(assertCanGenerateAi("user-1", 2)).rejects.toThrow(/kitchen's resting/);
   });
 
   it("assertCanGenerateAi throws when at daily limit", async () => {
     usageFindUnique.mockResolvedValue({ count: 20 });
     const { assertCanGenerateAi } = await import("./usage");
-    await expect(assertCanGenerateAi("user-1")).rejects.toThrow(/Daily AI limit/);
+    await expect(assertCanGenerateAi("user-1")).rejects.toThrow(/kitchen's resting/);
     expect(upsert).not.toHaveBeenCalled();
   });
 

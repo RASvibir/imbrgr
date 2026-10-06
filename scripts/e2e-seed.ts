@@ -38,6 +38,9 @@ async function main() {
     update: { role: "USER", banned: false, suspended: false },
   });
 
+  await prisma.aiAnonymousUsage.deleteMany({});
+  await prisma.aiGenerationUsage.deleteMany({});
+
   await prisma.siteSetting.upsert({
     where: { id: "global" },
     create: { id: "global", updatedAt: new Date() },

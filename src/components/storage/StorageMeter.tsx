@@ -20,7 +20,7 @@ export function StorageMeter({ className }: { className?: string }) {
   return (
     <div className={className}>
       <div className="flex justify-between text-xs text-[var(--text-muted)]">
-        <span>Storage {info.type === "anonymous" ? "(guest)" : ""}</span>
+        <span>Your space {info.type === "anonymous" ? "(guest)" : ""}</span>
         <span>
           {(used / (1024 * 1024)).toFixed(1)} / {(info.quota / (1024 * 1024)).toFixed(0)} MB
         </span>

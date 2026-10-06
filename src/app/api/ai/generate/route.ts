@@ -16,6 +16,7 @@ import {
 import { aiRateLimitPerHour } from "@/lib/config";
 import { processAndStoreUpload } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
+import { friendlyError } from "@/lib/user-messages";
 import { assertUserMayUseAi } from "@/lib/user-guards";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import type { Visibility } from "@/lib/visibility";
@@ -125,8 +126,8 @@ export async function POST(req: Request) {
       checkedAt: usageBefore,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Generation failed";
-    const status = msg.includes("limit") || msg.includes("Too many") ? 429 : 400;
-    return NextResponse.json({ error: msg }, { status });
+    const raw = e instanceof Error ? e.message : "Generation failed";
+    const status = raw.includes("resting") || raw.includes("plating") ? 429 : 400;
+    return NextResponse.json({ error: friendlyError(raw) }, { status });
   }
 }
