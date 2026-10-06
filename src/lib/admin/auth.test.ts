@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isProtectedSuperAdmin, isSuperAdminRecord } from "./auth";
+import { isProtectedSuperAdmin, isSuperAdminRecord } from "./policy";
 
 describe("super admin auth", () => {
   it("requires SUPERADMIN role and allowlist username", () => {

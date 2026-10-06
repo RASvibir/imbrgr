@@ -31,6 +31,7 @@ test.describe("imbrgr e2e", () => {
     await page.getByPlaceholder(/email/i).fill("e2eadmin@imbrgr.test");
     await page.getByPlaceholder(/password/i).fill("password12345");
     await page.getByRole("button", { name: /sign in/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
     await expect(page.getByRole("link", { name: "Admin" })).toBeVisible({ timeout: 15000 });
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: /Super admin/i })).toBeVisible();

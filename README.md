@@ -59,6 +59,19 @@ Copy `.env.example` to `.env`, or after linking Neon run `neon env pull` (never 
 | `AI_RATE_LIMIT_PER_HOUR` | No | Per-IP/user AI throttle (default 30) |
 | `SUPERADMIN_USERNAMES` | No | Comma-separated usernames allowed as super admin (default `vibir`; must also have `SUPERADMIN` role in DB) |
 
+### E2E (Playwright)
+
+Global setup seeds users via `tsx scripts/e2e-seed.ts` (avoids loading the Prisma ESM client from Playwright’s CJS global-setup).
+
+```bash
+docker compose up -d   # or local Postgres
+npm run db:migrate:deploy
+export DATABASE_URL=postgresql://imbrgr:imbrgr@localhost:5432/imbrgr?schema=public
+npm run build
+STORAGE_DRIVER=local AI_MOCK=true npm run test:e2e
+npm run test:e2e:artifacts   # optional screenshots → /opt/cursor/artifacts
+```
+
 ### Private images & Vercel Blob
 
 Production uses a **public** Blob store (`imbrgr13-media`). Private files are never listed in feeds/search and `/api/media/*` returns **404** to non-owners, with `Cache-Control: private, no-store`. Direct Blob CDN URLs are not exposed in the UI; however, anyone who obtained a raw Blob URL could still fetch the object. For stricter isolation, use a private Blob store or proxy-only delivery and rotate storage keys when visibility changes from public to private.

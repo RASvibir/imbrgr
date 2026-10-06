@@ -2,25 +2,9 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import type { User } from "@/generated/prisma/client";
+import { isSuperAdminRecord } from "@/lib/admin/policy";
 
-export function superadminUsernameAllowlist(): string[] {
-  const raw = process.env.SUPERADMIN_USERNAMES ?? "vibir";
-  return raw
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-export function isSuperAdminRecord(user: Pick<User, "username" | "role" | "banned">): boolean {
-  if (user.banned || user.role !== "SUPERADMIN") return false;
-  const allow = superadminUsernameAllowlist();
-  if (allow.length === 0) return true;
-  return allow.includes(user.username.toLowerCase());
-}
-
-export function isProtectedSuperAdmin(user: Pick<User, "username" | "role">): boolean {
-  return user.role === "SUPERADMIN" && superadminUsernameAllowlist().includes(user.username.toLowerCase());
-}
+export { isProtectedSuperAdmin, isSuperAdminRecord, superadminUsernameAllowlist } from "@/lib/admin/policy";
 
 /** Re-fetch role from DB on every admin request (never trust JWT alone). */
 export async function getSuperAdminUser(): Promise<User | null> {
