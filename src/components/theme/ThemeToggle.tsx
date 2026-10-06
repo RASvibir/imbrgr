@@ -1,41 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-type Theme = "light" | "dark" | "system";
+type Theme = "light" | "dark";
+
+function getTheme(): Theme {
+  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+}
+
+function subscribe(onStoreChange: () => void) {
+  const observer = new MutationObserver(onStoreChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  return () => observer.disconnect();
+}
 
 function applyTheme(theme: Theme) {
-  const root = document.documentElement;
-  const resolved =
-    theme === "system"
-      ? window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light"
-      : theme;
-  root.dataset.theme = resolved;
-  root.dataset.themePreference = theme;
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.themePreference = theme;
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "system";
-    return (localStorage.getItem("imbrgr-theme") as Theme | null) ?? "system";
-  });
-
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
+  const theme = useSyncExternalStore(subscribe, getTheme, () => "dark");
 
   function cycle() {
-    const order: Theme[] = ["system", "light", "dark"];
-    const next = order[(order.indexOf(theme) + 1) % order.length];
-    setTheme(next);
+    const next: Theme = theme === "dark" ? "light" : "dark";
     localStorage.setItem("imbrgr-theme", next);
     applyTheme(next);
   }
 
-  const label =
-    theme === "system" ? "Theme: system" : theme === "light" ? "Theme: light" : "Theme: dark";
+  const label = theme === "light" ? "Theme: light" : "Theme: dark";
 
   return (
     <button
@@ -46,7 +42,7 @@ export function ThemeToggle() {
       title={label}
     >
       <span className="text-base" aria-hidden>
-        {theme === "light" ? "☀" : theme === "dark" ? "◐" : "◎"}
+        {theme === "light" ? "☀" : "◐"}
       </span>
     </button>
   );

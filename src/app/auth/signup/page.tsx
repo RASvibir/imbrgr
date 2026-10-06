@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function SignUpPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -21,7 +23,7 @@ export default function SignUpPage() {
       setError(data.error ?? "Sign up failed");
       return;
     }
-    window.location.href = "/auth/signin";
+    router.push("/auth/signin");
   };
 
   return (

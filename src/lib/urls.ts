@@ -1,9 +1,9 @@
-export function mediaUrl(storageKey: string): string {
-  if (process.env.STORAGE_DRIVER === "blob") {
-    const base = process.env.NEXT_PUBLIC_BLOB_BASE_URL;
-    if (base) return `${base.replace(/\/$/, "")}/${storageKey}`;
+export function mediaUrl(storageKey: string, mimeType?: string): string {
+  const base = `/api/media/${storageKey}`;
+  if (mimeType) {
+    return `${base}?mime=${encodeURIComponent(mimeType)}`;
   }
-  return `/api/media/${storageKey}`;
+  return base;
 }
 
 export function postUrl(shortId: string): string {

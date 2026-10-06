@@ -14,7 +14,7 @@ export default async function ImageDirectPage({
     include: { post: { select: { shortId: true, title: true } } },
   });
   if (!media) notFound();
-  const src = mediaUrl(media.storageKey);
+  const src = mediaUrl(media.storageKey, media.mimeType);
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <p className="mb-4 text-sm text-[var(--text-muted)]">

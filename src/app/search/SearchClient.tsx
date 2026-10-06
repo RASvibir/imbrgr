@@ -1,10 +1,11 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PostCard } from "@/components/posts/PostCard";
 
 export function SearchClient() {
+  const router = useRouter();
   const sp = useSearchParams();
   const q = sp.get("q") ?? "";
   const [query, setQuery] = useState(q);
@@ -23,7 +24,7 @@ export function SearchClient() {
         className="mt-4 flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          window.location.href = `/search?q=${encodeURIComponent(query)}`;
+          router.push(`/search?q=${encodeURIComponent(query)}`);
         }}
       >
         <input

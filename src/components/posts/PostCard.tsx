@@ -9,13 +9,15 @@ type PostCardData = {
   media: {
     storageKey: string;
     mimeType: string;
+    width?: number | null;
+    height?: number | null;
   }[];
   user: { username: string } | null;
 };
 
 export function PostCard({ post }: { post: PostCardData }) {
   const thumb = post.media[0];
-  const src = thumb ? mediaUrl(thumb.storageKey) : null;
+  const src = thumb ? mediaUrl(thumb.storageKey, thumb.mimeType) : null;
   return (
     <Link
       href={`/p/${post.shortId}`}
@@ -24,10 +26,15 @@ export function PostCard({ post }: { post: PostCardData }) {
       <div className="relative aspect-video bg-[var(--surface-sunken)]">
         {src ? (
           thumb.mimeType.startsWith("video/") ? (
-            <video src={src} className="h-full w-full object-cover" muted />
+            <video src={src} className="h-full w-full object-cover" muted playsInline />
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={src} alt="" className="h-full w-full object-cover transition group-hover:scale-[1.02]" />
+            <img
+              src={src}
+              alt=""
+              className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+              loading="lazy"
+            />
           )
         ) : null}
       </div>

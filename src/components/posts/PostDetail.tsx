@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { mediaUrl, siteUrl } from "@/lib/urls";
 
@@ -38,6 +39,7 @@ type Post = {
 };
 
 export function PostDetail({ shortId }: { shortId: string }) {
+  const router = useRouter();
   const { data: session } = useSession();
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -60,7 +62,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
     return post.media.map((m) => ({
       shortId: m.shortId,
       url: siteUrl(`/i/${m.shortId}`),
-      raw: siteUrl(mediaUrl(m.storageKey)),
+      raw: siteUrl(mediaUrl(m.storageKey, m.mimeType)),
     }));
   }, [post]);
 
@@ -110,7 +112,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
   const deletePost = async () => {
     if (!confirm("Delete this post?")) return;
     await fetch(`/api/posts/${shortId}`, { method: "DELETE" });
-    window.location.href = "/";
+    router.push("/");
   };
 
   const setVisibility = async (visibility: string) => {
@@ -136,7 +138,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
     return <p className="text-[var(--text-muted)]">Loading post…</p>;
   }
 
-  const embed = `<a href="${siteUrl(`/p/${shortId}`)}"><img src="${siteUrl(mediaUrl(post.media[0]?.storageKey ?? ""))}" alt="${post.title}"/></a>`;
+  const embed = `<a href="${siteUrl(`/p/${shortId}`)}"><img src="${siteUrl(mediaUrl(post.media[0]?.storageKey ?? "", post.media[0]?.mimeType))}" alt="${post.title}"/></a>`;
 
   const threaded = comments.filter((c) => !c.parentId);
   const children = (parentId: string) => comments.filter((c) => c.parentId === parentId);
@@ -172,7 +174,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
 
       <div className="space-y-4">
         {post.media.map((m) => {
-          const src = mediaUrl(m.storageKey);
+          const src = mediaUrl(m.storageKey, m.mimeType);
           return (
             <div key={m.shortId} className="overflow-hidden rounded-xl border">
               {m.mimeType.startsWith("video/") ? (

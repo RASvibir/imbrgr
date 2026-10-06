@@ -2,9 +2,11 @@
 
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function SignInPage() {
+  const router = useRouter();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -13,7 +15,7 @@ export default function SignInPage() {
     e.preventDefault();
     const res = await signIn("credentials", { login, password, redirect: false });
     if (res?.error) setError("Invalid credentials");
-    else window.location.href = "/";
+    else router.push("/");
   };
 
   return (
