@@ -56,6 +56,17 @@ Guest uploads default to **unlisted**; private posts require a signed-in owner.
 - **Privacy:** thumbs are served only through **`/api/media/file/*`** with the same access checks as originals; going private or admin-hidden **purges** thumb blobs and clears thumb columns; deletes remove **storageKey** and both thumb keys.
 - **Cache:** private/hidden media uses `Cache-Control: private, no-store`; other gated gallery media avoids long `immutable` public cache (see `src/lib/serve-media-file.ts`).
 
+### Studio library, locked original, and folders
+
+- **Click-to-save:** In the studio, click the preview image for **Save**, **Save to folder…**, **Download**, or **Revert to original** (keyboard-friendly menu; Esc closes).
+- **Click menu (always):** **Save**, **Save to folder…**, and **Download** work on **any** version (original, edits, generated, uploaded) regardless of the keep-original toggle.
+- **Keep original (toggle):** Controls **automatic** copies in the user’s **My images** library cache only (default **on**). **On:** auto-save keeps the **locked first version** plus new edits (`LibrarySave` rows with label `__studio_auto__`). **Off:** auto-save tracks **only the latest** version in that family (no duplicate original in the auto cache). **Manual** saves from the image menu always work for whichever version is on screen. Preference: `User.studioKeepOriginal` or guest `localStorage` (`imbrgr_studio_keep_original`). Sync runs after AI generate, studio import, and versioned edits (`src/lib/library-auto-save.ts`).
+- **Locked original (editing):** The first file in each studio chain stays an **immutable** row (`Media.rootMediaId`); manual and AI edits always create **new** versions; **Revert to original** uses the version strip. This is separate from the auto-library toggle above.
+- **Versions strip:** Thumbnails for all versions in the family; the original shows a lock badge.
+- **Library saves:** `POST /api/library/save` records the **current** media version in `LibrarySave` (signed-in `userId` or guest `voterKey`). Visibility on save respects the studio visibility control (AI gens default public unless the user chose otherwise).
+- **Folders:** `LibraryFolder` per owner; create/rename/delete via `/api/library/folders`. Saves can target a folder by id or **new folder name** from the studio menu.
+- **My images:** `/library` and the **My images** tab on your own profile list folders and saves (`GET /api/library`). Guest library rows are **claimed** on sign-in with posts/media (`claim-guest.ts`).
+
 ### Remix, collections, guests, reports
 
 - **Remix** creates a new post linked to `remixedFromPostId` from a **public** source post; studio can open with `?remixFrom=`.

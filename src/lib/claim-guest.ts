@@ -27,5 +27,14 @@ export async function claimGuestContent(userId: string, voterKey: string) {
     data: { userId },
   });
 
+  await prisma.libraryFolder.updateMany({
+    where: { voterKey, userId: null },
+    data: { userId, voterKey: null },
+  });
+  await prisma.librarySave.updateMany({
+    where: { voterKey, userId: null },
+    data: { userId, voterKey: null },
+  });
+
   return { posts: posts.count, media: media.length };
 }

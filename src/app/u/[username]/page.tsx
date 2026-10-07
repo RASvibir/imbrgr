@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
 import { PostCard } from "@/components/posts/PostCard";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { MyImagesPanel } from "@/components/library/MyImagesPanel";
 import { ReportButton } from "@/components/report/ReportButton";
 import { profileImageUrl } from "@/lib/urls";
 
@@ -31,7 +32,7 @@ export default function ProfilePage() {
     isOwner?: boolean;
     id?: string;
   } | null>(null);
-  const [tab, setTab] = useState<"posts" | "collections" | "remixes">("posts");
+  const [tab, setTab] = useState<"posts" | "collections" | "remixes" | "images">("posts");
 
   useEffect(() => {
     void fetch(`/api/users/${username}`).then((r) => r.json()).then(setUser);
@@ -104,14 +105,14 @@ export default function ProfilePage() {
         ) : null}
 
         <div className="mt-8 flex gap-2 border-b border-[var(--border-subtle)]">
-          {(["posts", "collections", "remixes"] as const).map((t) => (
+          {(["posts", "collections", "remixes", ...(isOwner ? (["images"] as const) : [])] as const).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
               className={`px-4 py-2 text-sm font-medium capitalize ${tab === t ? "border-b-2 border-[var(--accent-primary)] text-[var(--accent-primary)]" : "text-[var(--text-muted)]"}`}
             >
-              {t}
+              {t === "images" ? "My images" : t}
             </button>
           ))}
         </div>
@@ -157,6 +158,12 @@ export default function ProfilePage() {
             {(user.remixes as { id: string }[]).map((p) => (
               <PostCard key={p.id} post={p as never} thumbVariant="sm" />
             ))}
+          </div>
+        ) : null}
+
+        {tab === "images" && isOwner ? (
+          <div className="mt-6">
+            <MyImagesPanel compact />
           </div>
         ) : null}
       </div>

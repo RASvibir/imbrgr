@@ -8,6 +8,11 @@ export default async function globalSetup() {
     return;
   }
   const root = path.join(__dirname, "..");
+  execSync("npx prisma migrate deploy", {
+    cwd: root,
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL: url, DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED ?? url },
+  });
   execSync("npx tsx scripts/e2e-seed.ts", {
     cwd: root,
     stdio: "inherit",

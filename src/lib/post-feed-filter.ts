@@ -8,3 +8,7 @@ export type PostWithMediaSlice = { media: unknown[] };
 export function filterPostsWithVisibleMedia<T extends PostWithMediaSlice>(items: T[]): T[] {
   return items.filter((p) => p.media.length > 0);
 }
+
+export function postHasImageMedia(media: { mimeType: string }[]): boolean {
+  return media.some((m) => m.mimeType.startsWith("image/"));
+}

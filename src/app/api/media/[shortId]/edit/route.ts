@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isLockedOriginal } from "@/lib/media-root";
 import { isMediaOwner } from "@/lib/media-access";
+import { syncStudioAutoLibrarySave, parseStudioKeepOriginal } from "@/lib/library-auto-save";
 import { processAndStoreUpload, replaceMediaInPlace } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
 import { normalizeVisibility } from "@/lib/visibility";
 
 const schema = z.object({
   mode: z.enum(["replace", "version"]),
+  keepOriginal: z.boolean().optional(),
 });
 
 export async function POST(
@@ -16,7 +18,6 @@ export async function POST(
   ctx: { params: Promise<{ shortId: string }> },
 ) {
   const actor = await getActor(req);
-  const session = await auth();
   const { shortId } = await ctx.params;
   const media = await prisma.media.findUnique({ where: { shortId }, include: { post: true } });
   if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -30,20 +31,33 @@ export async function POST(
   const form = await req.formData();
   const file = form.get("file");
   const modeRaw = form.get("mode")?.toString() ?? "replace";
-  const parsed = schema.safeParse({ mode: modeRaw });
+  const keepOriginalRaw = form.get("keepOriginal")?.toString();
+  const keepOriginal =
+    keepOriginalRaw === "false" || keepOriginalRaw === "0"
+      ? false
+      : keepOriginalRaw === "true" || keepOriginalRaw === "1"
+        ? true
+        : true;
+  const parsed = schema.safeParse({ mode: modeRaw, keepOriginal });
   if (!(file instanceof File) || !parsed.success) {
     return NextResponse.json({ error: "Invalid edit payload" }, { status: 400 });
   }
   const buf = Buffer.from(await file.arrayBuffer());
 
   try {
+    const keepOriginal = parseStudioKeepOriginal(parsed.data.keepOriginal);
+
     if (parsed.data.mode === "replace") {
-      if (!session?.user) {
-        return NextResponse.json({ error: "Sign in to replace the original file" }, { status: 401 });
+      if (isLockedOriginal(media)) {
+        return NextResponse.json(
+          { error: "The original is locked — your edit was saved as a new version instead." },
+          { status: 400 },
+        );
       }
       await replaceMediaInPlace({
         mediaId: media.id,
-        userId: session.user.id,
+        userId: actor.userId,
+        voterKey: actor.userId ? null : actor.voterKey,
         buffer: buf,
         mime: file.type || "image/jpeg",
       });
@@ -56,6 +70,7 @@ export async function POST(
         width: refreshed.width,
         height: refreshed.height,
         mode: "replace",
+        keepOriginal,
       });
     }
 
@@ -78,6 +93,8 @@ export async function POST(
         data: { postId: null },
       });
     }
+
+    await syncStudioAutoLibrarySave(actor, created.id, keepOriginal);
 
     return NextResponse.json({
       shortId: created.shortId,

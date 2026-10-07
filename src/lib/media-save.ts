@@ -12,6 +12,7 @@ import {
   removeUserStorage,
 } from "@/lib/storage-quota";
 import { hashDeleteToken, newDeleteToken } from "@/lib/anon-delete";
+import { resolveRootMediaId } from "@/lib/media-root";
 import { normalizeVisibility, type Visibility } from "@/lib/visibility";
 import { MAX_VIDEO_DURATION_SEC, VIDEO_MIME, validateUploadMime } from "@/lib/validation";
 import { probeVideoDurationSec } from "@/lib/video-duration";
@@ -88,6 +89,7 @@ export async function processAndStoreUpload(params: {
   }
 
   const anonToken = !userId && voterKey ? newDeleteToken() : null;
+  const rootFromParent = await resolveRootMediaId(params.parentMediaId);
   const media = await prisma.media.create({
     data: {
       shortId: newShortId(),
@@ -99,6 +101,7 @@ export async function processAndStoreUpload(params: {
       deleteTokenHash: anonToken ? hashDeleteToken(anonToken) : null,
       postId: params.postId,
       parentMediaId: params.parentMediaId,
+      rootMediaId: rootFromParent,
       sortOrder: params.sortOrder ?? 0,
       storageKey: key,
       mimeType: outMime,
@@ -117,21 +120,37 @@ export async function processAndStoreUpload(params: {
   if (userId) await addUserStorage(userId, out.byteLength);
   else if (voterKey) await addAnonymousStorage(voterKey, out.byteLength);
 
-  return Object.assign(media, { deleteToken: anonToken });
+  if (!rootFromParent) {
+    await prisma.media.update({ where: { id: media.id }, data: { rootMediaId: media.id } });
+  }
+
+  return Object.assign(media, { deleteToken: anonToken, rootMediaId: rootFromParent ?? media.id });
 }
 
 export async function replaceMediaInPlace(params: {
   mediaId: string;
-  userId: string;
+  userId: string | null;
+  voterKey: string | null;
   buffer: Buffer;
   mime: string;
+  allowLockedRoot?: boolean;
 }) {
   const media = await prisma.media.findUnique({ where: { id: params.mediaId } });
   if (!media) throw new Error("Not found");
+  const root = media.rootMediaId ?? media.id;
+  if (media.id === root && !params.allowLockedRoot) {
+    throw new Error("The original image is locked — save a new version instead.");
+  }
 
   const { buffer: out, mime: outMime } = await prepareUploadBuffer(params.buffer, params.mime);
   const delta = out.byteLength - media.byteSize;
-  if (delta > 0) await assertUserCanStore(params.userId, delta);
+  if (params.userId) {
+    if (delta > 0) await assertUserCanStore(params.userId, delta);
+  } else if (params.voterKey) {
+    if (delta > 0) await assertAnonymousCanStore(params.voterKey, delta);
+  } else {
+    throw new Error("Sign in or use anonymous session");
+  }
 
   const key = newStorageKey(extForMime(outMime));
   await putObject(key, out, outMime);
@@ -163,8 +182,14 @@ export async function replaceMediaInPlace(params: {
     },
   });
 
-  if (delta > 0) await addUserStorage(params.userId, delta);
-  else if (delta < 0) await removeUserStorage(params.userId, -delta);
+  if (params.userId) {
+    if (delta > 0) await addUserStorage(params.userId, delta);
+    else if (delta < 0) await removeUserStorage(params.userId, -delta);
+  } else if (params.voterKey) {
+    const { addAnonymousStorage, removeAnonymousStorage } = await import("@/lib/storage-quota");
+    if (delta > 0) await addAnonymousStorage(params.voterKey, delta);
+    else if (delta < 0) await removeAnonymousStorage(params.voterKey, -delta);
+  }
 
   return media;
 }

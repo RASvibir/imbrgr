@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { uploadRateLimitPerHour } from "@/lib/config";
+import { syncStudioAutoLibrarySave, parseStudioKeepOriginal } from "@/lib/library-auto-save";
 import { processAndStoreUpload } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
 import { consumeRateLimit } from "@/lib/rate-limit";
@@ -21,6 +22,7 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const file = form.get("file");
   const visibilityRaw = form.get("visibility")?.toString();
+  const keepOriginal = parseStudioKeepOriginal(form.get("keepOriginal")?.toString() ?? true);
   if (!(file instanceof File)) return NextResponse.json({ error: "file required" }, { status: 400 });
 
   const mime = file.type || "application/octet-stream";
@@ -44,6 +46,7 @@ export async function POST(req: Request) {
       voterKey: actor.userId ? null : actor.voterKey,
       visibility,
     });
+    await syncStudioAutoLibrarySave(actor, media.id, keepOriginal);
     return NextResponse.json({
       shortId: media.shortId,
       storageKey: media.storageKey,

@@ -11,6 +11,7 @@ import {
 import { aiRateLimitPerHour } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { isMediaOwner } from "@/lib/media-access";
+import { syncStudioAutoLibrarySave, parseStudioKeepOriginal } from "@/lib/library-auto-save";
 import { processAndStoreUpload } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
 import { consumeRateLimit } from "@/lib/rate-limit";
@@ -22,6 +23,7 @@ import { normalizeVisibility } from "@/lib/visibility";
 const schema = z.object({
   mediaShortId: z.string().min(4),
   instruction: z.string().min(3).max(500),
+  keepOriginal: z.boolean().optional(),
 });
 
 async function loadMediaBytes(storageKey: string): Promise<Buffer | null> {
@@ -73,6 +75,8 @@ export async function POST(req: Request) {
       outMime = edited.mimeType;
     }
 
+    const keepOriginal = parseStudioKeepOriginal(parsed.data.keepOriginal);
+
     const parentId = media.parentMediaId ?? media.id;
     const created = await processAndStoreUpload({
       buffer: out,
@@ -94,6 +98,8 @@ export async function POST(req: Request) {
         data: { postId: null },
       });
     }
+
+    await syncStudioAutoLibrarySave(actor, created.id, keepOriginal);
 
     if (actor.userId) await recordAiGenerationSuccess(actor.userId, 1);
     else await recordAnonymousAiSuccess(actor.ipHash, 1);

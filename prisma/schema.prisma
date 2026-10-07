@@ -26,6 +26,7 @@ model User {
   favoritesPublic   Boolean   @default(true)
   storageBytesUsed       BigInt    @default(0)
   defaultPostVisibility      String    @default("UNLISTED")
+  studioKeepOriginal         Boolean   @default(true)
   role                       UserRole  @default(USER)
   banned                     Boolean   @default(false)
   suspended                  Boolean   @default(false)
@@ -44,6 +45,8 @@ model User {
   mediaAssets       Media[]
   aiUsage           AiGenerationUsage[]
   collections       Collection[]
+  libraryFolders    LibraryFolder[]
+  librarySaves      LibrarySave[]
 }
 
 model Account {
@@ -133,6 +136,10 @@ model Media {
   parentMediaId  String?
   parent         Media?   @relation("MediaVersions", fields: [parentMediaId], references: [id], onDelete: SetNull)
   versions       Media[]  @relation("MediaVersions")
+  rootMediaId    String?
+  rootMedia      Media?   @relation("MediaRootFamily", fields: [rootMediaId], references: [id], onDelete: SetNull)
+  rootFamily     Media[]  @relation("MediaRootFamily")
+  librarySaves   LibrarySave[]
   storageKey     String
   mimeType       String
   byteSize       Int
@@ -152,8 +159,43 @@ model Media {
   @@index([thumbMdKey])
   @@index([userId])
   @@index([parentMediaId])
+  @@index([rootMediaId])
   @@index([voterKey])
   @@index([visibility])
+}
+
+model LibraryFolder {
+  id        String        @id @default(cuid())
+  shortId   String        @unique
+  name      String
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voterKey  String?
+  createdAt DateTime      @default(now())
+  saves     LibrarySave[]
+
+  @@index([userId])
+  @@index([voterKey])
+}
+
+model LibrarySave {
+  id         String         @id @default(cuid())
+  shortId    String         @unique
+  mediaId    String
+  media      Media          @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  folderId   String?
+  folder     LibraryFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voterKey   String?
+  visibility String         @default("PUBLIC")
+  label      String?
+  savedAt    DateTime       @default(now())
+
+  @@index([userId])
+  @@index([voterKey])
+  @@index([folderId])
+  @@index([mediaId])
 }
 
 model Tag {
