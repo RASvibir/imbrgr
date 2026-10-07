@@ -7,7 +7,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { PostMediaImage } from "@/components/media/PostMediaImage";
 import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
+import { PostAuthorLine } from "@/components/posts/PostAuthorLine";
 import { PostRemixButton } from "@/components/posts/PostRemixButton";
+import { DELETED_USER_LABEL } from "@/lib/post-author";
 import { PostOwnerMenu } from "@/components/posts/PostOwnerMenu";
 import { CollectionQuickAdd } from "@/components/collections/CollectionQuickAdd";
 import { ReportButton } from "@/components/report/ReportButton";
@@ -36,6 +38,7 @@ type Comment = {
   parentId: string | null;
   createdAt: string;
   user: { username: string } | null;
+  authorDeleted?: boolean;
 };
 
 type Post = {
@@ -52,6 +55,7 @@ type Post = {
   aiPrompt?: string | null;
   userId: string | null;
   user: { username: string } | null;
+  authorDeleted?: boolean;
   media: Media[];
   tags: { tag: { slug: string; name: string } }[];
   remixedFrom?: { shortId: string; title: string } | null;
@@ -189,12 +193,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
             </span>
           ) : null}
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            {post.user ? (
-              <Link href={`/u/${post.user.username}`}>@{post.user.username}</Link>
-            ) : (
-              "anonymous"
-            )}{" "}
-            · {post.visibility.toLowerCase()}
+            <PostAuthorLine user={post.user} authorDeleted={post.authorDeleted} /> · {post.visibility.toLowerCase()}
           </p>
           {post.remixedFrom ? (
             <p className="mt-2 text-sm text-[var(--text-muted)]">
@@ -371,7 +370,11 @@ function CommentItem({
   return (
     <div>
       <p className="text-sm font-medium">
-        {comment.user ? `@${comment.user.username}` : "anonymous"} · score {comment.score}
+        {comment.user
+          ? `@${comment.user.username}`
+          : comment.authorDeleted
+            ? DELETED_USER_LABEL
+            : "anonymous"} · score {comment.score}
       </p>
       <p className="mt-1 text-[var(--text-secondary)]">{comment.body}</p>
       <div className="mt-2 flex gap-2 text-xs">

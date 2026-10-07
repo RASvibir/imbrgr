@@ -56,10 +56,15 @@ export async function GET(
     spiceScore: views.spiceScore ?? post.spiceScore ?? 0,
     canManage,
     canDelete: canDeletePost(post, post.media, actor),
-    media: post.media.map((m) => ({
-      ...m,
-      canRefine: m.mimeType.startsWith("image/") && isMediaOwner(m, actor),
-    })),
+    // Never expose guest identity keys or delete-token hashes on the public post payload.
+    media: post.media.map((m) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { voterKey: _voterKey, deleteTokenHash: _deleteTokenHash, ...publicMedia } = m;
+      return {
+        ...publicMedia,
+        canRefine: m.mimeType.startsWith("image/") && isMediaOwner(m, actor),
+      };
+    }),
   });
 }
 

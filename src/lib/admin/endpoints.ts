@@ -18,6 +18,7 @@ export const SUPER_ADMIN_API_ROUTES = [
   "GET /api/admin/content",
   "PATCH /api/admin/content/posts/[shortId]",
   "PATCH /api/admin/content/media/[shortId]",
+  "GET /api/admin/archive",
 ] as const;
 
 export const SUPER_ADMIN_PAGE_ROUTES = ["/admin"] as const;

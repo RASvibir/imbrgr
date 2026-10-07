@@ -17,6 +17,7 @@ export const postCardSelect = {
   spiceScore: true,
   visibility: true,
   aiGenerated: true,
+  authorDeleted: true,
   createdAt: true,
   user: { select: { id: true, username: true } },
   media: {
