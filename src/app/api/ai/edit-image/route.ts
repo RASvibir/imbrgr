@@ -11,7 +11,7 @@ import {
 import { aiRateLimitPerHour } from "@/lib/config";
 import { prisma } from "@/lib/db";
 import { isMediaOwner } from "@/lib/media-access";
-import { processAndStoreUpload } from "@/lib/media-save";
+import { processAndStoreUpload, replaceMediaInPlace } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { readLocalObject, readObject } from "@/lib/storage";
@@ -22,6 +22,7 @@ import { normalizeVisibility } from "@/lib/visibility";
 const schema = z.object({
   mediaShortId: z.string().min(4),
   instruction: z.string().min(3).max(500),
+  keepOriginal: z.boolean().optional(),
 });
 
 async function loadMediaBytes(storageKey: string): Promise<Buffer | null> {
@@ -73,6 +74,33 @@ export async function POST(req: Request) {
       outMime = edited.mimeType;
     }
 
+    const keepOriginal = parsed.data.keepOriginal ?? true;
+
+    if (!keepOriginal) {
+      await replaceMediaInPlace({
+        mediaId: media.id,
+        userId: actor.userId,
+        voterKey: actor.userId ? null : actor.voterKey,
+        buffer: out,
+        mime: outMime.startsWith("image/") ? outMime : "image/png",
+        allowLockedRoot: true,
+      });
+      const refreshed = await prisma.media.findUnique({ where: { id: media.id } });
+      if (!refreshed) return NextResponse.json({ error: friendlyError("Not found") }, { status: 404 });
+
+      if (actor.userId) await recordAiGenerationSuccess(actor.userId, 1);
+      else await recordAnonymousAiSuccess(actor.ipHash, 1);
+
+      return NextResponse.json({
+        mediaShortId: refreshed.shortId,
+        storageKey: refreshed.storageKey,
+        mimeType: refreshed.mimeType,
+        width: refreshed.width,
+        height: refreshed.height,
+        replacedInPlace: true,
+      });
+    }
+
     const parentId = media.parentMediaId ?? media.id;
     const created = await processAndStoreUpload({
       buffer: out,
@@ -103,6 +131,7 @@ export async function POST(req: Request) {
       storageKey: created.storageKey,
       mimeType: created.mimeType,
       deleteToken: created.deleteToken,
+      replacedInPlace: false,
     });
   } catch (e) {
     const raw = e instanceof Error ? e.message : "AI edit failed";

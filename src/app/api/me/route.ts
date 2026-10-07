@@ -18,6 +18,7 @@ const profileSchema = z.object({
     .optional(),
   favoritesPublic: z.boolean().optional(),
   defaultPostVisibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]).optional(),
+  studioKeepOriginal: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -37,6 +38,7 @@ export async function GET() {
       favoritesPublic: true,
       storageBytesUsed: true,
       defaultPostVisibility: true,
+      studioKeepOriginal: true,
       createdAt: true,
     },
   });

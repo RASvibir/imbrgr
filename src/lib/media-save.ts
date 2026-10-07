@@ -129,20 +129,28 @@ export async function processAndStoreUpload(params: {
 
 export async function replaceMediaInPlace(params: {
   mediaId: string;
-  userId: string;
+  userId: string | null;
+  voterKey: string | null;
   buffer: Buffer;
   mime: string;
+  allowLockedRoot?: boolean;
 }) {
   const media = await prisma.media.findUnique({ where: { id: params.mediaId } });
   if (!media) throw new Error("Not found");
   const root = media.rootMediaId ?? media.id;
-  if (media.id === root) {
+  if (media.id === root && !params.allowLockedRoot) {
     throw new Error("The original image is locked — save a new version instead.");
   }
 
   const { buffer: out, mime: outMime } = await prepareUploadBuffer(params.buffer, params.mime);
   const delta = out.byteLength - media.byteSize;
-  if (delta > 0) await assertUserCanStore(params.userId, delta);
+  if (params.userId) {
+    if (delta > 0) await assertUserCanStore(params.userId, delta);
+  } else if (params.voterKey) {
+    if (delta > 0) await assertAnonymousCanStore(params.voterKey, delta);
+  } else {
+    throw new Error("Sign in or use anonymous session");
+  }
 
   const key = newStorageKey(extForMime(outMime));
   await putObject(key, out, outMime);
@@ -174,8 +182,14 @@ export async function replaceMediaInPlace(params: {
     },
   });
 
-  if (delta > 0) await addUserStorage(params.userId, delta);
-  else if (delta < 0) await removeUserStorage(params.userId, -delta);
+  if (params.userId) {
+    if (delta > 0) await addUserStorage(params.userId, delta);
+    else if (delta < 0) await removeUserStorage(params.userId, -delta);
+  } else if (params.voterKey) {
+    const { addAnonymousStorage, removeAnonymousStorage } = await import("@/lib/storage-quota");
+    if (delta > 0) await addAnonymousStorage(params.voterKey, delta);
+    else if (delta < 0) await removeAnonymousStorage(params.voterKey, -delta);
+  }
 
   return media;
 }

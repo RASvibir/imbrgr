@@ -65,6 +65,7 @@ export const COPY = {
   librarySaveToFolder: "Save to folder…",
   libraryDownload: "Download",
   libraryRevertOriginal: "Revert to original",
+  studioKeepOriginal: "Keep original",
   librarySaved: "Saved to your images.",
   librarySavedToFolder: (name: string) => `Saved to folder “${name}”.`,
   guestDeleteHint:

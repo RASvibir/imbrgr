@@ -18,6 +18,8 @@ test.describe("studio library save and locked original", () => {
     await expect(page).toHaveURL(/media=/, { timeout: 15000 });
     const studioUrl = page.url();
 
+    await expect(page.getByTestId("studio-keep-original-checkbox")).toBeChecked();
+
     const previewImg = page.locator('[data-testid="studio-image-hit-target"] img');
     await expect(previewImg).toBeVisible();
     const originalSrc = await previewImg.getAttribute("src");

@@ -19,6 +19,8 @@ import { StudioAiAssist } from "@/components/studio/StudioAiAssist";
 import { StudioPromptHero } from "@/components/studio/StudioPromptHero";
 import { StudioImageMenu } from "@/components/studio/StudioImageMenu";
 import { StudioVersionStrip } from "@/components/studio/StudioVersionStrip";
+import { KeepOriginalToggle } from "@/components/studio/KeepOriginalToggle";
+import { readGuestKeepOriginal, writeGuestKeepOriginal } from "@/lib/studio-keep-original";
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
 
 type StudioAsset = {
@@ -102,6 +104,7 @@ export function ImageStudio({
   const [deleteToken, setDeleteToken] = useState<string | null>(null);
   const [versionRefreshKey, setVersionRefreshKey] = useState(0);
   const [canRevertOriginal, setCanRevertOriginal] = useState(false);
+  const [keepOriginal, setKeepOriginal] = useState(true);
   const [settings, setSettings] = useState<ImageSettingsValues>({
     title: "",
     description: "",
@@ -303,7 +306,8 @@ export function ImageStudio({
     if (!asset) return;
     const form = new FormData();
     form.set("file", blob, "studio-edit.jpg");
-    form.set("mode", "version");
+    form.set("mode", keepOriginal ? "version" : "replace");
+    form.set("keepOriginal", keepOriginal ? "true" : "false");
     const res = await fetch(`/api/media/${asset.shortId}/edit`, { method: "POST", body: form });
     const data = await res.json();
     if (!res.ok) {
@@ -343,7 +347,7 @@ export function ImageStudio({
         method: "POST",
         signal: ac.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mediaShortId: asset.shortId, instruction }),
+        body: JSON.stringify({ mediaShortId: asset.shortId, instruction, keepOriginal }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -397,6 +401,41 @@ export function ImageStudio({
 
   const signedIn = Boolean(session?.user);
   const preview = asset ? mediaUrl(asset.storageKey, asset.mimeType) : null;
+
+  useEffect(() => {
+    if (signedIn) {
+      void fetch("/api/me")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((u) => {
+          if (u && typeof u.studioKeepOriginal === "boolean") setKeepOriginal(u.studioKeepOriginal);
+        });
+    } else {
+      setKeepOriginal(readGuestKeepOriginal());
+    }
+  }, [signedIn]);
+
+  const setKeepOriginalPref = useCallback(
+    (next: boolean) => {
+      setKeepOriginal(next);
+      if (!keepOriginal && next) {
+        setVersionRefreshKey((k) => k + 1);
+      }
+      if (signedIn) {
+        void fetch("/api/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studioKeepOriginal: next }),
+        });
+      } else {
+        writeGuestKeepOriginal(next);
+      }
+    },
+    [signedIn, keepOriginal],
+  );
+
+  useEffect(() => {
+    if (!keepOriginal) setCanRevertOriginal(false);
+  }, [keepOriginal]);
 
   const saveMediaSettings = async () => {
     if (!asset) return;
@@ -510,33 +549,39 @@ export function ImageStudio({
         ))}
       </nav>
 
+      <div className="mt-4">
+        <KeepOriginalToggle checked={keepOriginal} onChange={setKeepOriginalPref} />
+      </div>
+
       {asset && preview ? (
-        <div className="mt-4">
+        <div className="mt-3 space-y-2">
           <StudioImageMenu
             imageSrc={preview}
             mediaShortId={asset.shortId}
             mimeType={asset.mimeType}
             storageKey={asset.storageKey}
             defaultVisibility={(settings.visibility ?? "PUBLIC") as "PUBLIC" | "UNLISTED" | "PRIVATE"}
-            canRevert={canRevertOriginal}
+            canRevert={keepOriginal && canRevertOriginal}
             onRevertOriginal={() => void revertToOriginal()}
             onSaved={(m) => setMsg(m)}
             onError={(m) => setErr(m)}
           />
-          <StudioVersionStrip
-            mediaShortId={asset.shortId}
-            refreshKey={versionRefreshKey}
-            onVersionsLoaded={onVersionsLoaded}
-            onSelectVersion={(v) => {
-              void setActiveAsset({
-                shortId: v.shortId,
-                storageKey: v.storageKey,
-                mimeType: v.mimeType,
-                width: v.width,
-                height: v.height,
-              });
-            }}
-          />
+          {keepOriginal ? (
+            <StudioVersionStrip
+              mediaShortId={asset.shortId}
+              refreshKey={versionRefreshKey}
+              onVersionsLoaded={onVersionsLoaded}
+              onSelectVersion={(v) => {
+                void setActiveAsset({
+                  shortId: v.shortId,
+                  storageKey: v.storageKey,
+                  mimeType: v.mimeType,
+                  width: v.width,
+                  height: v.height,
+                });
+              }}
+            />
+          ) : null}
         </div>
       ) : null}
 

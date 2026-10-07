@@ -26,6 +26,7 @@ model User {
   favoritesPublic   Boolean   @default(true)
   storageBytesUsed       BigInt    @default(0)
   defaultPostVisibility      String    @default("UNLISTED")
+  studioKeepOriginal         Boolean   @default(true)
   role                       UserRole  @default(USER)
   banned                     Boolean   @default(false)
   suspended                  Boolean   @default(false)

@@ -59,7 +59,8 @@ Guest uploads default to **unlisted**; private posts require a signed-in owner.
 ### Studio library, locked original, and folders
 
 - **Click-to-save:** In the studio, click the preview image for **Save**, **Save to folder…**, **Download**, or **Revert to original** (keyboard-friendly menu; Esc closes).
-- **Locked original:** The first file for each studio chain (upload or generation) is the **immutable original** (`Media.rootMediaId` points at that row). Manual edits and AI edits create **new** `Media` rows with the same `rootMediaId`; the original blob is never overwritten (`replace` on the root is rejected).
+- **Keep original (toggle):** Checkbox near the preview (default **on**). **On:** first file stays immutable; edits are new versions; **Revert to original** available; version strip shown. **Off:** manual and AI edits **replace** the current file in place (old blob deleted, quota adjusted) — no extra stored original, no revert, version strip hidden. Preference: `User.studioKeepOriginal` for signed-in users; `localStorage` (`imbrgr_studio_keep_original`) for guests.
+- **Locked original:** When **Keep original** is on, the first file for each studio chain is the **immutable original** (`Media.rootMediaId` points at that row). Manual edits and AI edits create **new** `Media` rows with the same `rootMediaId`; the original blob is never overwritten (`replace` on the root is rejected unless **Keep original** is off).
 - **Versions strip:** Thumbnails for all versions in the family; the original shows a lock badge.
 - **Library saves:** `POST /api/library/save` records the **current** media version in `LibrarySave` (signed-in `userId` or guest `voterKey`). Visibility on save respects the studio visibility control (AI gens default public unless the user chose otherwise).
 - **Folders:** `LibraryFolder` per owner; create/rename/delete via `/api/library/folders`. Saves can target a folder by id or **new folder name** from the studio menu.
