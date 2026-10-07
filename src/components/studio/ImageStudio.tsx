@@ -76,6 +76,7 @@ export function ImageStudio({
     html: string;
     bbcode: string;
   } | null>(null);
+  const [mediaVisibility, setMediaVisibility] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [urlInput, setUrlInput] = useState("");
@@ -128,6 +129,7 @@ export function ImageStudio({
     if (res.ok) {
       const data = await res.json();
       setShare(data.share);
+      setMediaVisibility(typeof data.visibility === "string" ? data.visibility : null);
     }
   }, []);
 
@@ -767,11 +769,13 @@ export function ImageStudio({
                     visibility={settings.visibility}
                     successHref={share.pageUrl}
                   />
-                  <FieldPressInvite
-                    imageDirectUrl={share.directUrl}
-                    visibility={settings.visibility}
-                    title={settings.title}
-                  />
+                  {mediaVisibility !== null ? (
+                    <FieldPressInvite
+                      imageDirectUrl={share.directUrl}
+                      visibility={mediaVisibility}
+                      title={settings.title}
+                    />
+                  ) : null}
                 </>
               ) : null}
             </>

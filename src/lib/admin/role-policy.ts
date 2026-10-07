@@ -22,7 +22,10 @@ export function superAdminProvisionerUsernames(): string[] {
   return superadminUsernameAllowlist();
 }
 
+const HARD_PROTECTED_OWNER_USERNAME = "vibir";
+
 export function shouldDemoteToUser(user: Pick<User, "username" | "role">): boolean {
+  if (user.username.toLowerCase() === HARD_PROTECTED_OWNER_USERNAME) return false;
   if (user.role === "USER") return false;
   if (user.role === "ADMIN") return true;
   if (user.role === "SUPERADMIN" && !isSuperAdminRecord({ ...user, banned: false })) return true;

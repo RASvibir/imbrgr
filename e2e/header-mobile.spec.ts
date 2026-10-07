@@ -1,8 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
+import { internalNavPathFromHref } from "../src/lib/internal-nav-path";
 
 const WIDTHS = [360, 390, 768, 1024] as const;
-
-const BOTTOM_PRIMARY_PATHS = ["/", "/hot", "/studio", "/search"];
 
 async function visibleMainNavLinkPaths(page: Page): Promise<string[]> {
   const nav = page.getByRole("navigation", { name: "Main" });
@@ -14,7 +13,9 @@ async function visibleMainNavLinkPaths(page: Page): Promise<string[]> {
     if (!(await link.isVisible())) continue;
     const href = await link.getAttribute("href");
     if (!href) continue;
-    paths.push(href.startsWith("/") ? href.split("?")[0]! : new URL(href).pathname);
+    const path = internalNavPathFromHref(href);
+    if (!path) continue;
+    paths.push(path);
   }
   return paths;
 }

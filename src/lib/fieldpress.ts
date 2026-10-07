@@ -16,7 +16,18 @@ export function mediaDirectFileUrl(storageKey: string, mimeType: string): string
   return buildShareCodes("media", storageKey, mimeType).directUrl;
 }
 
-export function fieldpressComposeUrl(imageDirectUrl: string, title?: string | null): string {
+/** Block localhost direct URLs from being sent to FieldPress compose links. */
+export function isSafeFieldPressImageUrl(imageDirectUrl: string): boolean {
+  try {
+    const host = new URL(imageDirectUrl).hostname;
+    return host !== "localhost" && host !== "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+export function fieldpressComposeUrl(imageDirectUrl: string, title?: string | null): string | null {
+  if (!isSafeFieldPressImageUrl(imageDirectUrl)) return null;
   const url = new URL(FIELDPRESS_URL);
   url.searchParams.set("compose", "1");
   url.searchParams.set("image", imageDirectUrl);
@@ -35,5 +46,6 @@ export type FieldPressStoryLinkInput = {
 export function fieldpressStoryHref(input: FieldPressStoryLinkInput): string | null {
   if (!canOfferFieldPressLink(input.visibility)) return null;
   const direct = mediaDirectFileUrl(input.storageKey, input.mimeType);
+  if (!isSafeFieldPressImageUrl(direct)) return null;
   return fieldpressComposeUrl(direct, input.title);
 }

@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import {
   canOfferFieldPressLink,
   fieldpressComposeUrl,
+  isSafeFieldPressImageUrl,
   mediaDirectFileUrl,
 } from "@/lib/fieldpress";
 
@@ -32,5 +33,11 @@ describe("fieldpress", () => {
     expect(canOfferFieldPressLink("PUBLIC")).toBe(true);
     expect(canOfferFieldPressLink("UNLISTED")).toBe(true);
     expect(canOfferFieldPressLink("PRIVATE")).toBe(false);
+  });
+
+  it("rejects localhost compose image URLs", () => {
+    expect(isSafeFieldPressImageUrl("http://localhost:3000/api/media/file/x.png")).toBe(false);
+    expect(fieldpressComposeUrl("http://localhost:3000/api/media/file/x.png")).toBeNull();
+    expect(isSafeFieldPressImageUrl("https://imbrgr.vercel.app/api/media/file/x.png")).toBe(true);
   });
 });

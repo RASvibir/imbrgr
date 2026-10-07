@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
-  FIELDPRESS_INVITE_DISMISS_STORAGE_KEY,
   canOfferFieldPressLink,
   fieldpressComposeUrl,
+  isSafeFieldPressImageUrl,
 } from "@/lib/fieldpress";
+import {
+  dismissFieldPressInvite,
+  readFieldPressInviteDismissed,
+  subscribeFieldPressInviteDismissed,
+} from "@/lib/fieldpress-invite-dismiss";
 
 type Props = {
   /** `share.directUrl` — absolute `/api/media/file/...` URL */
@@ -14,44 +19,24 @@ type Props = {
   title?: string | null;
 };
 
-function readDismissed(): boolean {
-  try {
-    return localStorage.getItem(FIELDPRESS_INVITE_DISMISS_STORAGE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 export function FieldPressInvite({ imageDirectUrl, visibility, title }: Props) {
-  const [dismissed, setDismissed] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const dismissed = useSyncExternalStore(
+    subscribeFieldPressInviteDismissed,
+    readFieldPressInviteDismissed,
+    () => true,
+  );
 
-  useEffect(() => {
-    setDismissed(readDismissed());
-  }, []);
-
-  const dismiss = useCallback(() => {
-    try {
-      localStorage.setItem(FIELDPRESS_INVITE_DISMISS_STORAGE_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    setDismissed(true);
-  }, []);
-
-  const copyImageUrl = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(imageDirectUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      /* ignore */
-    }
-  }, [imageDirectUrl]);
-
-  if (dismissed || !imageDirectUrl || !canOfferFieldPressLink(visibility)) return null;
+  if (
+    dismissed ||
+    !imageDirectUrl ||
+    !isSafeFieldPressImageUrl(imageDirectUrl) ||
+    !canOfferFieldPressLink(visibility)
+  ) {
+    return null;
+  }
 
   const composeHref = fieldpressComposeUrl(imageDirectUrl, title);
+  if (!composeHref) return null;
 
   return (
     <section
@@ -71,14 +56,7 @@ export function FieldPressInvite({ imageDirectUrl, visibility, title }: Props) {
           </a>
           <button
             type="button"
-            onClick={() => void copyImageUrl()}
-            className="text-sm text-[var(--text-muted)] underline-offset-2 hover:text-[var(--text-secondary)] hover:underline"
-          >
-            {copied ? "Copied" : "Copy image URL"}
-          </button>
-          <button
-            type="button"
-            onClick={dismiss}
+            onClick={dismissFieldPressInvite}
             className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
             aria-label="Dismiss"
           >

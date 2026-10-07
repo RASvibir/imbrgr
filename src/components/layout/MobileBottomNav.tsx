@@ -62,21 +62,6 @@ export function MobileBottomNav() {
       <MobileBottomSheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
         <ul className="space-y-1 text-base" data-testid="mobile-nav-menu">
           <li>
-            <a
-              href={FIELDPRESS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="tap-target block rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-3 hover:bg-[var(--surface-hover)]"
-              onClick={() => setMoreOpen(false)}
-              data-testid="fieldpress-mobile-link"
-            >
-              <span className="font-semibold text-[var(--accent-primary)]">Write in FieldPress</span>
-              <span className="mt-0.5 block text-sm font-normal text-[var(--text-muted)]">
-                Journalism & dispatches — opens in a new tab
-              </span>
-            </a>
-          </li>
-          <li>
             <Link href="/tags" className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]" onClick={() => setMoreOpen(false)}>
               Tags
             </Link>
@@ -85,6 +70,18 @@ export function MobileBottomNav() {
             <Link href="/upload" className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]" onClick={() => setMoreOpen(false)}>
               Multi-image upload
             </Link>
+          </li>
+          <li>
+            <a
+              href={FIELDPRESS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+              data-testid="fieldpress-mobile-link"
+            >
+              FieldPress ↗
+            </a>
           </li>
           {session?.user ? (
             <>

@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { PostMediaImage } from "@/components/media/PostMediaImage";
 import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
@@ -162,6 +162,12 @@ export function PostDetail({ shortId }: { shortId: string }) {
     setMsg("Settings saved");
   };
 
+  const publicShare = useMemo(() => {
+    if (!post || post.visibility === "PRIVATE" || !post.media[0]) return null;
+    const m = post.media[0];
+    return buildShareCodes(m.shortId, m.storageKey, m.mimeType, post.title, postUrl(shortId));
+  }, [post, shortId]);
+
   if (notFound) {
     return <p className="p-8 text-center text-[var(--text-muted)]">This post is private or does not exist.</p>;
   }
@@ -278,29 +284,12 @@ export function PostDetail({ shortId }: { shortId: string }) {
         <CollectionQuickAdd postShortId={shortId} />
       ) : null}
 
-      {post.visibility !== "PRIVATE" ? (
+      {publicShare ? (
         <>
-          <ShareLinks
-            title="Share & embed"
-            share={buildShareCodes(
-              post.media[0]?.shortId ?? shortId,
-              post.media[0]?.storageKey ?? "",
-              post.media[0]?.mimeType ?? "image/jpeg",
-              post.title,
-              postUrl(shortId),
-            )}
-          />
-          {post.media[0] ? (
+          <ShareLinks title="Share & embed" share={publicShare} />
+          {session?.user?.id === post.userId ? (
             <FieldPressInvite
-              imageDirectUrl={
-                buildShareCodes(
-                  post.media[0].shortId,
-                  post.media[0].storageKey,
-                  post.media[0].mimeType,
-                  post.title,
-                  postUrl(shortId),
-                ).directUrl
-              }
+              imageDirectUrl={publicShare.directUrl}
               visibility={post.visibility}
               title={post.title}
             />

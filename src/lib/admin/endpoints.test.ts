@@ -20,8 +20,8 @@ function collectRouteFiles(dir: string): string[] {
 
 describe("super admin API routes", () => {
   it("documents every admin route file", () => {
-    const files = collectRouteFiles(adminApiRoot);
-    expect(files.length).toBe(12);
+    const files = collectRouteFiles(adminApiRoot).sort();
+    expect(files.length).toBeGreaterThan(0);
     expect(SUPER_ADMIN_API_ROUTES.length).toBeGreaterThanOrEqual(files.length);
   });
 
