@@ -3,6 +3,16 @@ export function profileImageUrl(storageKey: string | null | undefined): string |
   return mediaUrl(storageKey, "image/jpeg");
 }
 
+/** Same as profileImageUrl with a cache-bust query param after uploads. */
+export function profileImageUrlBusted(
+  storageKey: string | null | undefined,
+  cacheBust?: number | string | null,
+): string | null {
+  const base = profileImageUrl(storageKey);
+  if (!base || cacheBust == null || cacheBust === "") return base;
+  return `${base}&v=${encodeURIComponent(String(cacheBust))}`;
+}
+
 /** Path only (no query) for binary media bytes — never collides with `/api/media/[shortId]` JSON API. */
 export function mediaFilePath(storageKey: string): string {
   const segments = storageKey.split("/").map((s) => encodeURIComponent(s));

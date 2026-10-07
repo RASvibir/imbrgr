@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isStorageKeySegment } from "./media-keys";
-import { mediaFilePath, mediaUrl } from "./urls";
+import { mediaFilePath, mediaUrl, profileImageUrlBusted } from "./urls";
 
 describe("media URLs", () => {
   it("serves bytes under /api/media/file/ not /api/media/", () => {
@@ -9,6 +9,12 @@ describe("media URLs", () => {
     expect(mediaUrl(key, "image/jpeg")).toBe(
       `/api/media/file/${key}?mime=${encodeURIComponent("image/jpeg")}`,
     );
+  });
+
+  it("appends cache bust on profile images", () => {
+    const key = "user/avatar.jpg";
+    expect(profileImageUrlBusted(key, 123)).toContain("v=123");
+    expect(profileImageUrlBusted(key, null)).not.toContain("v=");
   });
 
   it("distinguishes shortId from storageKey", () => {
