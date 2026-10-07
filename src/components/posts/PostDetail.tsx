@@ -8,7 +8,7 @@ import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { buildShareCodes } from "@/lib/embed-codes";
-import { mediaUrl } from "@/lib/urls";
+import { mediaUrl, postUrl } from "@/lib/urls";
 import type { Visibility } from "@/lib/visibility";
 
 type Media = {
@@ -260,6 +260,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
             post.media[0]?.storageKey ?? "",
             post.media[0]?.mimeType ?? "image/jpeg",
             post.title,
+            postUrl(shortId),
           )}
         />
       ) : (

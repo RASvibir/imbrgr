@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyDeleteToken } from "@/lib/anon-delete";
 import { isStorageKeySegment } from "@/lib/media-keys";
-import { mediaFilePath } from "@/lib/urls";
+import { mediaFilePath, postUrl } from "@/lib/urls";
 import { buildShareCodes } from "@/lib/embed-codes";
 import { prisma } from "@/lib/db";
 import { canViewMedia, isMediaOwner } from "@/lib/media-access";
@@ -40,7 +40,8 @@ export async function GET(
   }
 
   const title = media.post?.title ?? "image";
-  const share = buildShareCodes(media.shortId, media.storageKey, media.mimeType, title);
+  const publicPage = media.post?.shortId ? postUrl(media.post.shortId) : undefined;
+  const share = buildShareCodes(media.shortId, media.storageKey, media.mimeType, title, publicPage);
 
   return NextResponse.json({
     shortId: media.shortId,

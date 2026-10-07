@@ -469,10 +469,6 @@ export function ImageStudio({
                   Import
                 </button>
               </div>
-              <p className="text-xs text-[var(--text-muted)]">
-                Need a classic multi-file upload?{" "}
-                <Link href="/upload" className="text-[var(--accent-primary)]">Upload page</Link>
-              </p>
             </div>
           </details>
         </div>
@@ -537,13 +533,6 @@ export function ImageStudio({
                   </button>
                 </div>
               </details>
-              <button
-                type="button"
-                onClick={() => selectTab("share")}
-                className="text-sm font-medium text-[var(--accent-primary)]"
-              >
-                Continue to share →
-              </button>
             </>
           )}
         </section>

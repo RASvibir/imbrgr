@@ -15,14 +15,8 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
         Gallery
       </Link>
       <Link
-        href="/upload"
-        className="rounded-md px-2 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] sm:px-3"
-      >
-        Upload
-      </Link>
-      <Link
         href="/studio"
-        className="rounded-md px-2 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] sm:px-3"
+        className="rounded-md px-2 py-2 text-sm font-medium text-[var(--accent-primary)] hover:bg-[var(--surface-hover)] sm:px-3"
       >
         Studio
       </Link>

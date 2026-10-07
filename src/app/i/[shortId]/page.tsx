@@ -1,9 +1,27 @@
-import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { canViewMedia } from "@/lib/media-access";
+import { buildImagePageMetadata } from "@/lib/og";
 import { getServerActor } from "@/lib/request-identity";
-import { mediaUrl } from "@/lib/urls";
+import { imagePageUrl, mediaUrl } from "@/lib/urls";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ shortId: string }>;
+}): Promise<Metadata> {
+  const { shortId } = await params;
+  const media = await prisma.media.findUnique({
+    where: { shortId },
+    include: { post: { select: { shortId: true, title: true, visibility: true, userId: true } } },
+  });
+  if (!media) {
+    return { title: "Not found" };
+  }
+  return buildImagePageMetadata(media, imagePageUrl(shortId));
+}
 
 export default async function ImageDirectPage({
   params,

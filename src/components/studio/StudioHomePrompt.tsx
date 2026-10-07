@@ -18,9 +18,8 @@ export function StudioHomePrompt() {
   };
 
   return (
-    <div className="mt-6 max-w-xl rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)]/80 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-[var(--accent-amber)]">Dream it up</p>
-      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-stretch">
+    <div className="mt-6 max-w-xl">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
         <input
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}

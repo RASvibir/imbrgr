@@ -20,21 +20,11 @@ export default function HomePage() {
         <p className="mt-3 max-w-xl text-[var(--text-secondary)]">
           Upload stacks, vote, comment, and share — ember glow, burger energy.
         </p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link
-            href="/studio"
-            className="inline-flex rounded-xl bg-[var(--accent-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)]"
-          >
-            Open studio
-          </Link>
-          <Link
-            href="/upload"
-            className="inline-flex rounded-xl border border-[var(--border-strong)] px-5 py-2.5 text-sm font-semibold text-[var(--text-primary)]"
-          >
-            Upload
-          </Link>
-        </div>
         <StudioHomePrompt />
+        <p className="mt-4 text-sm text-[var(--text-muted)]">
+          Posting a stack?{" "}
+          <Link href="/upload" className="text-[var(--accent-primary)]">Multi-image upload</Link>
+        </p>
       </section>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">

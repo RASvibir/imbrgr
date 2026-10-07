@@ -62,6 +62,28 @@ test.describe("imbrgr e2e", () => {
     await expect(page.getByText(/Page link/i)).toBeVisible();
   });
 
+  test("public image page exposes og:image for crawlers", async ({ page, request }) => {
+    const importRes = await request.post("/api/studio/import", {
+      multipart: {
+        file: {
+          name: "tiny.png",
+          mimeType: "image/png",
+          buffer: await fs.readFile(png),
+        },
+      },
+    });
+    const imported = await importRes.json();
+    await page.goto(`/i/${imported.shortId}`);
+    const ogImage = await page.locator('meta[property="og:image"]').getAttribute("content");
+    expect(ogImage).toMatch(/\/api\/og\/m\//);
+    expect(ogImage).toContain(imported.shortId);
+    const ogUrl = await page.locator('meta[property="og:url"]').getAttribute("content");
+    expect(ogUrl).toMatch(/\/i\//);
+    const ogRes = await request.get(`/api/og/m/${imported.shortId}`);
+    expect(ogRes.status()).toBe(200);
+    expect(ogRes.headers()["content-type"]).toMatch(/image\//);
+  });
+
   test("anonymous AI generate mock", async ({ page }) => {
     await page.goto("/studio");
     await page.getByPlaceholder(/Describe the image/i).fill("ember burger test");

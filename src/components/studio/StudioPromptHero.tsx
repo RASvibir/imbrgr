@@ -38,7 +38,6 @@ export function StudioPromptHero({
   return (
     <section className="rounded-2xl border border-[var(--border-subtle)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--surface-sunken)] p-5 sm:p-8 shadow-[var(--shadow-ember)]">
       <label className="block">
-        <span className="text-sm font-medium text-[var(--text-secondary)]">What should we cook up?</span>
         <textarea
           value={prompt}
           onChange={(e) => onPromptChange(e.target.value)}
