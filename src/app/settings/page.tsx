@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { CollectionSettings } from "@/components/collections/CollectionSettings";
 import { StorageMeter } from "@/components/storage/StorageMeter";
+import { COPY } from "@/lib/user-messages";
 import { profileImageUrlBusted } from "@/lib/urls";
 
 type LinkItem = { label: string; url: string };
@@ -28,6 +29,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [msg, setMsg] = useState("");
+  const [deleteAllPosts, setDeleteAllPosts] = useState(false);
   const [err, setErr] = useState("");
   const [crop, setCrop] = useState<{ kind: "avatar" | "banner"; src: string } | null>(null);
   const [imageCacheBust, setImageCacheBust] = useState<{ avatar?: number; banner?: number }>({});
@@ -99,13 +101,15 @@ export default function SettingsPage() {
   };
 
   const deleteAccount = async () => {
-    if (
-      !confirm(
-        "Delete your account? Your public gallery posts stay up as “Deleted user”; private and unlisted posts are removed. This cannot be undone.",
-      )
-    )
-      return;
-    const res = await fetch("/api/me/delete", { method: "POST" });
+    const confirmMsg = deleteAllPosts
+      ? "Delete your account and remove all your posts from the gallery? Posts are archived internally but won’t be visible on imbrgr. This cannot be undone."
+      : "Delete your account? Your public gallery posts stay up as “Deleted user”; private and unlisted posts are removed. This cannot be undone.";
+    if (!confirm(confirmMsg)) return;
+    const res = await fetch("/api/me/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deleteAllPosts }),
+    });
     if (res.ok) {
       await signOut({ callbackUrl: "/" });
     } else {
@@ -282,6 +286,15 @@ export default function SettingsPage() {
 
       <section className="mt-10 rounded-xl border border-[var(--danger)]/40 p-4">
         <h2 className="font-semibold text-[var(--danger)]">Delete account</h2>
+        <label className="mt-3 flex cursor-pointer gap-2 text-sm text-[var(--text-secondary)]">
+          <input
+            type="checkbox"
+            checked={deleteAllPosts}
+            onChange={(e) => setDeleteAllPosts(e.target.checked)}
+            data-testid="delete-account-also-posts"
+          />
+          {COPY.deleteAccountAlsoRemovePosts}
+        </label>
         <button type="button" onClick={deleteAccount} className="mt-3 rounded-lg border border-[var(--danger)] px-4 py-2 text-sm text-[var(--danger)]">
           Delete my account
         </button>

@@ -2,7 +2,7 @@ import { canViewMedia, canViewPost } from "@/lib/media-access";
 import { contentTypeForKey } from "@/lib/media-types";
 import { prisma } from "@/lib/db";
 import type { Actor } from "@/lib/request-identity";
-import { readLocalObject, readObject, storageDriver } from "@/lib/storage";
+import { ARCHIVE_STORAGE_PREFIX, readLocalObject, readObject, storageDriver } from "@/lib/storage";
 
 type MediaRow = {
   visibility: string;
@@ -30,6 +30,10 @@ export async function serveMediaFile(
   storageKey: string,
   actor: Actor,
 ): Promise<Response> {
+  if (storageKey.startsWith(ARCHIVE_STORAGE_PREFIX)) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
   if (storageDriver() === "blob" && !process.env.BLOB_READ_WRITE_TOKEN) {
     console.error(
       "[imbrgr/media] STORAGE_DRIVER=blob but BLOB_READ_WRITE_TOKEN is unset; files will 404",

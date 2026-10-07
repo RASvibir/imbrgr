@@ -400,3 +400,42 @@ model AiPromptCache {
 
   @@index([lastUsedAt])
 }
+
+model ArchivedPost {
+  id              String          @id @default(cuid())
+  originalPostId  String
+  originalShortId String
+  ownerUserId     String?
+  ownerUsername   String?
+  ownerEmail      String?
+  reason          String
+  deletedAt       DateTime        @default(now())
+  snapshot        Json
+  media           ArchivedMedia[]
+
+  @@index([originalShortId])
+  @@index([originalPostId])
+  @@index([ownerUserId])
+  @@index([deletedAt])
+}
+
+model ArchivedMedia {
+  id              String        @id @default(cuid())
+  archivedPostId  String?
+  archivedPost    ArchivedPost? @relation(fields: [archivedPostId], references: [id], onDelete: SetNull)
+  originalMediaId String
+  originalShortId String
+  ownerUserId     String?
+  ownerUsername   String?
+  reason          String
+  deletedAt       DateTime      @default(now())
+  snapshot        Json
+  storageKey      String
+  thumbSmKey      String?
+  thumbMdKey      String?
+
+  @@index([originalShortId])
+  @@index([originalMediaId])
+  @@index([archivedPostId])
+  @@index([deletedAt])
+}

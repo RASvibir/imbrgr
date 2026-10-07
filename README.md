@@ -76,12 +76,13 @@ Uploads and studio creations default to **public** on the gallery (Home / Hot). 
 
 ### Account deletion
 
-- **`POST /api/me/delete`** (signed in) runs `deleteUserAccount` in `src/lib/account-delete.ts`.
-- **Public** posts and their media/files/thumbnails **stay** on the gallery; `Post.userId` and `Media.userId` are cleared so the UI shows **Deleted user** (no profile link). Guest uploads without an account still show as **anonymous** when media keeps a `voterKey`.
-- **Unlisted** and **private** posts (and any leftover personal-only media) are **deleted** with storage cleanup and quota adjustment.
-- Library folders/saves, collections, favorites, sessions, and profile avatar/banner are removed with the user row (`Post.user` FK is **ON DELETE SET NULL** in Postgres, matching `schema.prisma`).
-- Comments and votes keep their rows with `userId` nulled; comment authors show as Deleted user.
-- Deleted usernames return **404** on `/u/<username>`; super-admins can **Remove** ownerless posts from `/admin` → Content (report flow unchanged).
+- **`POST /api/me/delete`** (signed in) accepts `{ deleteAllPosts?: boolean }` and runs `deleteUserAccount` in `src/lib/account-delete.ts`.
+- **Default:** **public** posts and their media/files **stay** on the gallery; `Post.userId` and `Media.userId` are cleared so the UI shows **Deleted user**. Guest uploads without an account still show as **anonymous** when media keeps a `voterKey`.
+- **Optional:** settings checkbox **“Also remove my posts”** (`deleteAllPosts: true`) removes every post from feeds and post pages (404) while **archiving** snapshots in `ArchivedPost` / `ArchivedMedia` (reason `account_deleted_by_user`, owner email/username, JSON row snapshots, archived blob keys under `archive/` — not served via `/api/media/file/*`).
+- **Unlisted/private** posts removed on any account delete use the same **archive** path (not hard-deleted from Postgres or object storage).
+- Library folders/saves, collections, favorites, sessions, and profile avatar/banner are removed with the user row (`Post.user` FK is **ON DELETE SET NULL** in Postgres).
+- Comments and votes keep live rows with `userId` nulled; comment authors show as Deleted user.
+- Deleted usernames return **404** on `/u/<username>`. Super-admins browse archives read-only under `/admin` → **Archive**; ownerless live posts can still be **Remove**d from Content (report flow unchanged).
 
 ### AI pipeline (studio)
 

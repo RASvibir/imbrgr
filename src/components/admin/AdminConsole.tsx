@@ -16,7 +16,7 @@ export type Dashboard = {
   recentSignups: { id: string; username: string; email: string; createdAt: string | Date; role: string }[];
 };
 
-type Tab = "dashboard" | "users" | "content" | "reports" | "ai" | "settings" | "audit";
+type Tab = "dashboard" | "users" | "content" | "archive" | "reports" | "ai" | "settings" | "audit";
 
 export function AdminConsole({ initialDashboard }: { initialDashboard: Dashboard }) {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -24,6 +24,7 @@ export function AdminConsole({ initialDashboard }: { initialDashboard: Dashboard
   const [users, setUsers] = useState<unknown[]>([]);
   const [userQ, setUserQ] = useState("");
   const [content, setContent] = useState<{ posts: unknown[]; media: unknown[] } | null>(null);
+  const [archive, setArchive] = useState<{ posts: unknown[]; orphanMedia: unknown[] } | null>(null);
   const [reports, setReports] = useState<unknown[]>([]);
   const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
   const [audit, setAudit] = useState<unknown[]>([]);
@@ -42,6 +43,10 @@ export function AdminConsole({ initialDashboard }: { initialDashboard: Dashboard
     if (next === "content") {
       const r = await fetch("/api/admin/content");
       setContent(await r.json());
+    }
+    if (next === "archive") {
+      const r = await fetch("/api/admin/archive");
+      setArchive(await r.json());
     }
     if (next === "reports") {
       const r = await fetch("/api/admin/reports");
@@ -74,6 +79,7 @@ export function AdminConsole({ initialDashboard }: { initialDashboard: Dashboard
     { id: "dashboard", label: "Dashboard" },
     { id: "users", label: "Users" },
     { id: "content", label: "Content" },
+    { id: "archive", label: "Archive" },
     { id: "reports", label: "Reports" },
     { id: "ai", label: "AI usage" },
     { id: "settings", label: "Site" },
@@ -233,6 +239,65 @@ export function AdminConsole({ initialDashboard }: { initialDashboard: Dashboard
                   </span>
                 </li>
               ))}
+            </ul>
+          </section>
+        </div>
+      ) : null}
+
+      {tab === "archive" && archive ? (
+        <div className="space-y-6">
+          <p className="text-sm text-[var(--text-muted)]">
+            Read-only retention from account deletion and removed posts. Blob keys live under{" "}
+            <code className="text-xs">archive/</code> and are not served publicly.
+          </p>
+          <section>
+            <h2 className="font-semibold">Archived posts</h2>
+            <ul className="mt-2 divide-y rounded-xl border text-sm">
+              {(archive.posts as {
+                id: string;
+                originalShortId: string;
+                ownerUsername: string | null;
+                reason: string;
+                deletedAt: string;
+                media: { originalShortId: string }[];
+              }[]).length === 0 ? (
+                <li className="p-3 text-[var(--text-muted)]">No archived posts yet.</li>
+              ) : (
+                (archive.posts as {
+                  id: string;
+                  originalShortId: string;
+                  ownerUsername: string | null;
+                  reason: string;
+                  deletedAt: string;
+                  media: { originalShortId: string }[];
+                }[]).map((p) => (
+                  <li key={p.id} className="p-3">
+                    <span className="font-medium">{p.originalShortId}</span>
+                    <span className="text-[var(--text-muted)]">
+                      {" "}
+                      · {p.ownerUsername ? `@${p.ownerUsername}` : "unknown"} · {p.reason} ·{" "}
+                      {p.media.length} file{p.media.length === 1 ? "" : "s"} ·{" "}
+                      {new Date(p.deletedAt).toLocaleString()}
+                    </span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </section>
+          <section>
+            <h2 className="font-semibold">Archived media (no post)</h2>
+            <ul className="mt-2 divide-y rounded-xl border text-sm">
+              {(archive.orphanMedia as {
+                id: string;
+                originalShortId: string;
+                ownerUsername: string | null;
+                reason: string;
+              }[]).map((m) => (
+                  <li key={m.id} className="p-3">
+                    {m.originalShortId} · {m.ownerUsername ? `@${m.ownerUsername}` : "unknown"} · {m.reason}
+                  </li>
+                ),
+              )}
             </ul>
           </section>
         </div>

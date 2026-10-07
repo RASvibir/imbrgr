@@ -62,4 +62,53 @@ test.describe("account deletion", () => {
     const profile = await page.goto(`/u/${username}`);
     expect(profile?.status()).toBe(404);
   });
+
+  test("delete all posts option archives and removes public from site", async ({ page }) => {
+    const username = `delall${Date.now()}`.slice(0, 18);
+    const email = `${username}@imbrgr.test`;
+    const password = "password12345";
+    const publicTitle = `archive me ${Date.now()}`;
+
+    await page.request.post("/api/auth/signup", {
+      data: { email, username, password },
+    });
+
+    await page.goto("/auth/signin");
+    await page.getByPlaceholder(/email/i).fill(email);
+    await page.getByPlaceholder(/password/i).fill(password);
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
+
+    await page.goto("/upload");
+    await page.locator('input[type="file"]').setInputFiles(png);
+    await page.getByLabel("Title").fill(publicTitle);
+    await page.getByRole("button", { name: /Serve it hot/i }).click();
+    await page.waitForURL(/\/p\//, { timeout: 30000 });
+    const publicShortId = page.url().match(/\/p\/([^/?#]+)/)?.[1];
+    expect(publicShortId).toBeTruthy();
+
+    await page.goto("/settings");
+    await page.getByTestId("delete-account-also-posts").check();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: /Delete my account/i }).click();
+    await expect(page.getByRole("link", { name: /Sign in/i })).toBeVisible({ timeout: 15000 });
+
+    expect((await page.request.get(`/api/posts/${publicShortId}`)).status()).toBe(404);
+    const feed = await page.request.get("/api/posts?sort=newest");
+    const feedIds = ((await feed.json()).items ?? []).map((p: { shortId: string }) => p.shortId);
+    expect(feedIds).not.toContain(publicShortId);
+
+    await page.goto("/auth/signin");
+    await page.getByPlaceholder(/email/i).fill("e2eadmin@imbrgr.test");
+    await page.getByPlaceholder(/password/i).fill("password12345");
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
+
+    const archiveRes = await page.request.get(`/api/admin/archive?q=${publicShortId}`);
+    expect(archiveRes.ok()).toBeTruthy();
+    const archive = await archiveRes.json();
+    expect(
+      (archive.posts as { originalShortId: string }[]).some((p) => p.originalShortId === publicShortId),
+    ).toBe(true);
+  });
 });

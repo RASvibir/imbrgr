@@ -40,6 +40,28 @@ export async function putObject(
   return { key, url: mediaFilePath(key) };
 }
 
+export const ARCHIVE_STORAGE_PREFIX = "archive/";
+
+export function toArchiveStorageKey(originalKey: string): string {
+  if (originalKey.startsWith(ARCHIVE_STORAGE_PREFIX)) return originalKey;
+  return `${ARCHIVE_STORAGE_PREFIX}${originalKey}`;
+}
+
+/** Move object bytes to archive/ prefix (not served via public media routes). */
+export async function moveObjectToArchive(
+  key: string,
+  contentType: string,
+): Promise<string> {
+  const archivedKey = toArchiveStorageKey(key);
+  if (archivedKey === key) return archivedKey;
+  const buf = await readObject(key);
+  if (buf) {
+    await putObject(archivedKey, buf, contentType);
+    await deleteObject(key);
+  }
+  return archivedKey;
+}
+
 export async function deleteObject(key: string): Promise<void> {
   if (driver() === "blob") {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
