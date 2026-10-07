@@ -74,6 +74,15 @@ Uploads and studio creations default to **public** on the gallery (Home / Hot). 
 - **Guests** upload with `voterKey` and optional **delete tokens**; on sign-in, **`POST /api/auth/claim-guest`** reassigns guest posts/media to the new user when the cookie matches.
 - **Reports** (`POST /api/reports`) accept targets POST, MEDIA, COLLECTION, USER with resolved canonical ids; admins triage in the console.
 
+### Account deletion
+
+- **`POST /api/me/delete`** (signed in) runs `deleteUserAccount` in `src/lib/account-delete.ts`.
+- **Public** posts and their media/files/thumbnails **stay** on the gallery; `Post.userId` and `Media.userId` are cleared so the UI shows **Deleted user** (no profile link). Guest uploads without an account still show as **anonymous** when media keeps a `voterKey`.
+- **Unlisted** and **private** posts (and any leftover personal-only media) are **deleted** with storage cleanup and quota adjustment.
+- Library folders/saves, collections, favorites, sessions, and profile avatar/banner are removed with the user row (`Post.user` FK is **ON DELETE SET NULL** in Postgres, matching `schema.prisma`).
+- Comments and votes keep their rows with `userId` nulled; comment authors show as Deleted user.
+- Deleted usernames return **404** on `/u/<username>`; super-admins can **Remove** ownerless posts from `/admin` → Content (report flow unchanged).
+
 ### AI pipeline (studio)
 
 1. **Prompt enhance** (optional checkbox): cache lookup → **Ollama** → **Groq** → **Gemini** for complex prompts (`src/lib/ai/prompt-enhance.ts`); skipped for very short prompts.

@@ -99,7 +99,12 @@ export default function SettingsPage() {
   };
 
   const deleteAccount = async () => {
-    if (!confirm("Delete your account and all posts? This cannot be undone.")) return;
+    if (
+      !confirm(
+        "Delete your account? Your public gallery posts stay up as “Deleted user”; private and unlisted posts are removed. This cannot be undone.",
+      )
+    )
+      return;
     const res = await fetch("/api/me/delete", { method: "POST" });
     if (res.ok) {
       await signOut({ callbackUrl: "/" });

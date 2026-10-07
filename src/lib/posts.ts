@@ -32,6 +32,7 @@ export const postCardSelect = {
       thumbSmKey: true,
       thumbMdKey: true,
       placeholderCss: true,
+      voterKey: true,
     },
   },
   tags: { include: { tag: { select: { slug: true, name: true } } } },

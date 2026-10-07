@@ -185,23 +185,52 @@ export function AdminConsole({ initialDashboard }: { initialDashboard: Dashboard
           <section>
             <h2 className="font-semibold">Posts</h2>
             <ul className="mt-2 divide-y rounded-xl border text-sm">
-              {(content.posts as { shortId: string; title: string; visibility: string; hiddenByAdmin: boolean }[]).map((p) => (
-                <li key={p.shortId} className="flex justify-between gap-2 p-3">
-                  <span>{p.title} · {p.visibility}{p.hiddenByAdmin ? " · hidden" : ""}</span>
-                  <button
-                    type="button"
-                    className="text-[var(--accent-primary)]"
-                    onClick={async () => {
-                      await fetch(`/api/admin/content/posts/${p.shortId}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ hiddenByAdmin: !p.hiddenByAdmin }),
-                      });
-                      void loadTab("users");
-                    }}
-                  >
-                    Toggle hide
-                  </button>
+              {(content.posts as {
+                shortId: string;
+                title: string;
+                visibility: string;
+                hiddenByAdmin: boolean;
+                user: { username: string } | null;
+              }[]).map((p) => (
+                <li key={p.shortId} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                  <span>
+                    {p.title} · {p.visibility}
+                    {p.hiddenByAdmin ? " · hidden" : ""}
+                    {p.user ? ` · @${p.user.username}` : " · Deleted user"}
+                  </span>
+                  <span className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-[var(--accent-primary)]"
+                      onClick={async () => {
+                        await fetch(`/api/admin/content/posts/${p.shortId}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ hiddenByAdmin: !p.hiddenByAdmin }),
+                        });
+                        void loadTab("content");
+                      }}
+                    >
+                      Toggle hide
+                    </button>
+                    {!p.user ? (
+                      <button
+                        type="button"
+                        className="text-[var(--danger)]"
+                        onClick={async () => {
+                          if (!confirm(`Remove ownerless post “${p.title}”?`)) return;
+                          await fetch(`/api/admin/content/posts/${p.shortId}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ delete: true }),
+                          });
+                          void loadTab("content");
+                        }}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </span>
                 </li>
               ))}
             </ul>

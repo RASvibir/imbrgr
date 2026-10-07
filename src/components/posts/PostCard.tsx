@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PostMediaImage } from "@/components/media/PostMediaImage";
+import { PostAuthorLine } from "@/components/posts/PostAuthorLine";
 import { mediaUrl } from "@/lib/urls";
 
 type PostCardData = {
@@ -16,6 +17,7 @@ type PostCardData = {
     thumbSmKey?: string | null;
     thumbMdKey?: string | null;
     placeholderCss?: string | null;
+    voterKey?: string | null;
   }[];
   user: { username: string } | null;
 };
@@ -51,7 +53,8 @@ export function PostCard({
       <div className="p-3">
         <h3 className="line-clamp-2 font-semibold text-[var(--text-primary)]">{post.title}</h3>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {post.user ? `@${post.user.username}` : "anonymous"} · {post.score} pts · Cook count {post.viewCount}
+          <PostAuthorLine user={post.user} media={post.media} className="text-[var(--text-muted)]" /> ·{" "}
+          {post.score} pts · Cook count {post.viewCount}
         </p>
       </div>
     </Link>

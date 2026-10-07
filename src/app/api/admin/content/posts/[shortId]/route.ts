@@ -31,7 +31,7 @@ export async function PATCH(
     if (parsed.data.delete) {
       await deleteAllMediaStorage(post.media);
       for (const m of post.media) {
-        if (post.userId) await removeUserStorage(post.userId, m.byteSize);
+        if (m.userId) await removeUserStorage(m.userId, m.byteSize);
       }
       await prisma.post.delete({ where: { id: post.id } });
       await logAdminAction({

@@ -87,7 +87,7 @@ model Post {
   id            String     @id @default(cuid())
   shortId       String     @unique
   userId        String?
-  user          User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
   title         String
   description   String?
   visibility    String     @default("UNLISTED")
