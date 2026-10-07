@@ -1,12 +1,15 @@
 import { canViewMedia } from "@/lib/media-access";
 import { prisma } from "@/lib/db";
 import type { Actor } from "@/lib/request-identity";
+import { scheduleAfterResponse } from "@/lib/schedule-after-response";
 import { generateImageThumbnails } from "@/lib/thumbnails";
 import { deleteObject, readLocalObject, readObject } from "@/lib/storage";
 
 const systemActor: Actor = { userId: null, voterKey: "system", ipHash: "system" };
 
-export async function ensureMediaThumbnails(mediaId: string): Promise<boolean> {
+const inFlight = new Map<string, Promise<boolean>>();
+
+async function ensureMediaThumbnailsOnce(mediaId: string): Promise<boolean> {
   const media = await prisma.media.findUnique({
     where: { id: mediaId },
     include: { post: { select: { userId: true, visibility: true, hiddenByAdmin: true } } },
@@ -21,6 +24,7 @@ export async function ensureMediaThumbnails(mediaId: string): Promise<boolean> {
 
   let thumbs;
   try {
+    // Thumbnail bytes are stored via putObject() → configured STORAGE_DRIVER (blob on Vercel).
     thumbs = await generateImageThumbnails(data);
   } catch {
     return false;
@@ -43,17 +47,39 @@ export async function ensureMediaThumbnails(mediaId: string): Promise<boolean> {
   return true;
 }
 
-/** Warm thumbnails for public feed cards (best-effort, capped per request). */
-export async function warmFeedThumbnails(
-  posts: { media: { id?: string; mimeType: string; thumbMdKey?: string | null }[] }[],
-  max = 6,
-) {
-  let n = 0;
+/** Generate missing thumbs for one media row (deduped while in flight). */
+export async function ensureMediaThumbnails(mediaId: string): Promise<boolean> {
+  const existing = inFlight.get(mediaId);
+  if (existing) return existing;
+
+  const work = ensureMediaThumbnailsOnce(mediaId).finally(() => {
+    inFlight.delete(mediaId);
+  });
+  inFlight.set(mediaId, work);
+  return work;
+}
+
+type FeedPostForWarm = {
+  media: { id?: string; mimeType: string; thumbMdKey?: string | null }[];
+};
+
+/**
+ * Best-effort thumbnail warm for feed cards. Returns immediately; work runs after the response via `after()`.
+ * No-op outside a Next.js request (e.g. unit tests, CLI scripts).
+ */
+export function warmFeedThumbnails(posts: FeedPostForWarm[], max = 6): void {
+  const ids: string[] = [];
   for (const post of posts) {
-    if (n >= max) break;
+    if (ids.length >= max) break;
     const m = post.media[0];
     if (!m?.id || m.thumbMdKey || !m.mimeType.startsWith("image/")) continue;
-    n++;
-    await ensureMediaThumbnails(m.id);
+    ids.push(m.id);
   }
+  if (ids.length === 0) return;
+
+  scheduleAfterResponse(async () => {
+    for (const id of ids) {
+      await ensureMediaThumbnails(id).catch(() => false);
+    }
+  });
 }

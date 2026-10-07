@@ -67,7 +67,7 @@ export async function fetchFeed(params: {
     });
     const hasMore = posts.length > limit;
     const items = hasMore ? posts.slice(0, limit) : posts;
-    await warmFeedThumbnails(items);
+    warmFeedThumbnails(items);
     return { items, nextCursor: hasMore ? items[items.length - 1]?.id : null };
   }
 
@@ -101,7 +101,7 @@ export async function fetchFeed(params: {
   const slice = ranked.slice(start, start + limit + 1);
   const hasMore = slice.length > limit;
   const items = (hasMore ? slice.slice(0, limit) : slice).map((r) => r.post);
-  await warmFeedThumbnails(items);
+  warmFeedThumbnails(items);
   return { items, nextCursor: hasMore ? items[items.length - 1]?.id : null };
 }
 

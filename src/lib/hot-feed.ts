@@ -17,6 +17,6 @@ export async function fetchHotFeed(params: { cursor?: string; limit?: number }) 
   });
   const hasMore = posts.length > limit;
   const items = hasMore ? posts.slice(0, limit) : posts;
-  await warmFeedThumbnails(items);
+  warmFeedThumbnails(items);
   return { items, nextCursor: hasMore ? `o:${offset + limit}` : null };
 }
