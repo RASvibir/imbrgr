@@ -55,8 +55,7 @@ export function CheeseSpiceGauge({ viewCount, spiceScore, compact }: Props) {
       </div>
 
       <div className="mt-3">
-        <div className="mb-1 flex items-center justify-between text-xs text-[var(--text-muted)]">
-          <span>Spicy meter</span>
+        <div className="mb-1 flex items-center justify-end text-xs text-[var(--text-muted)]">
           <span>{copy.chili}</span>
         </div>
         <div className="flex gap-1" role="img" aria-label={`${level} of ${SPICE_LEVEL_MAX} chili ticks`}>

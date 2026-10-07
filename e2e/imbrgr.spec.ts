@@ -28,7 +28,7 @@ test.describe("imbrgr e2e", () => {
 
   test("anonymous browse home and studio", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("navigation").getByRole("link", { name: "Studio", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Studio" }).first()).toBeVisible();
     await expect(page.getByPlaceholder(/Describe the image/i).first()).toBeVisible();
     await page.goto("/studio");
     await expect(page.getByRole("heading", { name: /Image studio/i })).toBeVisible();
@@ -59,7 +59,7 @@ test.describe("imbrgr e2e", () => {
     expect(jsonRes.status()).toBe(200);
     expect(jsonRes.headers()["content-type"]).toMatch(/application\/json/);
     await page.getByRole("navigation", { name: "Studio steps" }).getByRole("button", { name: "Share" }).click();
-    await expect(page.getByText(/Page link/i)).toBeVisible();
+    await expect(page.getByTestId("share-panel")).toBeVisible();
   });
 
   test("public image page exposes og:image for crawlers", async ({ page, request }) => {
@@ -101,8 +101,9 @@ test.describe("imbrgr e2e", () => {
     await page.getByRole("button", { name: "Open editor" }).click();
     await page.getByRole("button", { name: "Cancel" }).click();
     await page.getByRole("checkbox", { name: /Assist/i }).check();
-    await page.getByPlaceholder(/Describe a change/i).fill("warmer light");
-    await page.getByRole("button", { name: /Apply change/i }).click();
+    await page.getByRole("button", { name: "Brighten" }).click();
+    await expect(page.getByTestId("ai-edit-preview")).toBeVisible({ timeout: 20000 });
+    await page.getByRole("button", { name: /Keep this version/i }).click();
     await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible({ timeout: 20000 });
     await expect(page.getByText(/couldn't finish that image/i)).toHaveCount(0);
   });
@@ -226,7 +227,7 @@ test.describe("imbrgr e2e", () => {
       path: "/opt/cursor/artifacts/screenshots/cook-count-flame-gauge.png",
     });
     await expect(page.getByText(/Cheese pull/i)).toBeVisible();
-    await expect(page.getByText(/Spicy meter/i)).toBeVisible();
+    await expect(page.getByText(/spicy meter/i)).toHaveCount(0);
     await expect(page.getByText(/Extra passes and guest buzz/i)).toHaveCount(0);
     await anonA.close();
   });
