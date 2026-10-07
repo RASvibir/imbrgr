@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { canViewMedia } from "@/lib/media-access";
+import { canViewMedia, isMediaOwner } from "@/lib/media-access";
 import { buildImagePageMetadata } from "@/lib/og";
 import { getServerActor } from "@/lib/request-identity";
 import { imagePageUrl, mediaUrl } from "@/lib/urls";
@@ -36,6 +36,7 @@ export default async function ImageDirectPage({
   });
   if (!media || !canViewMedia(media, actor)) notFound();
   const src = mediaUrl(media.storageKey, media.mimeType);
+  const canRefine = media.mimeType.startsWith("image/") && isMediaOwner(media, actor);
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       {media.post ? (
@@ -51,6 +52,16 @@ export default async function ImageDirectPage({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt={media.altText ?? ""} className="w-full rounded-xl" />
       )}
+      {canRefine ? (
+        <div className="mt-4">
+          <Link
+            href={`/studio?tab=refine&media=${media.shortId}`}
+            className="inline-flex rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
+          >
+            Refine in studio
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
