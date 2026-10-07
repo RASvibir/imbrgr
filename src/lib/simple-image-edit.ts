@@ -17,6 +17,12 @@ export async function simpleImageEdit(buffer: Buffer, instruction: string): Prom
   if (lower.includes("dark") || lower.includes("dim")) {
     pipeline = pipeline.modulate({ brightness: 0.88 });
   }
+  if (lower.includes("pop") || lower.includes("vivid")) {
+    pipeline = pipeline.modulate({ brightness: 1.06, saturation: 1.25 });
+  }
+  if (lower.includes("color") || lower.includes("balance")) {
+    pipeline = pipeline.modulate({ brightness: 1.03, saturation: 1.08 });
+  }
   if (lower.includes("sharp")) {
     pipeline = pipeline.sharpen();
   }
