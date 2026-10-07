@@ -88,6 +88,8 @@ model Post {
   shortId       String     @unique
   userId        String?
   user          User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// Set when the owner deleted their account but kept this public post up.
+  authorDeleted Boolean    @default(false)
   title         String
   description   String?
   visibility    String     @default("UNLISTED")
@@ -249,6 +251,8 @@ model Comment {
   post      Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
   userId    String?
   user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// Set when the author deleted their account (comment kept, shown as Deleted user).
+  authorDeleted Boolean   @default(false)
   parentId  String?
   parent    Comment?      @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
   replies   Comment[]     @relation("CommentThread")

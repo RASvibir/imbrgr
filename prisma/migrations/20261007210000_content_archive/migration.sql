@@ -41,3 +41,8 @@ CREATE INDEX "ArchivedMedia_archivedPostId_idx" ON "ArchivedMedia"("archivedPost
 CREATE INDEX "ArchivedMedia_deletedAt_idx" ON "ArchivedMedia"("deletedAt");
 
 ALTER TABLE "ArchivedMedia" ADD CONSTRAINT "ArchivedMedia_archivedPostId_fkey" FOREIGN KEY ("archivedPostId") REFERENCES "ArchivedPost"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Mark posts/comments whose author deleted their account (shown as "Deleted user").
+-- Lets the UI tell them apart from guest uploads without exposing guest identity keys.
+ALTER TABLE "Post" ADD COLUMN "authorDeleted" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Comment" ADD COLUMN "authorDeleted" BOOLEAN NOT NULL DEFAULT false;

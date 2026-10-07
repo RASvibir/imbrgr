@@ -41,7 +41,7 @@ export async function deleteUserAccount(userId: string, options?: DeleteAccountO
       continue;
     }
     if (shouldKeepPostInGallery(post)) {
-      await prisma.post.update({ where: { id: post.id }, data: { userId: null } });
+      await prisma.post.update({ where: { id: post.id }, data: { userId: null, authorDeleted: true } });
       await prisma.media.updateMany({
         where: { postId: post.id },
         data: { userId: null },
@@ -58,6 +58,11 @@ export async function deleteUserAccount(userId: string, options?: DeleteAccountO
     await archiveAndRemoveMedia(media.id, owner, ARCHIVE_REASON_ACCOUNT_DELETED);
     await cleanupPostIfNoMedia(media.postId);
   }
+
+  await prisma.comment.updateMany({
+    where: { userId },
+    data: { authorDeleted: true },
+  });
 
   if (user.avatarKey) await deleteObject(user.avatarKey).catch(() => undefined);
   if (user.bannerKey) await deleteObject(user.bannerKey).catch(() => undefined);

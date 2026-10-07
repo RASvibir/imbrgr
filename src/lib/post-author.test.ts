@@ -3,18 +3,17 @@ import { DELETED_USER_LABEL, isAnonymousGuestPost, postAuthorLabel } from "@/lib
 
 describe("postAuthorLabel", () => {
   it("shows username when present", () => {
-    expect(postAuthorLabel({ user: { username: "chef" }, media: [] })).toBe("@chef");
+    expect(postAuthorLabel({ user: { username: "chef" } })).toBe("@chef");
   });
 
-  it("shows anonymous for guest voterKey posts", () => {
-    expect(
-      postAuthorLabel({ user: null, media: [{ voterKey: "a:abc" }] }),
-    ).toBe("anonymous");
-    expect(isAnonymousGuestPost({ user: null, media: [{ voterKey: "a:abc" }] })).toBe(true);
+  it("shows anonymous for guest posts", () => {
+    expect(postAuthorLabel({ user: null })).toBe("anonymous");
+    expect(postAuthorLabel({ user: null, authorDeleted: false })).toBe("anonymous");
+    expect(isAnonymousGuestPost({ user: null })).toBe(true);
   });
 
-  it("shows deleted user for ownerless posts without guest keys", () => {
-    expect(postAuthorLabel({ user: null, media: [{ voterKey: null }] })).toBe(DELETED_USER_LABEL);
-    expect(isAnonymousGuestPost({ user: null, media: [] })).toBe(false);
+  it("shows deleted user for posts kept after account deletion", () => {
+    expect(postAuthorLabel({ user: null, authorDeleted: true })).toBe(DELETED_USER_LABEL);
+    expect(isAnonymousGuestPost({ user: null, authorDeleted: true })).toBe(false);
   });
 });

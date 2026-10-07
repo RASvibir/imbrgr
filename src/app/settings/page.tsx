@@ -102,7 +102,7 @@ export default function SettingsPage() {
 
   const deleteAccount = async () => {
     const confirmMsg = deleteAllPosts
-      ? "Delete your account and remove all your posts from the gallery? Posts are archived internally but won’t be visible on imbrgr. This cannot be undone."
+      ? "Delete your account and take down all your posts? They won’t be visible on imbrgr anymore. This cannot be undone."
       : "Delete your account? Your public gallery posts stay up as “Deleted user”; private and unlisted posts are removed. This cannot be undone.";
     if (!confirm(confirmMsg)) return;
     const res = await fetch("/api/me/delete", {
