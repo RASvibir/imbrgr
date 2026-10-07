@@ -1,5 +1,6 @@
 import { warmFeedThumbnails } from "@/lib/ensure-media-thumbnails";
 import { prisma } from "@/lib/db";
+import { feedPostHasImageMedia, filterPostsWithVisibleMedia } from "@/lib/post-feed-filter";
 import { hotScore, topScore } from "@/lib/ranking";
 
 export type FeedSort = "viral" | "newest" | "top";
@@ -47,6 +48,7 @@ export async function fetchFeed(params: {
   const where: Record<string, unknown> = {
     visibility: params.visibility ?? "PUBLIC",
     hiddenByAdmin: false,
+    ...feedPostHasImageMedia,
   };
   if (params.tagSlug) {
     where.tags = { some: { tag: { slug: params.tagSlug } } };
@@ -66,7 +68,7 @@ export async function fetchFeed(params: {
       select: postCardSelect,
     });
     const hasMore = posts.length > limit;
-    const items = hasMore ? posts.slice(0, limit) : posts;
+    const items = filterPostsWithVisibleMedia(hasMore ? posts.slice(0, limit) : posts);
     warmFeedThumbnails(items);
     return { items, nextCursor: hasMore ? items[items.length - 1]?.id : null };
   }
@@ -100,7 +102,9 @@ export async function fetchFeed(params: {
   }
   const slice = ranked.slice(start, start + limit + 1);
   const hasMore = slice.length > limit;
-  const items = (hasMore ? slice.slice(0, limit) : slice).map((r) => r.post);
+  const items = filterPostsWithVisibleMedia(
+    (hasMore ? slice.slice(0, limit) : slice).map((r) => r.post),
+  );
   warmFeedThumbnails(items);
   return { items, nextCursor: hasMore ? items[items.length - 1]?.id : null };
 }
@@ -108,10 +112,11 @@ export async function fetchFeed(params: {
 export async function searchPosts(query: string, limit = 24) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  return prisma.post.findMany({
+  const rows = await prisma.post.findMany({
     where: {
       visibility: "PUBLIC",
       hiddenByAdmin: false,
+      ...feedPostHasImageMedia,
       OR: [
         { title: { contains: q } },
         { tags: { some: { tag: { OR: [{ slug: { contains: q } }, { name: { contains: q } }] } } } },
@@ -121,4 +126,5 @@ export async function searchPosts(query: string, limit = 24) {
     take: limit,
     select: postCardSelect,
   });
+  return filterPostsWithVisibleMedia(rows);
 }

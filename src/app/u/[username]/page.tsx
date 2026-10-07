@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
 import { PostCard } from "@/components/posts/PostCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { ReportButton } from "@/components/report/ReportButton";
 import { profileImageUrl } from "@/lib/urls";
 
@@ -27,6 +28,7 @@ export default function ProfilePage() {
     stats: { posts: number; comments: number; favorites: number | null; views: number; spice: number };
     remixes: unknown[];
     collections: { shortId: string; title: string; visibility: string; _count: { posts: number } }[];
+    isOwner?: boolean;
     id?: string;
   } | null>(null);
   const [tab, setTab] = useState<"posts" | "collections" | "remixes">("posts");
@@ -42,6 +44,7 @@ export default function ProfilePage() {
   const banner = profileImageUrl(user.bannerKey);
   const avatar = profileImageUrl(user.avatarKey);
   const name = user.displayName || user.username;
+  const isOwner = Boolean(user.isOwner);
 
   return (
     <div className="pb-12">
@@ -122,18 +125,31 @@ export default function ProfilePage() {
         ) : null}
 
         {tab === "collections" ? (
-          <ul className="mt-6 space-y-3">
-            {user.collections.map((c) => (
-              <li key={c.shortId}>
-                <Link href={`/c/${c.shortId}`} className="text-lg font-medium text-[var(--accent-primary)]">
-                  {c.title}
-                </Link>
-                <span className="ml-2 text-sm text-[var(--text-muted)]">
-                  {c._count.posts} dishes · {c.visibility.toLowerCase()}
-                </span>
-              </li>
-            ))}
-          </ul>
+          user.collections.length > 0 ? (
+            <ul className="mt-6 space-y-3">
+              {user.collections.map((c) => (
+                <li key={c.shortId}>
+                  <Link href={`/c/${c.shortId}`} className="text-lg font-medium text-[var(--accent-primary)]">
+                    {c.title}
+                  </Link>
+                  <span className="ml-2 text-sm text-[var(--text-muted)]">
+                    {c._count.posts} dishes · {c.visibility.toLowerCase()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState
+              compactMark
+              title="No collections yet"
+              description={
+                isOwner
+                  ? "Group your favorite dishes into collections from settings."
+                  : "This cook hasn't shared any collections yet."
+              }
+              actions={isOwner ? [{ label: "Collection settings", href: "/settings", primary: true }] : []}
+            />
+          )
         ) : null}
 
         {tab === "remixes" ? (

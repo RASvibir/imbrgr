@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { feedPostHasImageMedia } from "@/lib/post-feed-filter";
 import { postCardSelect } from "@/lib/posts";
 
 export async function GET(
@@ -22,7 +23,7 @@ export async function GET(
       favoritesPublic: true,
       createdAt: true,
       posts: {
-        where: { visibility: "PUBLIC" },
+        where: { visibility: "PUBLIC", hiddenByAdmin: false, ...feedPostHasImageMedia },
         orderBy: { createdAt: "desc" },
         take: 48,
         select: postCardSelect,
@@ -55,7 +56,13 @@ export async function GET(
   });
 
   const remixes = await prisma.post.findMany({
-    where: { userId: user.id, remixedFromPostId: { not: null }, visibility: "PUBLIC", hiddenByAdmin: false },
+    where: {
+      userId: user.id,
+      remixedFromPostId: { not: null },
+      visibility: "PUBLIC",
+      hiddenByAdmin: false,
+      ...feedPostHasImageMedia,
+    },
     orderBy: { createdAt: "desc" },
     take: 48,
     select: postCardSelect,
@@ -80,6 +87,7 @@ export async function GET(
 
   return NextResponse.json({
     ...user,
+    isOwner,
     favorites: showFavorites ? user.favorites : [],
     favoritesHidden: !showFavorites,
     stats: {
