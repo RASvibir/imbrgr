@@ -32,10 +32,7 @@ export function CheeseSpiceGauge({ viewCount, spiceScore, compact }: Props) {
       data-testid="cheese-spice-gauge"
       aria-label={`Cook count ${viewCount}. Kitchen heat: ${copy.chili}.`}
     >
-      <div className="flex flex-wrap items-end justify-between gap-2 text-sm">
-        <CookCountFlameLabel count={viewCount} />
-        <span className="text-xs text-[var(--text-muted)]">Each cook counts once</span>
-      </div>
+      <CookCountFlameLabel count={viewCount} />
 
       <div className="mt-3">
         <div className="mb-1 flex items-center justify-between text-xs text-[var(--text-muted)]">
