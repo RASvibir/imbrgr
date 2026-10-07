@@ -28,7 +28,13 @@ export default async function StudioPage({
 
   return (
     <Suspense fallback={<p className="p-8 text-center text-[var(--text-muted)]">Loading studio…</p>}>
-      <ImageStudio defaultTab={defaultTab} initialPrompt={prompt} initialAsset={initialAsset} remixFromShortId={remixFrom} />
+      <ImageStudio
+        defaultTab={defaultTab}
+        initialPrompt={initialAsset ? undefined : prompt}
+        initialAssistPrompt={initialAsset && prompt ? prompt : undefined}
+        initialAsset={initialAsset}
+        remixFromShortId={remixFrom}
+      />
     </Suspense>
   );
 }

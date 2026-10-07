@@ -1,6 +1,7 @@
 "use client";
 
 import { ASSIST_CHIPS } from "@/lib/assist-chips";
+import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { COPY, friendlyError } from "@/lib/user-messages";
 
 type Props = {
@@ -55,6 +56,7 @@ export function StudioAiAssist({
             disabled={!hasAsset || busy}
             placeholder="Describe a change…"
             aria-label="Describe a change"
+            data-testid="studio-assist-prompt"
             className="min-h-11 w-full rounded-lg border px-3 py-2 text-base sm:text-sm disabled:opacity-50"
           />
           <div className="chip-scroll">
@@ -75,12 +77,12 @@ export function StudioAiAssist({
               type="button"
               disabled={!hasAsset || busy || editText.trim().length < 3}
               onClick={() => onApplyInstruction(editText.trim())}
-              className="min-h-11 rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
+              className={`${btnPrimary} px-4`}
             >
               {COPY.applyAiEdit}
             </button>
             {busy ? (
-              <button type="button" onClick={onCancel} className="min-h-11 rounded-lg border px-4 py-2 text-sm">
+              <button type="button" onClick={onCancel} className={`${btnSecondary} px-4`}>
                 Cancel
               </button>
             ) : null}

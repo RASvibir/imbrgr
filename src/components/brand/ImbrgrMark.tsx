@@ -1,11 +1,13 @@
 import { useId } from "react";
 
-type MarkSize = "sm" | "md" | "lg";
+type MarkSize = "sm" | "md" | "lg" | "xl" | "hero";
 
 const sizes: Record<MarkSize, number> = {
   sm: 24,
   md: 32,
   lg: 40,
+  xl: 80,
+  hero: 112,
 };
 
 /** Tech-burger mark: stacked buns with a pixel/frame layer (ember glow). */

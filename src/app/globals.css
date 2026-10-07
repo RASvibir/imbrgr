@@ -132,6 +132,52 @@ body {
   .cook-count-flame {
     animation: none;
   }
+
+  .ember-burger-hero::before {
+    animation: none;
+  }
+}
+
+.ember-burger-hero {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ember-burger-hero::before {
+  content: "";
+  position: absolute;
+  inset: -18%;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 55%,
+    rgb(251 191 36 / 0.45),
+    rgb(249 115 22 / 0.2) 45%,
+    transparent 70%
+  );
+  filter: blur(10px);
+  animation: ember-burger-glow 5s ease-in-out infinite;
+}
+
+.ember-burger-hero--compact::before {
+  inset: -14%;
+  filter: blur(8px);
+}
+
+@keyframes ember-burger-glow {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
 }
 
 html {

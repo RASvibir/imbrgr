@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { editImageWithGemini } from "@/lib/ai/gemini-image-edit";
 import { aiMockEnabled, mockImageBuffer } from "@/lib/ai/mock";
+import { resolveImageEdit } from "@/lib/ai/resolve-image-edit";
 import {
   assertCanGenerateAiForAnonymous,
   assertCanGenerateAiForUser,
@@ -15,7 +15,6 @@ import { processAndStoreUpload } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { readLocalObject, readObject } from "@/lib/storage";
-import { simpleImageEdit } from "@/lib/simple-image-edit";
 import { blockedPromptMessage, isPromptBlocked } from "@/lib/prompt-safety";
 import { friendlyError } from "@/lib/user-messages";
 import { normalizeVisibility } from "@/lib/visibility";
@@ -61,27 +60,23 @@ export async function POST(req: Request) {
     }
 
     let out: Buffer;
+    let outMime = "image/png";
     if (aiMockEnabled()) {
       out = await mockImageBuffer();
-    } else if (process.env.GEMINI_API_KEY) {
-      try {
-        const edited = await editImageWithGemini({
-          imageBuffer: sourceBuf,
-          mimeType: media.mimeType,
-          instruction: parsed.data.instruction,
-        });
-        out = edited.buffer;
-      } catch {
-        out = await simpleImageEdit(sourceBuf, parsed.data.instruction);
-      }
     } else {
-      out = await simpleImageEdit(sourceBuf, parsed.data.instruction);
+      const edited = await resolveImageEdit({
+        imageBuffer: sourceBuf,
+        mimeType: media.mimeType,
+        instruction: parsed.data.instruction,
+      });
+      out = edited.buffer;
+      outMime = edited.mimeType;
     }
 
     const parentId = media.parentMediaId ?? media.id;
     const created = await processAndStoreUpload({
       buffer: out,
-      mime: "image/png",
+      mime: outMime.startsWith("image/") ? outMime : "image/png",
       userId: actor.userId,
       voterKey: actor.userId ? null : actor.voterKey,
       parentMediaId: parentId,

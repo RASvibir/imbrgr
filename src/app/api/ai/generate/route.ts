@@ -12,12 +12,16 @@ import {
   recordAnonymousAiSuccess,
 } from "@/lib/ai/usage";
 import { aiRateLimitPerHour } from "@/lib/config";
+import {
+  createGalleryPostForAiMedia,
+  resolveAiGalleryVisibility,
+  titleFromAiPrompt,
+} from "@/lib/ai/gallery-post";
 import { processAndStoreUpload } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
 import { friendlyError } from "@/lib/user-messages";
 import { assertUserMayUseAi } from "@/lib/user-guards";
 import { consumeRateLimit } from "@/lib/rate-limit";
-import type { Visibility } from "@/lib/visibility";
 
 export const maxDuration = 120;
 
@@ -30,7 +34,7 @@ const schema = z.object({
   style: z.string().max(40).optional(),
   safe: z.boolean().optional(),
   variations: z.number().int().min(1).max(4).optional(),
-  visibility: z.enum(["PUBLIC", "UNLISTED"]).optional(),
+  visibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -69,9 +73,15 @@ export async function POST(req: Request) {
     const width = parsed.data.width ?? 1024;
     const height = parsed.data.height ?? 1024;
     const baseSeed = parsed.data.seed ?? Math.floor(Math.random() * 2_147_483_647);
-    const vis = (parsed.data.visibility ?? "UNLISTED") as Visibility;
+    const galleryVisibility = resolveAiGalleryVisibility(parsed.data.visibility, actor.userId);
 
-    const results: { mediaShortId: string; storageKey: string; seed: number; deleteToken?: string | null }[] = [];
+    const results: {
+      mediaShortId: string;
+      storageKey: string;
+      seed: number;
+      deleteToken?: string | null;
+      mediaId: string;
+    }[] = [];
 
     for (let i = 0; i < needed; i++) {
       const seed = parsed.data.seed != null ? baseSeed + i : baseSeed + i * 9973;
@@ -97,7 +107,7 @@ export async function POST(req: Request) {
         aiGenerated: true,
         aiPrompt: fullPrompt,
         losslessPng: true,
-        visibility: actor.userId ? vis : vis,
+        visibility: galleryVisibility,
       });
 
       results.push({
@@ -105,8 +115,17 @@ export async function POST(req: Request) {
         storageKey: media.storageKey,
         seed,
         deleteToken: media.deleteToken ?? undefined,
+        mediaId: media.id,
       });
     }
+
+    const post = await createGalleryPostForAiMedia({
+      mediaIds: results.map((r) => r.mediaId),
+      userId: actor.userId,
+      visibility: galleryVisibility,
+      title: titleFromAiPrompt(parsed.data.prompt),
+      aiPrompt: fullPrompt,
+    });
 
     if (actor.userId) await recordAiGenerationSuccess(actor.userId, needed);
     else await recordAnonymousAiSuccess(actor.ipHash, needed);
@@ -116,7 +135,9 @@ export async function POST(req: Request) {
       mediaShortId: primary.mediaShortId,
       storageKey: primary.storageKey,
       deleteToken: primary.deleteToken,
-      variations: results,
+      postShortId: post.shortId,
+      galleryVisibility,
+      variations: results.map(({ mediaId: _id, ...rest }) => rest),
     });
   } catch (e) {
     const raw = e instanceof Error ? e.message : "Generation failed";

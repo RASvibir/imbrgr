@@ -2,6 +2,8 @@
 
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { STYLES } from "@/lib/ai/styles";
+import { VISIBILITY_OPTIONS, type Visibility } from "@/lib/visibility";
+import { btnPrimary } from "@/lib/ui/button-classes";
 import { COPY } from "@/lib/user-messages";
 
 type Props = {
@@ -15,6 +17,9 @@ type Props = {
   onAspectChange: (v: keyof typeof ASPECT_PRESETS) => void;
   variations: number;
   onVariationsChange: (v: number) => void;
+  visibility: Visibility;
+  onVisibilityChange: (v: Visibility) => void;
+  signedIn: boolean;
   busy: boolean;
   onGenerate: () => void;
 };
@@ -30,10 +35,16 @@ export function StudioPromptHero({
   onAspectChange,
   variations,
   onVariationsChange,
+  visibility,
+  onVisibilityChange,
+  signedIn,
   busy,
   onGenerate,
 }: Props) {
   const canSubmit = prompt.trim().length >= 3 && !busy;
+  const visOptions = signedIn
+    ? VISIBILITY_OPTIONS
+    : VISIBILITY_OPTIONS.filter((v) => v.value !== "PRIVATE");
 
   return (
     <section className="rounded-2xl border border-[var(--border-subtle)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--surface-sunken)] p-5 sm:p-8 shadow-[var(--shadow-ember)]">
@@ -57,7 +68,7 @@ export function StudioPromptHero({
           type="button"
           disabled={!canSubmit}
           onClick={onGenerate}
-          className="tap-target hidden rounded-xl bg-[var(--accent-primary)] px-6 text-sm font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)] disabled:opacity-50 lg:inline-flex"
+          className={`${btnPrimary} hidden px-6 lg:inline-flex`}
         >
           {busy ? COPY.generateWorking : COPY.generateCta}
         </button>
@@ -104,6 +115,27 @@ export function StudioPromptHero({
                 <option key={n} value={n}>{n} version{n > 1 ? "s" : ""}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-[var(--text-secondary)]">Gallery visibility</p>
+            <p className="text-xs text-[var(--text-muted)]">Public images show on Home and Hot.</p>
+            <div className="mt-2 space-y-2" data-testid="studio-create-visibility">
+              {visOptions.map((opt) => (
+                <label key={opt.value} className="flex cursor-pointer gap-2 rounded-lg border border-[var(--border-subtle)] p-2">
+                  <input
+                    type="radio"
+                    name="studio-create-visibility"
+                    checked={visibility === opt.value}
+                    onChange={() => onVisibilityChange(opt.value)}
+                    data-testid={`studio-visibility-${opt.value.toLowerCase()}`}
+                  />
+                  <span>
+                    <span className="text-sm font-medium">{opt.label}</span>
+                    <span className="block text-xs text-[var(--text-muted)]">{opt.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       </details>

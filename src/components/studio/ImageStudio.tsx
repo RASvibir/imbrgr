@@ -11,6 +11,7 @@ import { StorageMeter } from "@/components/storage/StorageMeter";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { normalizeStudioAsset } from "@/lib/studio-asset";
+import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaUrl } from "@/lib/urls";
 import { StudioMobileActionBar } from "@/components/studio/StudioMobileActionBar";
@@ -45,11 +46,13 @@ const GENERATE_CLIENT_TIMEOUT_MS = 90_000;
 export function ImageStudio({
   defaultTab,
   initialPrompt,
+  initialAssistPrompt,
   initialAsset,
   remixFromShortId,
 }: {
   defaultTab?: string;
   initialPrompt?: string;
+  initialAssistPrompt?: string;
   initialAsset?: StudioInitialAsset | null;
   remixFromShortId?: string;
 }) {
@@ -76,17 +79,15 @@ export function ImageStudio({
   const [quality, setQuality] = useState(85);
   const [maxWidth, setMaxWidth] = useState(1920);
 
-  const [prompt, setPrompt] = useState(() =>
-    initialPrompt ? decodeURIComponent(initialPrompt) : "",
-  );
+  const [prompt, setPrompt] = useState(() => initialPrompt ?? "");
   const [enhance, setEnhance] = useState(true);
   const [style, setStyle] = useState("");
   const [aspect, setAspect] = useState<keyof typeof ASPECT_PRESETS>("1:1");
   const [variations, setVariations] = useState(1);
   const [kitchenOpen, setKitchenOpen] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [aiAssistOn, setAiAssistOn] = useState(false);
-  const [aiEditText, setAiEditText] = useState("");
+  const [aiAssistOn, setAiAssistOn] = useState(() => Boolean(initialAssistPrompt?.trim()));
+  const [aiEditText, setAiEditText] = useState(() => initialAssistPrompt ?? "");
   const [assistErr, setAssistErr] = useState("");
   const [assistProgress, setAssistProgress] = useState("");
   const [aiPreview, setAiPreview] = useState<{
@@ -103,7 +104,7 @@ export function ImageStudio({
     tags: "",
     altText: "",
     mature: false,
-    visibility: "UNLISTED",
+    visibility: "PUBLIC",
   });
 
   const selectTab = (next: Tab) => {
@@ -250,6 +251,10 @@ export function ImageStudio({
           mimeType: "image/png",
         }),
       );
+      const vis = data.galleryVisibility ?? settings.visibility ?? "PUBLIC";
+      if (vis === "PUBLIC") setMsg(COPY.galleryLivePublic);
+      else if (vis === "PRIVATE") setMsg(COPY.gallerySavedPrivate);
+      else setMsg(COPY.gallerySavedUnlisted);
       selectTab("refine");
     } catch (e) {
       const aborted = e instanceof DOMException && e.name === "AbortError";
@@ -299,7 +304,7 @@ export function ImageStudio({
     aiAbortRef.current = ac;
     setBusy(true);
     setAssistErr("");
-    setAssistProgress(COPY.generateWorking);
+    setAssistProgress(COPY.assistWorking);
     const beforeSrc = mediaUrl(asset.storageKey, asset.mimeType);
     try {
       const res = await fetch("/api/ai/edit-image", {
@@ -383,25 +388,44 @@ export function ImageStudio({
     const title = settings.title?.trim() || "Untitled";
     const tags =
       settings.tags?.split(/[,\s#]+/).map((t) => t.trim()).filter(Boolean) ?? [];
-    const res = await fetch("/api/posts/from-media", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        description: settings.description || undefined,
-        tags,
-        visibility: settings.visibility ?? "PUBLIC",
-        mediaShortIds: [asset.shortId],
-      }),
-    });
+    const mediaRes = await fetch(`/api/media/${asset.shortId}`);
+    const mediaData = await mediaRes.json().catch(() => ({}));
+    const postPath =
+      typeof mediaData.share?.pageUrl === "string" && mediaData.share.pageUrl.includes("/p/")
+        ? mediaData.share.pageUrl.replace(/^.*\/p\//, "").split(/[?#]/)[0]
+        : null;
+
+    const res = postPath
+      ? await fetch(`/api/posts/${postPath}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            description: settings.description || undefined,
+            tags,
+            visibility: settings.visibility ?? "PUBLIC",
+          }),
+        })
+      : await fetch("/api/posts/from-media", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            description: settings.description || undefined,
+            tags,
+            visibility: settings.visibility ?? "PUBLIC",
+            mediaShortIds: [asset.shortId],
+          }),
+        });
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
       setErr(friendlyError(data.error ?? "Could not publish"));
       return;
     }
-    setMsg(`${COPY.publishSuccess} Open your post`);
-    router.push(`/p/${data.shortId}`);
+    const shortId = postPath ?? data.shortId;
+    setMsg(COPY.publishSuccess);
+    router.push(`/p/${shortId}`);
   };
 
   return (
@@ -474,6 +498,9 @@ export function ImageStudio({
             onAspectChange={setAspect}
             variations={variations}
             onVariationsChange={setVariations}
+            visibility={settings.visibility ?? "PUBLIC"}
+            onVisibilityChange={(v) => setSettings((s) => ({ ...s, visibility: v }))}
+            signedIn={signedIn}
             busy={busy}
             onGenerate={generate}
           />
@@ -516,16 +543,15 @@ export function ImageStudio({
       {tab === "refine" ? (
         <section className="mt-6 space-y-4">
           {!asset ? (
-            <p className="text-sm text-[var(--text-muted)]">
-              Create or import an image first, then refine it here.
-            </p>
+            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-4 py-8 text-center">
+              <p className="text-sm text-[var(--text-secondary)]">Add an image on Create, then edit and assist here.</p>
+              <button type="button" onClick={() => selectTab("create")} className={`${btnPrimary} mt-4`}>
+                Go to Create
+              </button>
+            </div>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="min-h-11 w-full rounded-xl bg-[var(--accent-primary)] px-4 py-3 text-sm font-semibold text-[var(--on-accent)] sm:w-auto"
-              >
+              <button type="button" onClick={() => setEditing(true)} className={`${btnPrimary} w-full sm:w-auto`}>
                 Open editor
               </button>
               <StudioAiAssist
@@ -589,12 +615,17 @@ export function ImageStudio({
       {tab === "share" ? (
         <div className="mt-6 space-y-4">
           {!asset ? (
-            <p className="text-sm text-[var(--text-muted)]">Nothing to share yet — start in Create.</p>
+            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-4 py-8 text-center">
+              <p className="text-sm text-[var(--text-secondary)]">Cook or upload an image first, then share links here.</p>
+              <button type="button" onClick={() => selectTab("create")} className={`${btnPrimary} mt-4`}>
+                Go to Create
+              </button>
+            </div>
           ) : (
             <>
               <ImageSettingsPanel signedIn={signedIn} values={settings} onChange={(v) => setSettings(v)} compact />
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={saveMediaSettings} className="rounded-lg border px-4 py-2 text-sm font-medium">
+                <button type="button" onClick={saveMediaSettings} className={btnSecondary}>
                   Save details
                 </button>
                 {signedIn ? (
@@ -602,7 +633,7 @@ export function ImageStudio({
                     type="button"
                     disabled={busy || !settings.title?.trim()}
                     onClick={publishToGallery}
-                    className="rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
+                    className={btnPrimary}
                   >
                     {COPY.publishCta}
                   </button>
@@ -638,8 +669,16 @@ export function ImageStudio({
         </div>
       ) : null}
 
-      {err ? <p className="mt-4 text-sm text-[var(--danger)]">{err}</p> : null}
-      {msg ? <p className="mt-4 text-sm text-[var(--accent-primary)]">{msg}</p> : null}
+      {err ? (
+        <p className="mt-4 rounded-lg border border-[var(--danger)]/40 bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--danger)]" role="alert">
+          {err}
+        </p>
+      ) : null}
+      {msg ? (
+        <p className="mt-4 rounded-lg border border-[var(--accent-primary)]/30 bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--accent-primary)]" role="status">
+          {msg}
+        </p>
+      ) : null}
 
       {editing && preview ? (
         <ImageEditor

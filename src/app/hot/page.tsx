@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { PostCard } from "@/components/posts/PostCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { fetchHotFeed } from "@/lib/hot-feed";
 
 export const metadata = {
@@ -10,17 +10,25 @@ export const metadata = {
 export default async function HotPage() {
   const { items } = await fetchHotFeed({ limit: 48 });
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <h1 className="text-3xl font-bold">Hot right now</h1>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+      <header className="max-w-2xl">
+        <h1 className="text-2xl font-bold sm:text-3xl">Hot right now</h1>
+        <p className="mt-2 text-sm text-[var(--text-secondary)] sm:text-base">
+          Public posts getting the most love — check back often.
+        </p>
+      </header>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((p) => (
           <PostCard key={p.id} post={p} thumbVariant="sm" />
         ))}
       </div>
       {items.length === 0 ? (
-        <p className="mt-8 text-[var(--text-muted)]">
-          Nothing on the griddle yet. <Link href="/studio" className="text-[var(--accent-primary)]">Cook something</Link>
-        </p>
+        <EmptyState
+          compactMark
+          title="Nothing sizzling yet"
+          description="When posts heat up, they'll show here. Cook something public in the studio to get started."
+          actions={[{ label: "Open studio", href: "/studio", primary: true }]}
+        />
       ) : null}
     </div>
   );
