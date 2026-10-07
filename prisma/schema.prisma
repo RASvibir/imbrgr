@@ -43,6 +43,7 @@ model User {
   sessions          Session[]
   mediaAssets       Media[]
   aiUsage           AiGenerationUsage[]
+  collections       Collection[]
 }
 
 model Account {
@@ -95,8 +96,13 @@ model Post {
   aiGenerated    Boolean    @default(false)
   aiPrompt       String?    @db.Text
   hiddenByAdmin  Boolean    @default(false)
+  remixedFromPostId String?
+  remixedFrom       Post?  @relation("PostRemixes", fields: [remixedFromPostId], references: [id], onDelete: SetNull)
+  remixes           Post[] @relation("PostRemixes")
+  hotScore          Float    @default(0)
   createdAt      DateTime   @default(now())
   media         Media[]
+  collectionPosts CollectionPost[]
   tags          PostTag[]
   votes         PostVote[]
   favorites     Favorite[]
@@ -108,6 +114,8 @@ model Post {
   @@index([score])
   @@index([visibility])
   @@index([userId])
+  @@index([remixedFromPostId])
+  @@index([hotScore(sort: Desc), createdAt(sort: Desc)])
 }
 
 model Media {
@@ -135,8 +143,13 @@ model Media {
   aiGenerated    Boolean  @default(false)
   aiEdited       Boolean  @default(false)
   aiPrompt       String?  @db.Text
+  thumbSmKey     String?
+  thumbMdKey     String?
+  placeholderCss String?
 
   @@index([postId])
+  @@index([thumbSmKey])
+  @@index([thumbMdKey])
   @@index([userId])
   @@index([parentMediaId])
   @@index([voterKey])
@@ -230,10 +243,44 @@ model Favorite {
   @@id([userId, postId])
 }
 
+model Collection {
+  id            String   @id @default(cuid())
+  shortId       String   @unique
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  visibility    String   @default("UNLISTED")
+  coverPostId   String?
+  sortOrder     Int      @default(0)
+  hiddenByAdmin Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  posts         CollectionPost[]
+
+  @@index([userId])
+  @@index([visibility])
+}
+
+model CollectionPost {
+  collectionId String
+  postId       String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  post         Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  sortOrder    Int        @default(0)
+  addedAt      DateTime   @default(now())
+
+  @@id([collectionId, postId])
+  @@index([postId])
+}
+
 model Report {
   id        String   @id @default(cuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  targetType String  @default("POST")
+  targetId  String
+  voterKey  String?
   userId    String?
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   reason     String
@@ -241,7 +288,9 @@ model Report {
   resolvedAt DateTime?
   createdAt  DateTime @default(now())
 
+  @@unique([targetType, targetId, voterKey])
   @@index([status])
+  @@index([targetType, targetId])
 }
 
 model SiteSetting {

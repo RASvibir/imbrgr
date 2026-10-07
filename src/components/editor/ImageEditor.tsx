@@ -159,8 +159,11 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   const compareSrc = compare ? imageSrc : src;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/80 p-4">
-      <div className="relative mx-auto h-[50vh] w-full max-w-3xl overflow-hidden rounded-xl bg-[var(--surface-raised)]">
+    <div
+      className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-black/80 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
+      style={{ touchAction: "manipulation" }}
+    >
+      <div className="relative mx-auto h-[min(45dvh,420px)] w-full max-w-3xl shrink-0 overflow-hidden rounded-xl bg-[var(--surface-raised)] touch-pan-x touch-pan-y">
         <Cropper
           image={compareSrc}
           crop={crop}
@@ -183,13 +186,13 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
           onPointerLeave={endDraw}
         />
       </div>
-      <div className="mx-auto mt-4 grid w-full max-w-3xl gap-3 text-sm text-[var(--text-primary)]">
-        <div className="flex flex-wrap gap-2">
+      <div className="mx-auto mt-4 grid w-full max-w-3xl gap-3 pb-4 text-base text-[var(--text-primary)]">
+        <div className="chip-scroll">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               type="button"
-              className={`rounded px-2 py-1 ${filter === f.id ? "bg-[var(--accent-primary)]" : "border"}`}
+              className={`tap-target shrink-0 rounded px-3 py-2 text-sm ${filter === f.id ? "bg-[var(--accent-primary)]" : "border"}`}
               onClick={() => setFilter(f.id)}
             >
               {f.label}
@@ -197,14 +200,14 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
           ))}
           {!profileMode ? (
             <>
-              <button type="button" className="rounded border px-2 py-1" onClick={() => setAspect(1)}>1:1</button>
-              <button type="button" className="rounded border px-2 py-1" onClick={() => setAspect(16 / 9)}>16:9</button>
-              <button type="button" className="rounded border px-2 py-1" onClick={() => setAspect(undefined)}>Free</button>
+              <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={() => setAspect(1)}>1:1</button>
+              <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={() => setAspect(16 / 9)}>16:9</button>
+              <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={() => setAspect(undefined)}>Free</button>
             </>
           ) : null}
-          <button type="button" className="rounded border px-2 py-1" onClick={() => setRotation((r) => r + 90)}>Rotate</button>
-          <button type="button" className="rounded border px-2 py-1" onClick={() => setFlipH((f) => !f)}>Flip</button>
-          <button type="button" className="rounded border px-2 py-1" onClick={snapshotHistory}>Apply snapshot</button>
+          <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={() => setRotation((r) => r + 90)}>Rotate</button>
+          <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={() => setFlipH((f) => !f)}>Flip</button>
+          <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={snapshotHistory}>Apply snapshot</button>
           {!profileMode ? (
             <button
               type="button"
@@ -250,13 +253,13 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
         />
         <p className="text-xs text-[var(--text-muted)]">Draw on the image with your pointer (ember stroke).</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="rounded border px-3 py-1" disabled={histIdx <= 0} onClick={() => setHistIdx((i) => i - 1)}>Undo</button>
-          <button type="button" className="rounded border px-3 py-1" disabled={histIdx >= history.length - 1} onClick={() => setHistIdx((i) => i + 1)}>Redo</button>
-          <button type="button" className="rounded border px-3 py-1" onClick={onCancel}>Cancel</button>
+          <button type="button" className="tap-target rounded border px-4 py-2 text-sm" disabled={histIdx <= 0} onClick={() => setHistIdx((i) => i - 1)}>Undo</button>
+          <button type="button" className="tap-target rounded border px-4 py-2 text-sm" disabled={histIdx >= history.length - 1} onClick={() => setHistIdx((i) => i + 1)}>Redo</button>
+          <button type="button" className="tap-target rounded border px-4 py-2 text-sm" onClick={onCancel}>Cancel</button>
           {profileMode || studioMode ? (
             <button
               type="button"
-              className="rounded bg-[var(--accent-primary)] px-3 py-1 font-semibold text-[var(--on-accent)]"
+              className="tap-target rounded bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
               onClick={async () => onExport(await renderExport(), studioMode ? "version" : "replace")}
             >
               {studioMode ? "Save to studio" : "Save"}

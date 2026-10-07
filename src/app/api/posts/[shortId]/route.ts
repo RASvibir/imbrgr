@@ -40,6 +40,7 @@ export async function GET(
       },
       media: { orderBy: { sortOrder: "asc" } },
       tags: { include: { tag: true } },
+      remixedFrom: { select: { shortId: true, title: true } },
     },
   });
   if (!post || !canViewPost(post, actor)) {

@@ -8,9 +8,9 @@ import { toStudioInitialAsset } from "@/lib/studio-initial-asset";
 export default async function StudioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; prompt?: string; media?: string }>;
+  searchParams: Promise<{ tab?: string; prompt?: string; media?: string; remixFrom?: string }>;
 }) {
-  const { tab, prompt, media: mediaShortId } = await searchParams;
+  const { tab, prompt, media: mediaShortId, remixFrom } = await searchParams;
   const actor = await getServerActor();
 
   let initialAsset = null;
@@ -28,7 +28,7 @@ export default async function StudioPage({
 
   return (
     <Suspense fallback={<p className="p-8 text-center text-[var(--text-muted)]">Loading studio…</p>}>
-      <ImageStudio defaultTab={defaultTab} initialPrompt={prompt} initialAsset={initialAsset} />
+      <ImageStudio defaultTab={defaultTab} initialPrompt={prompt} initialAsset={initialAsset} remixFromShortId={remixFrom} />
     </Suspense>
   );
 }

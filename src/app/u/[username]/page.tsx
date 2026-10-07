@@ -3,7 +3,9 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
 import { PostCard } from "@/components/posts/PostCard";
+import { ReportButton } from "@/components/report/ReportButton";
 import { profileImageUrl } from "@/lib/urls";
 
 type LinkItem = { label: string; url: string };
@@ -22,9 +24,12 @@ export default function ProfilePage() {
     posts: unknown[];
     favorites: { post: unknown }[];
     comments: { body: string; createdAt: string; post: { shortId: string; title: string } }[];
-    stats: { posts: number; comments: number; favorites: number | null; views: number };
+    stats: { posts: number; comments: number; favorites: number | null; views: number; spice: number };
+    remixes: unknown[];
+    collections: { shortId: string; title: string; visibility: string; _count: { posts: number } }[];
+    id?: string;
   } | null>(null);
-  const [tab, setTab] = useState<"posts" | "favorites" | "comments">("posts");
+  const [tab, setTab] = useState<"posts" | "collections" | "remixes">("posts");
 
   useEffect(() => {
     void fetch(`/api/users/${username}`).then((r) => r.json()).then(setUser);
@@ -84,11 +89,19 @@ export default function ProfilePage() {
           ) : (
             <div>Favorites private</div>
           )}
-          <div><dt className="inline font-medium text-[var(--text-primary)]">{user.stats.views}</dt> post views</div>
+          <div><dt className="inline font-medium text-[var(--text-primary)]">{user.stats.views}</dt> cook count</div>
         </dl>
+        <div className="mt-4 max-w-md">
+          <CheeseSpiceGauge viewCount={user.stats.views} spiceScore={user.stats.spice ?? 0} compact />
+        </div>
+        {user.id ? (
+          <div className="mt-4">
+            <ReportButton target={{ type: "USER", id: user.id, label: "profile" }} />
+          </div>
+        ) : null}
 
         <div className="mt-8 flex gap-2 border-b border-[var(--border-subtle)]">
-          {(["posts", "favorites", "comments"] as const).map((t) => (
+          {(["posts", "collections", "remixes"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -108,29 +121,27 @@ export default function ProfilePage() {
           </div>
         ) : null}
 
-        {tab === "favorites" ? (
-          user.favoritesHidden ? (
-            <p className="mt-6 text-sm text-[var(--text-muted)]">This user keeps favorites private.</p>
-          ) : (
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {user.favorites.map((f) => (
-                <PostCard key={(f.post as { id: string }).id} post={f.post as never} />
-              ))}
-            </div>
-          )
-        ) : null}
-
-        {tab === "comments" ? (
-          <ul className="mt-6 space-y-3 text-sm">
-            {user.comments.map((c, i) => (
-              <li key={i} className="rounded-lg border border-[var(--border-subtle)] p-3">
-                <Link href={`/p/${c.post.shortId}`} className="font-medium text-[var(--accent-primary)]">
-                  {c.post.title}
+        {tab === "collections" ? (
+          <ul className="mt-6 space-y-3">
+            {user.collections.map((c) => (
+              <li key={c.shortId}>
+                <Link href={`/c/${c.shortId}`} className="text-lg font-medium text-[var(--accent-primary)]">
+                  {c.title}
                 </Link>
-                <p className="mt-1 text-[var(--text-secondary)]">{c.body}</p>
+                <span className="ml-2 text-sm text-[var(--text-muted)]">
+                  {c._count.posts} dishes · {c.visibility.toLowerCase()}
+                </span>
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {tab === "remixes" ? (
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {(user.remixes as { id: string }[]).map((p) => (
+              <PostCard key={p.id} post={p as never} thumbVariant="sm" />
+            ))}
+          </div>
         ) : null}
       </div>
     </div>

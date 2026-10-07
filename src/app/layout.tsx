@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Header } from "@/components/layout/Header";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { ThemeScript } from "@/components/theme/ThemeScript";
 import "./globals.css";
@@ -63,6 +64,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#faf7f4" },
     { media: "(prefers-color-scheme: dark)", color: "#141210" },
@@ -83,8 +87,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <SessionProvider>
           <Header />
-          <main className="flex-1">{children}</main>
-        <footer className="border-t border-[var(--border-subtle)] py-8 text-center text-sm text-[var(--text-muted)]">
+          <main className="page-main flex-1 min-w-0">{children}</main>
+          <MobileBottomNav />
+        <footer className="hidden border-t border-[var(--border-subtle)] py-8 text-center text-sm text-[var(--text-muted)] lg:block">
           © {new Date().getFullYear()} imbrgr · ChloReform Studios · Irie Pharm
         </footer>
         </SessionProvider>

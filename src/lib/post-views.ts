@@ -10,6 +10,7 @@ type PostForView = {
   visibility: string;
   viewCount: number;
   spiceScore: number;
+  createdAt: Date;
   media: { userId: string | null; voterKey: string | null; visibility: string }[];
 };
 
@@ -51,6 +52,9 @@ export async function recordPostView(post: PostForView, actor: Actor): Promise<R
   const delta = spiceDeltaForView(isAnonymous, isRepeat);
 
   if (!existing) {
+    const newViews = baseViews + 1;
+    const newSpice = baseSpice + delta;
+    const hotScore = (await import("@/lib/hot-score")).computeHotScore(newViews, newSpice, post.createdAt);
     await prisma.$transaction([
       prisma.postView.create({
         data: {
@@ -65,16 +69,19 @@ export async function recordPostView(post: PostForView, actor: Actor): Promise<R
         data: {
           viewCount: { increment: 1 },
           ...(delta ? { spiceScore: { increment: delta } } : {}),
+          hotScore,
         },
       }),
     ]);
     return {
-      viewCount: baseViews + 1,
-      spiceScore: baseSpice + delta,
+      viewCount: newViews,
+      spiceScore: newSpice,
       recorded: true,
     };
   }
 
+  const newSpice = baseSpice + delta;
+  const hotScore = (await import("@/lib/hot-score")).computeHotScore(baseViews, newSpice, post.createdAt);
   await prisma.$transaction([
     prisma.postView.update({
       where: { id: existing.id },
@@ -82,13 +89,13 @@ export async function recordPostView(post: PostForView, actor: Actor): Promise<R
     }),
     prisma.post.update({
       where: { id: post.id },
-      data: { spiceScore: { increment: delta } },
+      data: { spiceScore: { increment: delta }, hotScore },
     }),
   ]);
 
   return {
     viewCount: baseViews,
-    spiceScore: baseSpice + delta,
+    spiceScore: newSpice,
     recorded: true,
   };
 }

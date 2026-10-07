@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AiEditPreview } from "@/components/studio/AiEditPreview";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { StorageMeter } from "@/components/storage/StorageMeter";
@@ -12,6 +13,7 @@ import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/image
 import { normalizeStudioAsset } from "@/lib/studio-asset";
 import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaUrl } from "@/lib/urls";
+import { StudioMobileActionBar } from "@/components/studio/StudioMobileActionBar";
 import { StudioAiAssist } from "@/components/studio/StudioAiAssist";
 import { StudioPromptHero } from "@/components/studio/StudioPromptHero";
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
@@ -44,10 +46,12 @@ export function ImageStudio({
   defaultTab,
   initialPrompt,
   initialAsset,
+  remixFromShortId,
 }: {
   defaultTab?: string;
   initialPrompt?: string;
   initialAsset?: StudioInitialAsset | null;
+  remixFromShortId?: string;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -84,6 +88,13 @@ export function ImageStudio({
   const [aiAssistOn, setAiAssistOn] = useState(false);
   const [aiEditText, setAiEditText] = useState("");
   const [assistErr, setAssistErr] = useState("");
+  const [assistProgress, setAssistProgress] = useState("");
+  const [aiPreview, setAiPreview] = useState<{
+    beforeSrc: string;
+    afterSrc: string;
+    after: StudioAsset;
+  } | null>(null);
+  const aiAbortRef = useRef<AbortController | null>(null);
   const [suggestions, setSuggestions] = useState<{ caption?: string; alt?: string; tags?: string[] }>({});
   const [deleteToken, setDeleteToken] = useState<string | null>(null);
   const [settings, setSettings] = useState<ImageSettingsValues>({
@@ -275,48 +286,57 @@ export function ImageStudio({
     setMsg(COPY.settingsSaved);
   };
 
-  const aiNaturalEdit = async () => {
-    if (!asset || !aiEditText.trim()) return;
-    setBusy(true);
-    setAssistErr("");
-    const res = await fetch("/api/ai/edit-image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mediaShortId: asset.shortId, instruction: aiEditText }),
-    });
-    const data = await res.json();
+  const cancelAiEdit = () => {
+    aiAbortRef.current?.abort();
     setBusy(false);
-    if (!res.ok) {
-      setAssistErr(data.error ?? "Edit failed");
-      return;
-    }
-    await setActiveAsset(
-      normalizeStudioAsset({
-        mediaShortId: data.mediaShortId,
-        storageKey: data.storageKey,
-        mimeType: data.mimeType ?? "image/png",
-      }),
-    );
-    setAiEditText("");
-    setAssistErr("");
+    setAssistProgress("");
   };
 
-  const autoEnhance = async () => {
-    if (!asset) return;
+  const startAiEdit = async (instruction: string) => {
+    if (!asset || !instruction.trim()) return;
+    aiAbortRef.current?.abort();
+    const ac = new AbortController();
+    aiAbortRef.current = ac;
     setBusy(true);
     setAssistErr("");
-    const res = await fetch("/api/studio/auto-enhance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mediaShortId: asset.shortId }),
-    });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      setAssistErr(data.error ?? "Sharpen failed");
-      return;
+    setAssistProgress(COPY.generateWorking);
+    const beforeSrc = mediaUrl(asset.storageKey, asset.mimeType);
+    try {
+      const res = await fetch("/api/ai/edit-image", {
+        method: "POST",
+        signal: ac.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaShortId: asset.shortId, instruction }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAssistErr(data.error ?? "Edit failed");
+        return;
+      }
+      const after = normalizeStudioAsset({
+        mediaShortId: data.mediaShortId ?? data.shortId,
+        storageKey: data.storageKey,
+        mimeType: data.mimeType ?? "image/png",
+        width: data.width,
+        height: data.height,
+      });
+      const afterSrc = mediaUrl(after.storageKey, after.mimeType);
+      setAiPreview({ beforeSrc, afterSrc, after });
+      setAiEditText("");
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setAssistErr("We couldn't finish that tweak — try again or pick a quick chip.");
+    } finally {
+      setBusy(false);
+      setAssistProgress("");
     }
-    await setActiveAsset(normalizeStudioAsset(data));
+  };
+
+  const keepAiPreview = async () => {
+    if (!aiPreview) return;
+    await setActiveAsset(aiPreview.after);
+    setAiPreview(null);
+    setMsg("Change kept. Head to Share when you're ready.");
   };
 
   const runSuggest = async (type: "caption" | "alt" | "tags") => {
@@ -333,9 +353,8 @@ export function ImageStudio({
     else setSuggestions((s) => ({ ...s, alt: data.text }));
   };
 
-  const applySuggestion = (type: "caption" | "alt" | "tags", value: string | string[]) => {
+  const applySuggestion = (type: "alt" | "tags", value: string | string[]) => {
     if (type === "alt" && typeof value === "string") setSettings((s) => ({ ...s, altText: value }));
-    if (type === "caption" && typeof value === "string") setSettings((s) => ({ ...s, description: value }));
     if (type === "tags" && Array.isArray(value)) setSettings((s) => ({ ...s, tags: value.join(", ") }));
   };
 
@@ -381,15 +400,23 @@ export function ImageStudio({
       setErr(friendlyError(data.error ?? "Could not publish"));
       return;
     }
-    setMsg(COPY.publishSuccess);
+    setMsg(`${COPY.publishSuccess} Open your post`);
     router.push(`/p/${data.shortId}`);
   };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6" onPaste={onPaste}>
+    <div className="mx-auto max-w-3xl px-4 py-8 pb-44 sm:px-6 lg:pb-8" onPaste={onPaste}>
       <header className="mb-6">
         <h1 className="text-3xl font-bold">Image studio</h1>
         <p className="mt-1 text-sm text-[var(--text-muted)]">{COPY.studioTagline}</p>
+        {remixFromShortId ? (
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            Remixing from{" "}
+            <Link href={`/p/${remixFromShortId}`} className="text-[var(--accent-primary)]">
+              original dish
+            </Link>
+          </p>
+        ) : null}
         {signedIn ? (
           <div className="mt-3 max-w-md">
             <StorageMeter />
@@ -404,18 +431,18 @@ export function ImageStudio({
         {!signedIn ? (
           <p className="mt-2 text-xs text-[var(--text-muted)]">
             {COPY.guestBanner}{" "}
-            <Link href="/auth/signup" className="text-[var(--accent-primary)]">Create an account</Link>
+            <Link href="/auth/signup" className="tap-target inline-flex items-center text-[var(--accent-primary)]">Create an account</Link>
           </p>
         ) : null}
       </header>
 
-      <nav className="flex gap-1 border-b border-[var(--border-subtle)] pb-1" aria-label="Studio steps">
+      <nav className="flex gap-1 overflow-x-auto border-b border-[var(--border-subtle)] pb-1" aria-label="Studio steps">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => selectTab(t.id)}
-            className={`rounded-t-lg px-4 py-2 text-sm font-medium ${
+            className={`tap-target min-h-11 shrink-0 rounded-t-lg px-4 text-sm font-medium ${
               tab === t.id
                 ? "bg-[var(--surface-raised)] text-[var(--accent-primary)]"
                 : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -450,7 +477,7 @@ export function ImageStudio({
             onGenerate={generate}
           />
           <details className="rounded-xl border border-[var(--border-subtle)] p-4">
-            <summary className="cursor-pointer text-sm text-[var(--text-muted)]">Bring your own image</summary>
+            <summary className="tap-target flex cursor-pointer list-none items-center text-sm text-[var(--text-muted)]">Bring your own image</summary>
             <div className="mt-4 space-y-3">
               <div
                 onDragOver={(e) => e.preventDefault()}
@@ -481,6 +508,7 @@ export function ImageStudio({
               </div>
             </div>
           </details>
+          <div className="h-8 lg:hidden" aria-hidden />
         </div>
       ) : null}
 
@@ -492,10 +520,13 @@ export function ImageStudio({
             </p>
           ) : (
             <>
+              <p className="text-sm text-[var(--text-muted)]">
+                Step 2: tweak by hand or turn on Assist for quick suggestions. When it looks right, open Share.
+              </p>
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="w-full rounded-xl bg-[var(--accent-primary)] px-4 py-3 text-sm font-semibold text-[var(--on-accent)] sm:w-auto"
+                className="min-h-11 w-full rounded-xl bg-[var(--accent-primary)] px-4 py-3 text-sm font-semibold text-[var(--on-accent)] sm:w-auto"
               >
                 Open editor
               </button>
@@ -506,13 +537,22 @@ export function ImageStudio({
                 onEditTextChange={setAiEditText}
                 busy={busy}
                 hasAsset={Boolean(asset)}
-                onApplyEdit={aiNaturalEdit}
-                onSharpen={autoEnhance}
-                onSuggest={runSuggest}
+                onApplyInstruction={(instruction) => void startAiEdit(instruction)}
+                onCancel={cancelAiEdit}
+                onSuggest={(type) => void runSuggest(type)}
                 onApplySuggestion={applySuggestion}
                 suggestions={suggestions}
                 err={assistErr}
+                progressLabel={assistProgress}
               />
+              {aiPreview ? (
+                <AiEditPreview
+                  beforeSrc={aiPreview.beforeSrc}
+                  afterSrc={aiPreview.afterSrc}
+                  onKeep={() => void keepAiPreview()}
+                  onUndo={() => setAiPreview(null)}
+                />
+              ) : null}
               <details className="rounded-lg border border-[var(--border-subtle)] p-3 text-sm">
                 <summary className="cursor-pointer text-[var(--text-muted)]">Export format</summary>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -569,9 +609,21 @@ export function ImageStudio({
                     {COPY.publishCta}
                   </button>
                 ) : (
-                  <p className="text-sm text-[var(--text-muted)]">
-                    <Link href="/auth/signup" className="text-[var(--accent-primary)]">Sign up</Link> to add to the gallery.
-                  </p>
+                  <div className="space-y-2 text-sm text-[var(--text-muted)]" data-testid="guest-keep-signin">
+                    <p>
+                      You can still share from here. Optional:{" "}
+                      <Link
+                        href={`/auth/signin?callbackUrl=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname + window.location.search : "/studio")}`}
+                        className="text-[var(--accent-primary)]"
+                      >
+                        Sign in to keep it
+                      </Link>{" "}
+                      on your plate after you serve or share.
+                    </p>
+                    <p>
+                      <Link href="/auth/signup" className="tap-target inline-flex items-center text-[var(--accent-primary)]">Create an account</Link> to add to the gallery.
+                    </p>
+                  </div>
                 )}
               </div>
               {deleteToken ? (
@@ -579,7 +631,13 @@ export function ImageStudio({
                   {COPY.guestDeleteHint} <code className="break-all">{deleteToken}</code>
                 </p>
               ) : null}
-              {share ? <ShareLinks share={share} /> : null}
+              {share ? (
+                <ShareLinks
+                  share={share}
+                  visibility={settings.visibility}
+                  successHref={share.pageUrl}
+                />
+              ) : null}
             </>
           )}
         </div>
@@ -596,6 +654,22 @@ export function ImageStudio({
           onExport={(blob) => void saveEditorBlob(blob)}
         />
       ) : null}
+
+      <StudioMobileActionBar
+        tab={tab}
+        busy={busy}
+        canGenerate={prompt.trim().length >= 3 && kitchenOpen}
+        canShare={Boolean(share?.pageUrl)}
+        onGenerate={() => void generate()}
+        onSharePrimary={async () => {
+          if (!share?.pageUrl) return;
+          await navigator.clipboard.writeText(share.pageUrl);
+          setMsg("Link copied — share it anywhere.");
+        }}
+        showKeepUndo={Boolean(aiPreview)}
+        onKeep={() => void keepAiPreview()}
+        onUndo={() => setAiPreview(null)}
+      />
     </div>
   );
 }

@@ -43,6 +43,7 @@ describeIfDb("recordPostView integration", () => {
       viewCount: 0,
       spiceScore: 0,
       media: [],
+      createdAt: new Date(),
     };
     const visitor = { userId: null, voterKey: `a:test-${Date.now()}`, ipHash: "h" };
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { computeHotScore } from "@/lib/hot-score";
 import { prisma } from "@/lib/db";
 import { getVoterKey } from "@/lib/voter";
 
@@ -62,6 +63,11 @@ export async function POST(
       score: { increment: scoreDelta },
     },
   });
+
+  const hotScore = computeHotScore(updated.viewCount, updated.spiceScore ?? 0, updated.createdAt);
+  if (hotScore !== updated.hotScore) {
+    await prisma.post.update({ where: { id: post.id }, data: { hotScore } });
+  }
 
   return NextResponse.json({
     score: updated.score,

@@ -21,9 +21,16 @@ export default function HomePage() {
           Upload stacks, vote, comment, and share — ember glow, burger energy.
         </p>
         <StudioHomePrompt />
-        <p className="mt-4 text-sm text-[var(--text-muted)]">
-          Posting a stack?{" "}
-          <Link href="/upload" className="text-[var(--accent-primary)]">Multi-image upload</Link>
+        <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--text-muted)]">
+          <Link href="/hot" className="tap-target inline-flex items-center text-[var(--accent-primary)]">
+            See what&apos;s hot
+          </Link>
+          <span className="inline-flex flex-wrap items-center gap-1">
+            Posting a stack?{" "}
+            <Link href="/upload" className="tap-target inline-flex items-center text-[var(--accent-primary)]">
+              Multi-image upload
+            </Link>
+          </span>
         </p>
       </section>
 
@@ -33,7 +40,7 @@ export default function HomePage() {
             key={s}
             type="button"
             onClick={() => setSort(s)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium capitalize ${
+            className={`tap-target rounded-full px-4 text-sm font-medium capitalize ${
               sort === s
                 ? "bg-[var(--accent-primary)] text-[var(--on-accent)]"
                 : "border border-[var(--border-subtle)] text-[var(--text-secondary)]"

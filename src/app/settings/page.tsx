@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
+import { CollectionSettings } from "@/components/collections/CollectionSettings";
 import { StorageMeter } from "@/components/storage/StorageMeter";
 import { profileImageUrl } from "@/lib/urls";
 
@@ -264,6 +265,8 @@ export default function SettingsPage() {
           Save profile
         </button>
       </div>
+
+      <CollectionSettings />
 
       <section className="mt-10 rounded-xl border border-[var(--danger)]/40 p-4">
         <h2 className="font-semibold text-[var(--danger)]">Delete account</h2>

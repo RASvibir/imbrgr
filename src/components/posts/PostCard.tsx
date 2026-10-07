@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PostMediaImage } from "@/components/media/PostMediaImage";
 import { mediaUrl } from "@/lib/urls";
 
 type PostCardData = {
@@ -12,13 +13,22 @@ type PostCardData = {
     mimeType: string;
     width?: number | null;
     height?: number | null;
+    thumbSmKey?: string | null;
+    thumbMdKey?: string | null;
+    placeholderCss?: string | null;
   }[];
   user: { username: string } | null;
 };
 
-export function PostCard({ post }: { post: PostCardData }) {
+export function PostCard({
+  post,
+  thumbVariant = "md",
+}: {
+  post: PostCardData;
+  thumbVariant?: "sm" | "md";
+}) {
   const thumb = post.media[0];
-  const src = thumb ? mediaUrl(thumb.storageKey, thumb.mimeType) : null;
+  const src = thumb && thumb.mimeType.startsWith("video/") ? mediaUrl(thumb.storageKey, thumb.mimeType) : null;
   return (
     <Link
       href={`/p/${post.shortId}`}
@@ -30,17 +40,11 @@ export function PostCard({ post }: { post: PostCardData }) {
             AI
           </span>
         ) : null}
-        {src ? (
-          thumb.mimeType.startsWith("video/") ? (
+        {thumb ? (
+          thumb.mimeType.startsWith("video/") && src ? (
             <video src={src} className="h-full w-full object-cover" muted playsInline />
           ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={src}
-              alt=""
-              className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-              loading="lazy"
-            />
+            <PostMediaImage media={thumb} variant={thumbVariant} className="transition group-hover:scale-[1.02]" />
           )
         ) : null}
       </div>

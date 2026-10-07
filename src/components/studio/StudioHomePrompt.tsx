@@ -24,13 +24,13 @@ export function StudioHomePrompt() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Describe the image you want…"
-          className="flex-1 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-base)] px-3 py-2 text-sm"
+          className="min-h-11 flex-1 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-base)] px-3 py-2.5 text-base sm:text-sm"
           onKeyDown={(e) => e.key === "Enter" && go()}
         />
         <button
           type="button"
           onClick={go}
-          className="rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
+          className="tap-target rounded-lg bg-[var(--accent-primary)] px-4 text-sm font-semibold text-[var(--on-accent)]"
         >
           {COPY.generateCta}
         </button>

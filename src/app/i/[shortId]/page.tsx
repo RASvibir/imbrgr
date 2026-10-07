@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
+import { ReportButton } from "@/components/report/ReportButton";
 import { prisma } from "@/lib/db";
 import { canViewMedia, isMediaOwner } from "@/lib/media-access";
 import { recordPostView } from "@/lib/post-views";
@@ -68,16 +69,17 @@ export default async function ImageDirectPage({
       {postEngagement ? (
         <CheeseSpiceGauge viewCount={postEngagement.viewCount} spiceScore={postEngagement.spiceScore} />
       ) : null}
-      {canRefine ? (
-        <div className="mt-4">
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        {canRefine ? (
           <Link
             href={`/studio?tab=refine&media=${media.shortId}`}
-            className="inline-flex rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
+            className="tap-target inline-flex items-center rounded-lg bg-[var(--accent-primary)] px-4 text-sm font-semibold text-[var(--on-accent)]"
           >
             Refine in studio
           </Link>
-        </div>
-      ) : null}
+        ) : null}
+        <ReportButton target={{ type: "MEDIA", id: media.id, label: "image" }} />
+      </div>
     </div>
   );
 }

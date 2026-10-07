@@ -46,7 +46,7 @@ export const COPY = {
   generateWorking: "Plating your image…",
   generateCta: "Cook up image",
   enhancePrompt: "Sprinkle extra detail on my description",
-  aiAssistantBlurb: "Describe a change in plain English — we'll apply it as a new version.",
+  aiAssistantBlurb: "Describe a tweak or tap a chip — preview first, then keep what you like.",
   applyAiEdit: "Apply change",
   publishCta: "Serve to gallery",
   publishSuccess: "It's live on the gallery — nice and hot.",

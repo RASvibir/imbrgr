@@ -5,7 +5,7 @@ export function Logo({ showWordmark = true }: { showWordmark?: boolean }) {
   return (
     <Link
       href="/"
-      className="group inline-flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-base)]"
+      className="tap-target group inline-flex items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-base)]"
     >
       <ImbrgrMark size="md" className="shrink-0 transition-transform group-hover:scale-105" />
       {showWordmark ? (

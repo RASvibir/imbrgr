@@ -50,8 +50,32 @@ export async function GET(
   const showFavorites = isOwner || user.favoritesPublic;
 
   const totalViews = await prisma.post.aggregate({
-    where: { userId: user.id, visibility: "PUBLIC" },
-    _sum: { viewCount: true },
+    where: { userId: user.id, visibility: "PUBLIC", hiddenByAdmin: false },
+    _sum: { viewCount: true, spiceScore: true },
+  });
+
+  const remixes = await prisma.post.findMany({
+    where: { userId: user.id, remixedFromPostId: { not: null }, visibility: "PUBLIC", hiddenByAdmin: false },
+    orderBy: { createdAt: "desc" },
+    take: 48,
+    select: postCardSelect,
+  });
+
+  const collections = await prisma.collection.findMany({
+    where: {
+      userId: user.id,
+      ...(isOwner ? {} : { visibility: "PUBLIC", hiddenByAdmin: false }),
+    },
+    orderBy: { createdAt: "desc" },
+    take: 48,
+    select: {
+      id: true,
+      shortId: true,
+      title: true,
+      description: true,
+      visibility: true,
+      _count: { select: { posts: true } },
+    },
   });
 
   return NextResponse.json({
@@ -63,6 +87,9 @@ export async function GET(
       comments: user._count.comments,
       favorites: showFavorites ? user._count.favorites : null,
       views: totalViews._sum.viewCount ?? 0,
+      spice: totalViews._sum.spiceScore ?? 0,
     },
+    remixes,
+    collections,
   });
 }
