@@ -8,6 +8,7 @@ import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/image
 import { PostMediaImage } from "@/components/media/PostMediaImage";
 import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
 import { PostRemixButton } from "@/components/posts/PostRemixButton";
+import { PostOwnerMenu } from "@/components/posts/PostOwnerMenu";
 import { CollectionQuickAdd } from "@/components/collections/CollectionQuickAdd";
 import { ReportButton } from "@/components/report/ReportButton";
 import { ShareLinks } from "@/components/share/ShareLinks";
@@ -53,6 +54,8 @@ type Post = {
   media: Media[];
   tags: { tag: { slug: string; name: string } }[];
   remixedFrom?: { shortId: string; title: string } | null;
+  canManage?: boolean;
+  canDelete?: boolean;
 };
 
 export function PostDetail({ shortId }: { shortId: string }) {
@@ -137,12 +140,6 @@ export function PostDetail({ shortId }: { shortId: string }) {
     setComments((list) => list.map((c) => (c.id === id ? { ...c, score: data.score } : c)));
   };
 
-  const deletePost = async () => {
-    if (!confirm("Delete this post?")) return;
-    await fetch(`/api/posts/${shortId}`, { method: "DELETE" });
-    router.push("/");
-  };
-
   const saveOwnerSettings = async () => {
     if (!ownerSettings || !post) return;
     const tags = ownerSettings.tags?.split(/[,\s#]+/).filter(Boolean) ?? [];
@@ -202,7 +199,14 @@ export function PostDetail({ shortId }: { shortId: string }) {
           ) : null}
           <CheeseSpiceGauge viewCount={post.viewCount} spiceScore={post.spiceScore ?? 0} />
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-start gap-2">
+          {post.canManage ? (
+            <PostOwnerMenu
+              postShortId={shortId}
+              canDelete={Boolean(post.canDelete)}
+              onDeleted={() => router.push("/")}
+            />
+          ) : null}
           <PostRemixButton shortId={shortId} isPublic={post.visibility === "PUBLIC"} />
           <ReportButton target={{ type: "POST", id: shortId, label: "post" }} />
           <button type="button" onClick={() => vote(1)} className="rounded-lg border px-3 py-1 text-sm">
@@ -295,9 +299,6 @@ export function PostDetail({ shortId }: { shortId: string }) {
                 Download original
               </a>
             ) : null}
-            <button type="button" onClick={deletePost} className="rounded-lg border border-[var(--danger)] px-3 py-2 text-sm text-[var(--danger)]">
-              Delete post
-            </button>
           </div>
         </section>
       ) : null}

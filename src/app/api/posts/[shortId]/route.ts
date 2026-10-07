@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { canDeletePost, deletePostAndMedia } from "@/lib/post-cleanup";
-import { canViewPost, isMediaOwner } from "@/lib/media-access";
+import { canDeletePost, deletePostAndMedia, isGuestPostOwner } from "@/lib/post-cleanup";
+import { postHasImageMedia } from "@/lib/post-feed-filter";
+import { canViewPost, isMediaOwner, isPostOwner } from "@/lib/media-access";
 import { getActor } from "@/lib/request-identity";
 import { slugifyTag } from "@/lib/validation";
 import { recordPostView } from "@/lib/post-views";
@@ -43,14 +44,18 @@ export async function GET(
       remixedFrom: { select: { shortId: true, title: true } },
     },
   });
-  if (!post || !canViewPost(post, actor)) {
+  if (!post || !canViewPost(post, actor) || !postHasImageMedia(post.media)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   const views = await recordPostView(post, actor);
+  const postLike = { userId: post.userId, visibility: post.visibility };
+  const canManage = isPostOwner(postLike, actor) || isGuestPostOwner(post, post.media, actor);
   return NextResponse.json({
     ...post,
     viewCount: views.viewCount,
     spiceScore: views.spiceScore ?? post.spiceScore ?? 0,
+    canManage,
+    canDelete: canDeletePost(post, post.media, actor),
     media: post.media.map((m) => ({
       ...m,
       canRefine: m.mimeType.startsWith("image/") && isMediaOwner(m, actor),
