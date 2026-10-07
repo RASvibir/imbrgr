@@ -23,7 +23,7 @@ export function PostRemixButton({ shortId, isPublic }: { shortId: string; isPubl
       type="button"
       disabled={busy}
       onClick={() => void remix()}
-      className="rounded-lg border border-[var(--accent-primary)] px-3 py-1 text-sm font-medium text-[var(--accent-primary)]"
+      className="tap-target rounded-lg border border-[var(--accent-primary)] px-3 py-2 text-sm font-medium text-[var(--accent-primary)]"
       data-testid="post-remix-button"
     >
       Remix

@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { CollectionSettings } from "@/components/collections/CollectionSettings";
 import { StorageMeter } from "@/components/storage/StorageMeter";
-import { profileImageUrl } from "@/lib/urls";
+import { profileImageUrlBusted } from "@/lib/urls";
 
 type LinkItem = { label: string; url: string };
 
@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [crop, setCrop] = useState<{ kind: "avatar" | "banner"; src: string } | null>(null);
+  const [imageCacheBust, setImageCacheBust] = useState<{ avatar?: number; banner?: number }>({});
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/auth/signin?callbackUrl=/settings");
@@ -92,8 +93,9 @@ export default function SettingsPage() {
           }
         : p,
     );
+    setImageCacheBust((b) => ({ ...b, [kind]: Date.now() }));
     setCrop(null);
-    setMsg(`${kind} updated`);
+    setMsg(kind === "avatar" ? "Profile photo updated" : "Banner updated");
   };
 
   const deleteAccount = async () => {
@@ -111,8 +113,8 @@ export default function SettingsPage() {
     return <p className="p-8 text-center text-[var(--text-muted)]">Loading settings…</p>;
   }
 
-  const avatarSrc = profileImageUrl(profile.avatarKey);
-  const bannerSrc = profileImageUrl(profile.bannerKey);
+  const avatarSrc = profileImageUrlBusted(profile.avatarKey, imageCacheBust.avatar);
+  const bannerSrc = profileImageUrlBusted(profile.bannerKey, imageCacheBust.banner);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
@@ -137,7 +139,12 @@ export default function SettingsPage() {
           <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-[var(--border-strong)] bg-[var(--surface-sunken)]">
             {avatarSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+              <img
+                src={avatarSrc}
+                alt=""
+                data-testid="settings-avatar-preview"
+                className="h-full w-full object-cover"
+              />
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">

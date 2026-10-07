@@ -1,7 +1,14 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
+import {
+  DEFAULT_IMAGE_EDIT_STATE,
+  type ImageEditState,
+  canvasToJpegBlob,
+  loadImageBitmapFromUrl,
+  renderEditedImageCanvas,
+} from "@/lib/image-editor-render";
 
 type Props = {
   imageSrc: string;
@@ -18,87 +25,106 @@ const FILTERS = [
   { id: "vivid", label: "Vivid" },
 ];
 
-async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("export failed"))), "image/jpeg", 0.92);
-  });
-}
-
-function applyFilter(ctx: CanvasRenderingContext2D, w: number, h: number, filter: string) {
-  const img = ctx.getImageData(0, 0, w, h);
-  const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    if (filter === "mono") {
-      const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      d[i] = d[i + 1] = d[i + 2] = g;
-    } else if (filter === "ember") {
-      d[i] = Math.min(255, d[i] * 1.1 + 20);
-      d[i + 1] *= 0.92;
-      d[i + 2] *= 0.85;
-    } else if (filter === "vivid") {
-      d[i] = Math.min(255, d[i] * 1.15);
-      d[i + 1] = Math.min(255, d[i + 1] * 1.1);
-      d[i + 2] = Math.min(255, d[i + 2] * 1.1);
-    }
-  }
-  ctx.putImageData(img, 0, 0);
+function cloneState(s: ImageEditState): ImageEditState {
+  return { ...s };
 }
 
 export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCancel }: Props) {
+  const [workingSrc, setWorkingSrc] = useState(imageSrc);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
   const [aspect, setAspect] = useState<number | undefined>(aspectPreset);
-  const [brightness, setBrightness] = useState(100);
-  const [contrast, setContrast] = useState(100);
-  const [saturation, setSaturation] = useState(100);
-  const [exposure, setExposure] = useState(100);
-  const [filter, setFilter] = useState("none");
-  const [flipH, setFlipH] = useState(false);
   const [overlayText, setOverlayText] = useState("");
-  const [history, setHistory] = useState<string[]>([imageSrc]);
+  const [history, setHistory] = useState<ImageEditState[]>([cloneState(DEFAULT_IMAGE_EDIT_STATE)]);
   const [histIdx, setHistIdx] = useState(0);
+  const [sliderDraft, setSliderDraft] = useState<Partial<ImageEditState> | null>(null);
   const [compare, setCompare] = useState(false);
   const [outWidth, setOutWidth] = useState<number | "">("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewRev, setPreviewRev] = useState(0);
   const cropArea = useRef<Area | null>(null);
   const drawCanvas = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
+  const previewUrlRef = useRef<string | null>(null);
+  const editStateRef = useRef<ImageEditState>(DEFAULT_IMAGE_EDIT_STATE);
 
-  const src = history[histIdx] ?? imageSrc;
+  useEffect(() => {
+    setWorkingSrc(imageSrc);
+    setHistory([cloneState(DEFAULT_IMAGE_EDIT_STATE)]);
+    setHistIdx(0);
+    setSliderDraft(null);
+  }, [imageSrc]);
+
+  const committed = history[histIdx] ?? DEFAULT_IMAGE_EDIT_STATE;
+  const editState: ImageEditState = { ...committed, ...sliderDraft };
+  editStateRef.current = editState;
+  const editStateKey = JSON.stringify(editState);
+
+  const commitEdit = useCallback(
+    (next: ImageEditState) => {
+      setSliderDraft(null);
+      setHistory((h) => [...h.slice(0, histIdx + 1), cloneState(next)]);
+      setHistIdx((i) => i + 1);
+    },
+    [histIdx],
+  );
+
+  const patchEdit = useCallback((patch: Partial<ImageEditState>) => {
+    commitEdit({ ...editState, ...patch });
+  }, [commitEdit, editState]);
 
   const onCropComplete = useCallback((_: Area, area: Area) => {
     cropArea.current = area;
   }, []);
 
-  async function renderExport(): Promise<Blob> {
-    const image = await createImageBitmap(await (await fetch(src)).blob());
-    const area = cropArea.current ?? { x: 0, y: 0, width: image.width, height: image.height };
-    const canvas = document.createElement("canvas");
-    const targetW = studioMode && outWidth ? Math.min(4096, Math.max(64, outWidth)) : area.width;
-    const scale = studioMode && outWidth ? targetW / area.width : 1;
-    canvas.width = Math.round(area.width * scale);
-    canvas.height = Math.round(area.height * scale);
-    const ctx = canvas.getContext("2d")!;
-    const exp = exposure / 100;
-    ctx.filter = `brightness(${brightness * exp}%) contrast(${contrast}%) saturate(${saturation}%)`;
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.scale(flipH ? -1 : 1, 1);
-    ctx.drawImage(
-      image,
-      area.x,
-      area.y,
-      area.width,
-      area.height,
-      -canvas.width / 2,
-      -canvas.height / 2,
-      canvas.width,
-      canvas.height,
-    );
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    applyFilter(ctx, canvas.width, canvas.height, filter);
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const image = await loadImageBitmapFromUrl(workingSrc);
+          const previewState: ImageEditState = { ...editState, rotation: 0 };
+          const canvas = await renderEditedImageCanvas(
+            image,
+            { x: 0, y: 0, width: image.width, height: image.height },
+            previewState,
+          );
+          const blob = await canvasToJpegBlob(canvas);
+          if (cancelled) return;
+          const url = URL.createObjectURL(blob);
+          if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+          previewUrlRef.current = url;
+          setPreviewUrl(url);
+          setPreviewRev((r) => r + 1);
+        } catch {
+          /* preview is best-effort */
+        }
+      })();
+    }, 120);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [workingSrc, editStateKey]);
 
-    if (drawCanvas.current) {
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
+  }, []);
+
+  async function renderExport(): Promise<Blob> {
+    const image = await loadImageBitmapFromUrl(workingSrc);
+    const area = cropArea.current ?? { x: 0, y: 0, width: image.width, height: image.height };
+    const canvas = await renderEditedImageCanvas(
+      image,
+      area,
+      editState,
+      studioMode && outWidth ? outWidth : undefined,
+    );
+    const ctx = canvas.getContext("2d")!;
+
+    if (drawCanvas.current && !profileMode) {
       ctx.drawImage(drawCanvas.current, 0, 0, canvas.width, canvas.height);
     }
 
@@ -113,7 +139,7 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
       ctx.fillText(overlayText, x, y);
     }
 
-    return canvasToBlob(canvas);
+    return canvasToJpegBlob(canvas);
   }
 
   function startDraw(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -146,8 +172,10 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   function snapshotHistory() {
     void renderExport().then((blob) => {
       const url = URL.createObjectURL(blob);
-      setHistory((h) => [...h.slice(0, histIdx + 1), url]);
-      setHistIdx((i) => i + 1);
+      setWorkingSrc(url);
+      setHistory([cloneState(DEFAULT_IMAGE_EDIT_STATE)]);
+      setHistIdx(0);
+      setSliderDraft(null);
       if (drawCanvas.current) {
         const ctx = drawCanvas.current.getContext("2d");
         ctx?.clearRect(0, 0, drawCanvas.current.width, drawCanvas.current.height);
@@ -155,36 +183,48 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
     });
   }
 
+  function commitSlider() {
+    commitEdit({ ...editStateRef.current });
+  }
+
   const profileMode = aspectPreset != null;
-  const compareSrc = compare ? imageSrc : src;
+  const cropperImage = compare ? workingSrc : previewUrl ?? workingSrc;
+  const canUndo = histIdx > 0;
+  const canRedo = histIdx < history.length - 1;
 
   return (
     <div
       className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-black/80 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
       style={{ touchAction: "manipulation" }}
+      data-testid="image-editor"
     >
-      <div className="relative mx-auto h-[min(45dvh,420px)] w-full max-w-3xl shrink-0 overflow-hidden rounded-xl bg-[var(--surface-raised)] touch-pan-x touch-pan-y">
+      <div
+        className="relative mx-auto h-[min(45dvh,420px)] w-full max-w-3xl shrink-0 overflow-hidden rounded-xl bg-[var(--surface-raised)] touch-pan-x touch-pan-y"
+        data-testid="image-editor-cropper"
+        data-preview-rev={previewRev}
+      >
         <Cropper
-          image={compareSrc}
+          image={cropperImage}
           crop={crop}
           zoom={zoom}
-          rotation={rotation}
+          rotation={editState.rotation}
           aspect={aspect}
           onCropChange={setCrop}
           onZoomChange={setZoom}
-          onRotationChange={setRotation}
           onCropComplete={onCropComplete}
         />
-        <canvas
-          ref={drawCanvas}
-          className="pointer-events-auto absolute inset-0 h-full w-full opacity-90"
-          width={800}
-          height={600}
-          onPointerDown={startDraw}
-          onPointerMove={moveDraw}
-          onPointerUp={endDraw}
-          onPointerLeave={endDraw}
-        />
+        {!profileMode ? (
+          <canvas
+            ref={drawCanvas}
+            className="pointer-events-auto absolute inset-0 h-full w-full opacity-90"
+            width={800}
+            height={600}
+            onPointerDown={startDraw}
+            onPointerMove={moveDraw}
+            onPointerUp={endDraw}
+            onPointerLeave={endDraw}
+          />
+        ) : null}
       </div>
       <div className="mx-auto mt-4 grid w-full max-w-3xl gap-3 pb-4 text-base text-[var(--text-primary)]">
         <div className="chip-scroll">
@@ -192,8 +232,9 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
             <button
               key={f.id}
               type="button"
-              className={`tap-target shrink-0 rounded px-3 py-2 text-sm ${filter === f.id ? "bg-[var(--accent-primary)]" : "border"}`}
-              onClick={() => setFilter(f.id)}
+              data-testid={`image-editor-filter-${f.id}`}
+              className={`tap-target shrink-0 rounded px-3 py-2 text-sm ${editState.filter === f.id ? "bg-[var(--accent-primary)]" : "border"}`}
+              onClick={() => patchEdit({ filter: f.id })}
             >
               {f.label}
             </button>
@@ -205,19 +246,33 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
               <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={() => setAspect(undefined)}>Free</button>
             </>
           ) : null}
-          <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={() => setRotation((r) => r + 90)}>Rotate</button>
-          <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={() => setFlipH((f) => !f)}>Flip</button>
-          <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={snapshotHistory}>Apply snapshot</button>
+          <button
+            type="button"
+            className="tap-target shrink-0 rounded border px-3 py-2 text-sm"
+            onClick={() => patchEdit({ rotation: editState.rotation + 90 })}
+          >
+            Rotate
+          </button>
+          <button
+            type="button"
+            className="tap-target shrink-0 rounded border px-3 py-2 text-sm"
+            onClick={() => patchEdit({ flipH: !editState.flipH })}
+          >
+            Flip
+          </button>
           {!profileMode ? (
-            <button
-              type="button"
-              className={`rounded border px-2 py-1 ${compare ? "bg-[var(--accent-primary)]" : ""}`}
-              onPointerDown={() => setCompare(true)}
-              onPointerUp={() => setCompare(false)}
-              onPointerLeave={() => setCompare(false)}
-            >
-              Hold compare
-            </button>
+            <>
+              <button type="button" className="tap-target shrink-0 rounded border px-3 py-2 text-sm" onClick={snapshotHistory}>Apply snapshot</button>
+              <button
+                type="button"
+                className={`rounded border px-2 py-1 ${compare ? "bg-[var(--accent-primary)]" : ""}`}
+                onPointerDown={() => setCompare(true)}
+                onPointerUp={() => setCompare(false)}
+                onPointerLeave={() => setCompare(false)}
+              >
+                Hold compare
+              </button>
+            </>
           ) : null}
         </div>
         {studioMode ? (
@@ -233,36 +288,97 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
             />
           </label>
         ) : null}
-        <label className="flex items-center gap-2">Brightness
-          <input type="range" min={50} max={150} value={brightness} onChange={(e) => setBrightness(+e.target.value)} />
+        <label className="flex items-center gap-2">
+          Brightness
+          <input
+            type="range"
+            min={50}
+            max={150}
+            value={editState.brightness}
+            onChange={(e) => setSliderDraft((d) => ({ ...d, brightness: +e.target.value }))}
+            onPointerUp={commitSlider}
+          />
         </label>
-        <label className="flex items-center gap-2">Contrast
-          <input type="range" min={50} max={150} value={contrast} onChange={(e) => setContrast(+e.target.value)} />
+        <label className="flex items-center gap-2">
+          Contrast
+          <input
+            type="range"
+            min={50}
+            max={150}
+            value={editState.contrast}
+            onChange={(e) => setSliderDraft((d) => ({ ...d, contrast: +e.target.value }))}
+            onPointerUp={commitSlider}
+          />
         </label>
-        <label className="flex items-center gap-2">Saturation
-          <input type="range" min={0} max={200} value={saturation} onChange={(e) => setSaturation(+e.target.value)} />
+        <label className="flex items-center gap-2">
+          Saturation
+          <input
+            type="range"
+            min={0}
+            max={200}
+            value={editState.saturation}
+            onChange={(e) => setSliderDraft((d) => ({ ...d, saturation: +e.target.value }))}
+            onPointerUp={commitSlider}
+          />
         </label>
-        <label className="flex items-center gap-2">Exposure
-          <input type="range" min={50} max={150} value={exposure} onChange={(e) => setExposure(+e.target.value)} />
+        <label className="flex items-center gap-2">
+          Exposure
+          <input
+            type="range"
+            min={50}
+            max={150}
+            value={editState.exposure}
+            onChange={(e) => setSliderDraft((d) => ({ ...d, exposure: +e.target.value }))}
+            onPointerUp={commitSlider}
+          />
         </label>
-        <input
-          value={overlayText}
-          onChange={(e) => setOverlayText(e.target.value)}
-          placeholder="Text overlay (optional)"
-          className="rounded border px-2 py-1"
-        />
-        <p className="text-xs text-[var(--text-muted)]">Draw on the image with your pointer (ember stroke).</p>
+        {!profileMode ? (
+          <>
+            <input
+              value={overlayText}
+              onChange={(e) => setOverlayText(e.target.value)}
+              placeholder="Text overlay (optional)"
+              className="rounded border px-2 py-1"
+            />
+            <p className="text-xs text-[var(--text-muted)]">Draw on the image with your pointer (ember stroke).</p>
+          </>
+        ) : (
+          <p className="text-xs text-[var(--text-muted)]">Drag to reposition, pinch or scroll to zoom, then pick a look and save.</p>
+        )}
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="tap-target rounded border px-4 py-2 text-sm" disabled={histIdx <= 0} onClick={() => setHistIdx((i) => i - 1)}>Undo</button>
-          <button type="button" className="tap-target rounded border px-4 py-2 text-sm" disabled={histIdx >= history.length - 1} onClick={() => setHistIdx((i) => i + 1)}>Redo</button>
+          <button
+            type="button"
+            data-testid="image-editor-undo"
+            className="tap-target rounded border px-4 py-2 text-sm disabled:opacity-40"
+            disabled={!canUndo}
+            onClick={() => {
+              setSliderDraft(null);
+              setHistIdx((i) => Math.max(0, i - 1));
+            }}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            data-testid="image-editor-redo"
+            className="tap-target rounded border px-4 py-2 text-sm disabled:opacity-40"
+            disabled={!canRedo}
+            onClick={() => {
+              setSliderDraft(null);
+              setHistIdx((i) => Math.min(history.length - 1, i + 1));
+            }}
+          >
+            Redo
+          </button>
           <button type="button" className="tap-target rounded border px-4 py-2 text-sm" onClick={onCancel}>Cancel</button>
           {profileMode || studioMode ? (
             <button
               type="button"
+              data-testid="image-editor-save"
               className="tap-target rounded bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
               onClick={async () => onExport(await renderExport(), studioMode ? "version" : "replace")}
             >
-              {studioMode ? "Save to studio" : "Save"}
+              {studioMode ? "Save to studio" : "Save photo"}
             </button>
           ) : (
             <>
