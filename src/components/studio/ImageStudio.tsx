@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { FieldPressDraftStudioChrome } from "@/components/fieldpress/FieldPressDraftStudioChrome";
+import { UseInFieldPressDraftLink } from "@/components/fieldpress/UseInFieldPressDraftLink";
 import { AiEditPreview } from "@/components/studio/AiEditPreview";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
@@ -23,6 +25,12 @@ import { StudioVersionStrip } from "@/components/studio/StudioVersionStrip";
 import { KeepOriginalToggle } from "@/components/studio/KeepOriginalToggle";
 import { readGuestKeepOriginal, writeGuestKeepOriginal } from "@/lib/studio-keep-original";
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
+import {
+  FIELDPRESS_RETURN_DEFAULT_VISIBILITY,
+  ingestFieldPressDraftFromQuery,
+  readFieldPressDraftId,
+  subscribeFieldPressDraftId,
+} from "@/lib/fieldpress-draft";
 
 type StudioAsset = {
   shortId: string;
@@ -103,6 +111,12 @@ export function ImageStudio({
     after: StudioAsset;
   } | null>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
+  const applyFieldPressVisibilityRef = useRef(false);
+  const fieldPressDraftId = useSyncExternalStore(
+    subscribeFieldPressDraftId,
+    readFieldPressDraftId,
+    () => null,
+  );
   const [suggestions, setSuggestions] = useState<{ caption?: string; alt?: string; tags?: string[] }>({});
   const [deleteToken, setDeleteToken] = useState<string | null>(null);
   const [versionRefreshKey, setVersionRefreshKey] = useState(0);
@@ -409,6 +423,19 @@ export function ImageStudio({
   const preview = asset ? mediaUrl(asset.storageKey, asset.mimeType) : null;
 
   useEffect(() => {
+    if (params.get("from") === "fieldpress") {
+      const id = ingestFieldPressDraftFromQuery("fieldpress", params.get("draft"));
+      if (id) applyFieldPressVisibilityRef.current = true;
+    }
+  }, [params]);
+
+  useEffect(() => {
+    if (!applyFieldPressVisibilityRef.current || !signedIn) return;
+    applyFieldPressVisibilityRef.current = false;
+    setSettings((s) => ({ ...s, visibility: FIELDPRESS_RETURN_DEFAULT_VISIBILITY }));
+  }, [signedIn]);
+
+  useEffect(() => {
     if (signedIn) {
       void fetch("/api/me")
         .then((r) => (r.ok ? r.json() : null))
@@ -532,6 +559,7 @@ export function ImageStudio({
             </Link>
           </p>
         ) : null}
+        <FieldPressDraftStudioChrome />
       </header>
 
       <nav className="flex gap-1 overflow-x-auto border-b border-[var(--border-subtle)] pb-1" aria-label="Studio steps">
@@ -567,6 +595,10 @@ export function ImageStudio({
             onRevertOriginal={() => void revertToOriginal()}
             onSaved={(m) => setMsg(m)}
             onError={(m) => setErr(m)}
+            fieldPressDraftId={fieldPressDraftId}
+            fieldPressImageDirectUrl={share?.directUrl ?? null}
+            fieldPressVisibility={mediaVisibility}
+            fieldPressTitle={settings.title}
           />
           <StudioVersionStrip
             mediaShortId={asset.shortId}
@@ -774,6 +806,15 @@ export function ImageStudio({
                       imageDirectUrl={share.directUrl}
                       visibility={mediaVisibility}
                       title={settings.title}
+                    />
+                  ) : null}
+                  {fieldPressDraftId && mediaVisibility !== null ? (
+                    <UseInFieldPressDraftLink
+                      draftId={fieldPressDraftId}
+                      imageDirectUrl={share.directUrl}
+                      visibility={mediaVisibility}
+                      title={settings.title}
+                      className="text-sm text-[var(--text-secondary)] underline-offset-2 hover:underline"
                     />
                   ) : null}
                 </>
