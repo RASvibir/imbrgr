@@ -4,7 +4,7 @@ import { ImageStudio } from "@/components/studio/ImageStudio";
 export default async function StudioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; prompt?: string }>;
 }) {
   const { tab, prompt } = await searchParams;
   return (
