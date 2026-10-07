@@ -8,11 +8,13 @@ import {
   headerNavLinkClass,
   headerNavLinkPrimaryClass,
 } from "@/components/layout/header-nav-classes";
+import { FieldPressNavLink } from "@/components/fieldpress/FieldPressNavLink";
 
 export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean }) {
   const { data: session } = useSession();
   return (
     <nav className="flex items-center gap-1 sm:gap-2" aria-label="Main">
+      <FieldPressNavLink className={`${headerNavLinkClass} hidden items-center gap-1 sm:inline-flex`} />
       <div className="hidden items-center gap-1 lg:flex">
         <Link href="/" className={`${headerNavLinkClass} inline-flex`}>
           Gallery

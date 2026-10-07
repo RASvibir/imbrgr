@@ -12,6 +12,7 @@ import { PostOwnerMenu } from "@/components/posts/PostOwnerMenu";
 import { CollectionQuickAdd } from "@/components/collections/CollectionQuickAdd";
 import { ReportButton } from "@/components/report/ReportButton";
 import { ShareLinks } from "@/components/share/ShareLinks";
+import { FieldPressInvite } from "@/components/fieldpress/FieldPressInvite";
 import { buildShareCodes } from "@/lib/embed-codes";
 import { mediaUrl, postUrl } from "@/lib/urls";
 import type { Visibility } from "@/lib/visibility";
@@ -278,16 +279,33 @@ export function PostDetail({ shortId }: { shortId: string }) {
       ) : null}
 
       {post.visibility !== "PRIVATE" ? (
-        <ShareLinks
-          title="Share & embed"
-          share={buildShareCodes(
-            post.media[0]?.shortId ?? shortId,
-            post.media[0]?.storageKey ?? "",
-            post.media[0]?.mimeType ?? "image/jpeg",
-            post.title,
-            postUrl(shortId),
-          )}
-        />
+        <>
+          <ShareLinks
+            title="Share & embed"
+            share={buildShareCodes(
+              post.media[0]?.shortId ?? shortId,
+              post.media[0]?.storageKey ?? "",
+              post.media[0]?.mimeType ?? "image/jpeg",
+              post.title,
+              postUrl(shortId),
+            )}
+          />
+          {post.media[0] ? (
+            <FieldPressInvite
+              imageDirectUrl={
+                buildShareCodes(
+                  post.media[0].shortId,
+                  post.media[0].storageKey,
+                  post.media[0].mimeType,
+                  post.title,
+                  postUrl(shortId),
+                ).directUrl
+              }
+              visibility={post.visibility}
+              title={post.title}
+            />
+          ) : null}
+        </>
       ) : null}
 
       {session?.user?.id === post.userId && ownerSettings ? (

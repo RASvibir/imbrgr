@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AiEditPreview } from "@/components/studio/AiEditPreview";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
+import { FieldPressInvite } from "@/components/fieldpress/FieldPressInvite";
 import { StorageMeter } from "@/components/storage/StorageMeter";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
@@ -42,6 +43,7 @@ const TABS: { id: Tab; label: string }[] = [
 function parseStudioTab(raw: string | null | undefined): Tab {
   if (raw === "share" || raw === "links") return "share";
   if (raw === "refine" || raw === "edit" || raw === "convert") return "refine";
+  if (raw === "generate" || raw === "create") return "create";
   return "create";
 }
 
@@ -759,11 +761,18 @@ export function ImageStudio({
                 </p>
               ) : null}
               {share ? (
-                <ShareLinks
-                  share={share}
-                  visibility={settings.visibility}
-                  successHref={share.pageUrl}
-                />
+                <>
+                  <ShareLinks
+                    share={share}
+                    visibility={settings.visibility}
+                    successHref={share.pageUrl}
+                  />
+                  <FieldPressInvite
+                    imageDirectUrl={share.directUrl}
+                    visibility={settings.visibility}
+                    title={settings.title}
+                  />
+                </>
               ) : null}
             </>
           )}
