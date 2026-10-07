@@ -58,6 +58,9 @@ export const COPY = {
   publishSuccess: "It's live on the gallery — nice and hot.",
   settingsSaved: "Saved — looking good.",
   imageReady: "Ready in the studio.",
+  galleryLivePublic: "It's on the gallery — you'll see it on Home and Hot.",
+  gallerySavedPrivate: "Saved just for you — it won't show on the public gallery.",
+  gallerySavedUnlisted: "Saved with a link — it won't appear on Home or Hot.",
   guestDeleteHint:
     "Save this secret code somewhere safe — you'll need it to remove this guest upload later.",
 } as const;

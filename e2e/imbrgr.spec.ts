@@ -123,9 +123,42 @@ test.describe("imbrgr e2e", () => {
     await page.goto("/studio");
     await page.getByPlaceholder(/Describe the image/i).fill("ember burger test");
     await clickCookUp(page);
-    await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/on the gallery/i)).toBeVisible({ timeout: 30000 });
     await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible();
     await page.screenshot({ path: `${artifactsDir}/studio-after-generate.png`, fullPage: true });
+  });
+
+  test("guest AI generate auto-saves to public gallery feed", async ({ page, request }) => {
+    const title = `e2e public feed ${Date.now()}`;
+    await page.goto("/studio");
+    await page.getByPlaceholder(/Describe the image/i).fill(title);
+    await clickCookUp(page);
+    await expect(page.getByText(/on the gallery/i)).toBeVisible({ timeout: 30000 });
+    const feed = await request.get("/api/posts?sort=newest");
+    expect(feed.ok()).toBeTruthy();
+    const data = await feed.json();
+    const hit = (data.items ?? []).some((p: { title: string }) => p.title === title);
+    expect(hit).toBe(true);
+  });
+
+  test("signed-in private AI generate stays off public gallery feed", async ({ page, request }) => {
+    await page.goto("/auth/signin");
+    await page.getByPlaceholder(/email/i).fill("e2euser@imbrgr.test");
+    await page.getByPlaceholder(/password/i).fill("password12345");
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
+
+    const title = `e2e private feed ${Date.now()}`;
+    await page.goto("/studio");
+    await page.getByText("More options").click();
+    await page.getByTestId("studio-visibility-private").check();
+    await page.getByPlaceholder(/Describe the image/i).fill(title);
+    await clickCookUp(page);
+    await expect(page.getByText(/won't show on the public gallery/i)).toBeVisible({ timeout: 30000 });
+    const feed = await request.get("/api/posts?sort=newest");
+    const data = await feed.json();
+    const hit = (data.items ?? []).some((p: { title: string }) => p.title === title);
+    expect(hit).toBe(false);
   });
 
   test("studio refine: manual editor and assist apply change", async ({ page }) => {

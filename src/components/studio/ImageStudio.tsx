@@ -103,7 +103,7 @@ export function ImageStudio({
     tags: "",
     altText: "",
     mature: false,
-    visibility: "UNLISTED",
+    visibility: "PUBLIC",
   });
 
   const selectTab = (next: Tab) => {
@@ -250,6 +250,10 @@ export function ImageStudio({
           mimeType: "image/png",
         }),
       );
+      const vis = data.galleryVisibility ?? settings.visibility ?? "PUBLIC";
+      if (vis === "PUBLIC") setMsg(COPY.galleryLivePublic);
+      else if (vis === "PRIVATE") setMsg(COPY.gallerySavedPrivate);
+      else setMsg(COPY.gallerySavedUnlisted);
       selectTab("refine");
     } catch (e) {
       const aborted = e instanceof DOMException && e.name === "AbortError";
@@ -383,25 +387,44 @@ export function ImageStudio({
     const title = settings.title?.trim() || "Untitled";
     const tags =
       settings.tags?.split(/[,\s#]+/).map((t) => t.trim()).filter(Boolean) ?? [];
-    const res = await fetch("/api/posts/from-media", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        description: settings.description || undefined,
-        tags,
-        visibility: settings.visibility ?? "PUBLIC",
-        mediaShortIds: [asset.shortId],
-      }),
-    });
+    const mediaRes = await fetch(`/api/media/${asset.shortId}`);
+    const mediaData = await mediaRes.json().catch(() => ({}));
+    const postPath =
+      typeof mediaData.share?.pageUrl === "string" && mediaData.share.pageUrl.includes("/p/")
+        ? mediaData.share.pageUrl.replace(/^.*\/p\//, "").split(/[?#]/)[0]
+        : null;
+
+    const res = postPath
+      ? await fetch(`/api/posts/${postPath}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            description: settings.description || undefined,
+            tags,
+            visibility: settings.visibility ?? "PUBLIC",
+          }),
+        })
+      : await fetch("/api/posts/from-media", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            description: settings.description || undefined,
+            tags,
+            visibility: settings.visibility ?? "PUBLIC",
+            mediaShortIds: [asset.shortId],
+          }),
+        });
     const data = await res.json();
     setBusy(false);
     if (!res.ok) {
       setErr(friendlyError(data.error ?? "Could not publish"));
       return;
     }
-    setMsg(`${COPY.publishSuccess} Open your post`);
-    router.push(`/p/${data.shortId}`);
+    const shortId = postPath ?? data.shortId;
+    setMsg(COPY.publishSuccess);
+    router.push(`/p/${shortId}`);
   };
 
   return (
@@ -474,6 +497,9 @@ export function ImageStudio({
             onAspectChange={setAspect}
             variations={variations}
             onVariationsChange={setVariations}
+            visibility={settings.visibility ?? "PUBLIC"}
+            onVisibilityChange={(v) => setSettings((s) => ({ ...s, visibility: v }))}
+            signedIn={signedIn}
             busy={busy}
             onGenerate={generate}
           />
