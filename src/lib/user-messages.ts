@@ -69,6 +69,7 @@ export const COPY = {
   studioKeepOriginalHint:
     "When on, we automatically keep the first version in your images when you edit. When off, only your latest version is kept automatically—you can still save any version from the image menu.",
   librarySaved: "Saved to your images.",
+  libraryAutoSavedChip: "Auto-saved",
   librarySavedToFolder: (name: string) => `Saved to folder “${name}”.`,
   guestDeleteHint:
     "Save this secret code somewhere safe — you'll need it to remove this guest upload later.",
