@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
+import { PostMediaImage } from "@/components/media/PostMediaImage";
 import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
+import { PostRemixButton } from "@/components/posts/PostRemixButton";
+import { CollectionQuickAdd } from "@/components/collections/CollectionQuickAdd";
+import { ReportButton } from "@/components/report/ReportButton";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { buildShareCodes } from "@/lib/embed-codes";
 import { mediaUrl, postUrl } from "@/lib/urls";
@@ -48,6 +52,7 @@ type Post = {
   user: { username: string } | null;
   media: Media[];
   tags: { tag: { slug: string; name: string } }[];
+  remixedFrom?: { shortId: string; title: string } | null;
 };
 
 export function PostDetail({ shortId }: { shortId: string }) {
@@ -57,7 +62,6 @@ export function PostDetail({ shortId }: { shortId: string }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentBody, setCommentBody] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
-  const [reportReason, setReportReason] = useState("");
   const [msg, setMsg] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [ownerSettings, setOwnerSettings] = useState<ImageSettingsValues | null>(null);
@@ -160,16 +164,6 @@ export function PostDetail({ shortId }: { shortId: string }) {
     setMsg("Settings saved");
   };
 
-  const report = async () => {
-    await fetch("/api/reports", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ postShortId: shortId, reason: reportReason }),
-    });
-    setReportReason("");
-    setMsg("Report submitted");
-  };
-
   if (notFound) {
     return <p className="p-8 text-center text-[var(--text-muted)]">This post is private or does not exist.</p>;
   }
@@ -198,9 +192,19 @@ export function PostDetail({ shortId }: { shortId: string }) {
             )}{" "}
             · {post.visibility.toLowerCase()}
           </p>
+          {post.remixedFrom ? (
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
+              Remixed from{" "}
+              <Link href={`/p/${post.remixedFrom.shortId}`} className="text-[var(--accent-primary)]">
+                {post.remixedFrom.title}
+              </Link>
+            </p>
+          ) : null}
           <CheeseSpiceGauge viewCount={post.viewCount} spiceScore={post.spiceScore ?? 0} />
         </div>
         <div className="flex flex-wrap gap-2">
+          <PostRemixButton shortId={shortId} isPublic={post.visibility === "PUBLIC"} />
+          <ReportButton target={{ type: "POST", id: shortId, label: "post" }} />
           <button type="button" onClick={() => vote(1)} className="rounded-lg border px-3 py-1 text-sm">
             ▲ {post.upvoteCount}
           </button>
@@ -226,8 +230,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
               {m.mimeType.startsWith("video/") ? (
                 <video src={src} controls className="w-full" />
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={src} alt={m.altText ?? ""} className="w-full" />
+                <PostMediaImage media={m} variant="full" className="w-full" alt={m.altText ?? ""} />
               )}
               {m.canRefine ? (
                 <div className="border-t border-[var(--border-subtle)] p-3">
@@ -255,6 +258,10 @@ export function PostDetail({ shortId }: { shortId: string }) {
           </Link>
         ))}
       </div>
+
+      {session?.user?.id === post.userId ? (
+        <CollectionQuickAdd postShortId={shortId} />
+      ) : null}
 
       {post.visibility !== "PRIVATE" ? (
         <ShareLinks
@@ -296,21 +303,6 @@ export function PostDetail({ shortId }: { shortId: string }) {
           </div>
         </section>
       ) : null}
-
-      <section className="rounded-xl border border-[var(--border-subtle)] p-4">
-        <h2 className="font-semibold">Report</h2>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <input
-            value={reportReason}
-            onChange={(e) => setReportReason(e.target.value)}
-            placeholder="Reason"
-            className="flex-1 rounded border px-2 py-1 text-sm"
-          />
-          <button type="button" onClick={report} className="rounded-lg border px-3 py-1 text-sm">
-            Report
-          </button>
-        </div>
-      </section>
 
       <section>
         <h2 className="text-lg font-semibold">Comments</h2>
