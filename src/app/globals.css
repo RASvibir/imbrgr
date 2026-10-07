@@ -94,3 +94,42 @@ body {
 [data-theme="light"] body {
   background-image: none;
 }
+
+.cook-count-flame-text {
+  background-image: linear-gradient(
+    90deg,
+    var(--ember-amber) 0%,
+    var(--ember-orange-bright) 35%,
+    var(--ember-rose) 70%,
+    var(--ember-magenta) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+@keyframes cook-count-flicker {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  40% {
+    opacity: 0.94;
+    filter: brightness(1.12);
+  }
+  70% {
+    opacity: 0.98;
+    filter: brightness(1.05);
+  }
+}
+
+.cook-count-flame {
+  animation: cook-count-flicker 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cook-count-flame {
+    animation: none;
+  }
+}

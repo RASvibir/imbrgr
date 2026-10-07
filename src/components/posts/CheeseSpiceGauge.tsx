@@ -1,3 +1,4 @@
+import { CookCountFlameLabel } from "@/components/posts/CookCountFlameLabel";
 import {
   cheeseMeltPercent,
   spiceKitchenCopy,
@@ -19,9 +20,7 @@ export function CheeseSpiceGauge({ viewCount, spiceScore, compact }: Props) {
   if (compact) {
     return (
       <span className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)]" data-testid="cheese-spice-gauge">
-        <span>
-          Cook count <span className="tabular-nums">{viewCount}</span>
-        </span>
+        <CookCountFlameLabel count={viewCount} compact />
         <span aria-hidden className="text-[var(--accent-primary)]">🌶️{level}</span>
       </span>
     );
@@ -33,10 +32,8 @@ export function CheeseSpiceGauge({ viewCount, spiceScore, compact }: Props) {
       data-testid="cheese-spice-gauge"
       aria-label={`Cook count ${viewCount}. Kitchen heat: ${copy.chili}.`}
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-        <span className="font-medium text-[var(--text-primary)]">
-          Cook count <span className="tabular-nums">{viewCount}</span>
-        </span>
+      <div className="flex flex-wrap items-end justify-between gap-2 text-sm">
+        <CookCountFlameLabel count={viewCount} />
         <span className="text-xs text-[var(--text-muted)]">Each cook counts once</span>
       </div>
 
