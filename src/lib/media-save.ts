@@ -2,6 +2,7 @@ import sharp from "sharp";
 import { prisma } from "@/lib/db";
 import { newShortId } from "@/lib/ids";
 import { extForMime, imageMeta } from "@/lib/media-process";
+import { deleteMediaStorage } from "@/lib/media-storage";
 import { deleteObject, getStoredObjectSize, newStorageKey, putObject } from "@/lib/storage";
 import {
   addAnonymousStorage,
@@ -147,7 +148,7 @@ export async function replaceMediaInPlace(params: {
     }
   }
 
-  await deleteObject(media.storageKey);
+  await deleteMediaStorage(media);
   await prisma.media.update({
     where: { id: media.id },
     data: {
@@ -156,6 +157,9 @@ export async function replaceMediaInPlace(params: {
       byteSize: out.byteLength,
       width,
       height,
+      thumbSmKey: null,
+      thumbMdKey: null,
+      placeholderCss: null,
     },
   });
 

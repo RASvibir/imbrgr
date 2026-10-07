@@ -3,7 +3,8 @@ import { z } from "zod";
 import { withSuperAdmin } from "@/lib/admin/api";
 import { logAdminAction } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
-import { deleteObject } from "@/lib/storage";
+import { onPostRestrictedAccess } from "@/lib/media-access-restrict";
+import { deleteAllMediaStorage } from "@/lib/media-storage";
 import { removeUserStorage } from "@/lib/storage-quota";
 
 const patchSchema = z.object({
@@ -28,8 +29,8 @@ export async function PATCH(
     if (!parsed.success) return NextResponse.json({ error: "Invalid" }, { status: 400 });
 
     if (parsed.data.delete) {
+      await deleteAllMediaStorage(post.media);
       for (const m of post.media) {
-        await deleteObject(m.storageKey);
         if (post.userId) await removeUserStorage(post.userId, m.byteSize);
       }
       await prisma.post.delete({ where: { id: post.id } });
@@ -49,6 +50,9 @@ export async function PATCH(
         visibility: parsed.data.visibility,
       },
     });
+    if (parsed.data.hiddenByAdmin === true || parsed.data.visibility === "PRIVATE") {
+      await onPostRestrictedAccess(post.id);
+    }
     await logAdminAction({
       actorUserId: actor.id,
       action: "post.moderate",

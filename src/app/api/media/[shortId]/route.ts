@@ -7,7 +7,8 @@ import { buildShareCodes } from "@/lib/embed-codes";
 import { prisma } from "@/lib/db";
 import { canViewMedia, isMediaOwner } from "@/lib/media-access";
 import { getActor } from "@/lib/request-identity";
-import { deleteObject } from "@/lib/storage";
+import { onPostRestrictedAccess, onStandaloneMediaRestricted } from "@/lib/media-access-restrict";
+import { deleteMediaStorage } from "@/lib/media-storage";
 import { removeAnonymousStorage, removeUserStorage } from "@/lib/storage-quota";
 import { normalizeVisibility } from "@/lib/visibility";
 
@@ -93,10 +94,18 @@ export async function PATCH(
   });
 
   if (media.postId && parsed.data.visibility) {
+    const vis = normalizeVisibility(parsed.data.visibility);
     await prisma.post.update({
       where: { id: media.postId },
-      data: { visibility: normalizeVisibility(parsed.data.visibility) },
+      data: { visibility: vis },
     });
+    if (vis === "PRIVATE") {
+      await onPostRestrictedAccess(media.postId);
+    }
+  }
+
+  if (!media.postId && parsed.data.visibility === "PRIVATE") {
+    await onStandaloneMediaRestricted(media.id);
   }
 
   return NextResponse.json({ ok: true });
@@ -119,7 +128,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await deleteObject(media.storageKey);
+  await deleteMediaStorage(media);
   if (media.userId) await removeUserStorage(media.userId, media.byteSize);
   else if (media.voterKey) await removeAnonymousStorage(media.voterKey, media.byteSize);
   await prisma.media.delete({ where: { id: media.id } });

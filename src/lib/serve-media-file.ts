@@ -1,8 +1,29 @@
-import { canViewMedia } from "@/lib/media-access";
+import { canViewMedia, canViewPost } from "@/lib/media-access";
 import { contentTypeForKey } from "@/lib/media-types";
 import { prisma } from "@/lib/db";
 import type { Actor } from "@/lib/request-identity";
 import { readLocalObject, readObject, storageDriver } from "@/lib/storage";
+
+type MediaRow = {
+  visibility: string;
+  post: { userId: string | null; visibility: string; hiddenByAdmin: boolean } | null;
+};
+
+export function mediaFileCacheControl(media: MediaRow | null, isProfileAsset: boolean): string {
+  if (isProfileAsset) {
+    return "public, max-age=86400";
+  }
+  if (!media) {
+    return "private, no-store";
+  }
+  const vis = media.post?.visibility ?? media.visibility;
+  const isPrivate = vis === "PRIVATE" || Boolean(media.post?.hiddenByAdmin);
+  if (isPrivate) {
+    return "private, no-store";
+  }
+  // Gated route: visibility can change — do not pin with immutable public cache.
+  return "public, max-age=300, must-revalidate";
+}
 
 export async function serveMediaFile(
   req: Request,
@@ -22,7 +43,19 @@ export async function serveMediaFile(
     include: { post: { select: { userId: true, visibility: true, hiddenByAdmin: true } } },
   });
 
-  if (media?.post?.hiddenByAdmin) {
+  let isProfileAsset = false;
+  if (!media) {
+    const profileOwner = await prisma.user.findFirst({
+      where: { OR: [{ avatarKey: storageKey }, { bannerKey: storageKey }] },
+      select: { id: true },
+    });
+    if (!profileOwner) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    isProfileAsset = true;
+  }
+
+  if (media?.post && !canViewPost(media.post, actor)) {
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -40,15 +73,11 @@ export async function serveMediaFile(
 
   const mimeHint = new URL(req.url).searchParams.get("mime") ?? undefined;
   const type = contentTypeForKey(storageKey, mimeHint);
-  const isPrivate =
-    media &&
-    (media.post?.visibility === "PRIVATE" ||
-      (!media.post && media.visibility === "PRIVATE"));
 
   return new Response(new Uint8Array(data), {
     headers: {
       "Content-Type": type,
-      "Cache-Control": isPrivate ? "private, no-store" : "public, max-age=31536000, immutable",
+      "Cache-Control": mediaFileCacheControl(media, isProfileAsset),
       "X-Content-Type-Options": "nosniff",
     },
   });

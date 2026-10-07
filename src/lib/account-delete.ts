@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { collectUserStorageKeys } from "@/lib/media-storage";
 import { deleteObject } from "@/lib/storage";
 
 export async function deleteUserAccount(userId: string) {
@@ -11,15 +12,7 @@ export async function deleteUserAccount(userId: string) {
   });
   if (!user) return;
 
-  const keys = new Set<string>();
-  for (const p of user.posts) {
-    for (const m of p.media) keys.add(m.storageKey);
-  }
-  for (const m of user.mediaAssets) keys.add(m.storageKey);
-  if (user.avatarKey) keys.add(user.avatarKey);
-  if (user.bannerKey) keys.add(user.bannerKey);
-
-  for (const key of keys) {
+  for (const key of collectUserStorageKeys(user)) {
     await deleteObject(key);
   }
 
