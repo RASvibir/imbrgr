@@ -38,6 +38,7 @@ test.describe("gallery default public", () => {
     await page.goto("/");
     await page.getByTestId("home-upload-input").setInputFiles(png);
     await expect(page).toHaveURL(/tab=share&media=/, { timeout: 20000 });
+    await expect(page.getByTestId("share-choice-card")).toBeVisible({ timeout: 15000 });
     const mediaMatch = page.url().match(/media=([^&]+)/);
     const mediaShortId = mediaMatch?.[1];
     expect(mediaShortId).toBeTruthy();

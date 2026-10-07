@@ -87,4 +87,5 @@ export const COPY = {
   sharePageLinkCopied: "Page link copied",
   sharePostedToast: "Posted",
   shareChoiceViewPost: "View post",
+  fieldpressComposeAria: "Use in a FieldPress post",
 } as const;

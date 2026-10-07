@@ -6,6 +6,7 @@ import { ShareLinks } from "@/components/share/ShareLinks";
 import { applyCopyLinkVisibility, applyPostToGallery } from "@/lib/share-choice-actions";
 import { postShortIdFromSharePageUrl, type ShareChoiceHighlight } from "@/lib/share-choice-default";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
+import { FieldPressComposeIconButton } from "@/components/fieldpress/FieldPressComposeIconButton";
 import { COPY } from "@/lib/user-messages";
 
 export type SharePayload = {
@@ -22,6 +23,9 @@ type Props = {
   signedIn: boolean;
   highlight: ShareChoiceHighlight;
   onVisibilityChange?: (visibility: "PUBLIC" | "UNLISTED") => void;
+  visibility?: string | null;
+  shareTitle?: string | null;
+  fieldPressDraftId?: string | null;
 };
 
 export function ShareChoiceCard({
@@ -30,6 +34,9 @@ export function ShareChoiceCard({
   signedIn,
   highlight,
   onVisibilityChange,
+  visibility,
+  shareTitle,
+  fieldPressDraftId,
 }: Props) {
   const [busy, setBusy] = useState<"link" | "gallery" | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -143,14 +150,22 @@ export function ShareChoiceCard({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => void copyPageLink()}
-        className="mt-3 text-xs font-medium text-[var(--accent-primary)] underline"
-        data-testid="share-choice-copy-page"
-      >
-        {COPY.shareChoiceCopyPageLink}
-      </button>
+      <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="share-choice-actions-row">
+        <button
+          type="button"
+          onClick={() => void copyPageLink()}
+          className="text-xs font-medium text-[var(--accent-primary)] underline"
+          data-testid="share-choice-copy-page"
+        >
+          {COPY.shareChoiceCopyPageLink}
+        </button>
+        <FieldPressComposeIconButton
+          imageDirectUrl={share.directUrl}
+          visibility={visibility}
+          title={shareTitle ?? galleryTitle}
+          draftId={fieldPressDraftId}
+        />
+      </div>
 
       {toast ? (
         <p className="toast-above-mobile-chrome mt-3 text-sm text-[var(--accent-primary)]" role="status" data-testid="share-choice-toast">

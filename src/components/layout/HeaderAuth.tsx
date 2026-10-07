@@ -8,8 +8,6 @@ import {
   headerNavLinkClass,
   headerNavLinkPrimaryClass,
 } from "@/components/layout/header-nav-classes";
-import { FieldPressNavLink } from "@/components/fieldpress/FieldPressNavLink";
-
 export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean }) {
   const { data: session } = useSession();
   return (
@@ -31,7 +29,6 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
       <Link href="/search" className={`${headerNavLinkClass} hidden lg:inline-flex`}>
         Search
       </Link>
-      <FieldPressNavLink className={`${headerNavLinkClass} hidden items-center gap-1 sm:inline-flex`} />
       <ThemeToggle />
       {session?.user ? (
         <>

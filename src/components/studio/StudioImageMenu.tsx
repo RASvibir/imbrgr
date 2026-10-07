@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { UseInFieldPressDraftLink } from "@/components/fieldpress/UseInFieldPressDraftLink";
+import { FieldPressComposeIconButton } from "@/components/fieldpress/FieldPressComposeIconButton";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaFilePath } from "@/lib/urls";
@@ -212,15 +212,13 @@ export function StudioImageMenu({
                   {COPY.libraryDownload}
                 </button>
               </li>
-              {fieldPressDraftId && fieldPressImageDirectUrl ? (
-                <li role="none">
-                  <UseInFieldPressDraftLink
-                    draftId={fieldPressDraftId}
+              {fieldPressImageDirectUrl ? (
+                <li role="none" className="flex justify-end border-t border-[var(--border-subtle)] pt-2">
+                  <FieldPressComposeIconButton
                     imageDirectUrl={fieldPressImageDirectUrl}
                     visibility={fieldPressVisibility}
                     title={fieldPressTitle}
-                    role="menuitem"
-                    className={`${btnSecondary} w-full text-sm`}
+                    draftId={fieldPressDraftId}
                     onNavigate={close}
                   />
                 </li>

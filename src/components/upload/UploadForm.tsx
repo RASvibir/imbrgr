@@ -167,6 +167,8 @@ export function UploadForm() {
           share={outcome.share}
           signedIn={signedIn}
           highlight={highlight}
+          visibility={settings.visibility}
+          shareTitle={settings.title}
         />
         {deleteToken ? (
           <p className="text-xs text-[var(--text-muted)]">

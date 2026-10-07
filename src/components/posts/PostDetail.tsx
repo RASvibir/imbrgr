@@ -12,7 +12,7 @@ import { PostOwnerMenu } from "@/components/posts/PostOwnerMenu";
 import { CollectionQuickAdd } from "@/components/collections/CollectionQuickAdd";
 import { ReportButton } from "@/components/report/ReportButton";
 import { ShareLinks } from "@/components/share/ShareLinks";
-import { FieldPressInvite } from "@/components/fieldpress/FieldPressInvite";
+import { FieldPressComposeIconButton } from "@/components/fieldpress/FieldPressComposeIconButton";
 import { buildShareCodes } from "@/lib/embed-codes";
 import { mediaUrl, postUrl } from "@/lib/urls";
 import type { Visibility } from "@/lib/visibility";
@@ -285,16 +285,19 @@ export function PostDetail({ shortId }: { shortId: string }) {
       ) : null}
 
       {publicShare ? (
-        <>
-          <ShareLinks title="Share & embed" share={publicShare} />
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <ShareLinks title="Share & embed" share={publicShare} />
+          </div>
           {session?.user?.id === post.userId ? (
-            <FieldPressInvite
+            <FieldPressComposeIconButton
               imageDirectUrl={publicShare.directUrl}
               visibility={post.visibility}
               title={post.title}
+              className="mt-1"
             />
           ) : null}
-        </>
+        </div>
       ) : null}
 
       {session?.user?.id === post.userId && ownerSettings ? (

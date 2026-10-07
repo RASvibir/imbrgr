@@ -5,12 +5,10 @@ import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { FieldPressDraftStudioChrome } from "@/components/fieldpress/FieldPressDraftStudioChrome";
-import { UseInFieldPressDraftLink } from "@/components/fieldpress/UseInFieldPressDraftLink";
 import { AiEditPreview } from "@/components/studio/AiEditPreview";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareChoiceCard } from "@/components/share/ShareChoiceCard";
 import { ShareLinks } from "@/components/share/ShareLinks";
-import { FieldPressInvite } from "@/components/fieldpress/FieldPressInvite";
 import { StorageMeter } from "@/components/storage/StorageMeter";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
@@ -642,6 +640,9 @@ export function ImageStudio({
               share={share!}
               signedIn={signedIn}
               highlight={shareHighlight}
+              visibility={mediaVisibility ?? settings.visibility}
+              shareTitle={settings.title}
+              fieldPressDraftId={fieldPressDraftId}
               onVisibilityChange={(v) => {
                 setSettings((s) => ({ ...s, visibility: v }));
                 setMediaVisibility(v);
@@ -804,26 +805,6 @@ export function ImageStudio({
                 <p className="rounded-lg border border-[var(--warning)]/50 bg-[var(--surface-raised)] p-3 text-xs">
                   {COPY.guestDeleteHint} <code className="break-all">{deleteToken}</code>
                 </p>
-              ) : null}
-              {share && !showShareChoice ? (
-                <>
-                  {mediaVisibility !== null ? (
-                    <FieldPressInvite
-                      imageDirectUrl={share.directUrl}
-                      visibility={mediaVisibility}
-                      title={settings.title}
-                    />
-                  ) : null}
-                  {fieldPressDraftId && mediaVisibility !== null ? (
-                    <UseInFieldPressDraftLink
-                      draftId={fieldPressDraftId}
-                      imageDirectUrl={share.directUrl}
-                      visibility={mediaVisibility}
-                      title={settings.title}
-                      className="text-sm text-[var(--text-secondary)] underline-offset-2 hover:underline"
-                    />
-                  ) : null}
-                </>
               ) : null}
             </>
           )}

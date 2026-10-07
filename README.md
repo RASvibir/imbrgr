@@ -19,6 +19,8 @@ After studio upload/generate/edit and `/upload`, users see a **Link or gallery?*
 
 Default highlight follows `User.defaultPostVisibility` and **UNLISTED** when returning from FieldPress (`from=fieldpress`). Advanced embed formats remain under **Share & embed** (`ShareLinks`). E2E: `e2e/share-choice.spec.ts`.
 
+**FieldPress** — a small favicon button (“Use in a FieldPress post”) beside the share row, studio image menu, and the owner’s post page when visibility is PUBLIC or UNLISTED. Header **FieldPress ↗** stays in the mobile More sheet only (`/fieldpress-favicon.ico` bundled locally).
+
 ### Cook count
 
 - **Cook count** on a post is the number of **unique viewers** (`Post.viewCount`), not page reloads.
