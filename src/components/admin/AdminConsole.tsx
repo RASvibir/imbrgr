@@ -110,16 +110,35 @@ export function AdminConsole({ initialDashboard }: { initialDashboard: Dashboard
       {msg ? <p className="mb-4 text-sm text-[var(--success)]">{msg}</p> : null}
 
       {tab === "dashboard" && dash ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Stat label="Users" value={dash.users} />
-          <Stat label="Posts" value={dash.posts} />
-          <Stat label="Media" value={dash.media} />
-          <Stat label="AI today (signed-in)" value={dash.aiGenerationsTodaySignedIn} />
-          <Stat label="AI today (guest)" value={dash.aiGenerationsTodayAnonymous} />
-          <Stat label="Open reports" value={dash.openReports} />
-          <Stat label="Signed-in storage (bytes)" value={dash.storageBytesSignedIn} />
-          <Stat label="Guest storage (bytes)" value={dash.storageBytesAnonymous} />
-          <Stat label="Prompt cache (24h hits)" value={dash.promptCacheHits24h} />
+        <div className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Stat label="Users" value={dash.users} />
+            <Stat label="Posts" value={dash.posts} />
+            <Stat label="Media" value={dash.media} />
+            <Stat label="AI today (signed-in)" value={dash.aiGenerationsTodaySignedIn} />
+            <Stat label="AI today (guest)" value={dash.aiGenerationsTodayAnonymous} />
+            <Stat label="Open reports" value={dash.openReports} />
+            <Stat label="Signed-in storage (bytes)" value={dash.storageBytesSignedIn} />
+            <Stat label="Guest storage (bytes)" value={dash.storageBytesAnonymous} />
+            <Stat label="Prompt cache (24h hits)" value={dash.promptCacheHits24h} />
+          </div>
+          <div className="max-w-lg rounded-xl border border-[var(--border-subtle)] p-4">
+            <h2 className="font-semibold">Thumbnails</h2>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Generate missing WebP thumbnails in safe batches (uses blob storage on Vercel).
+            </p>
+            <button
+              type="button"
+              className="mt-3 rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
+              onClick={async () => {
+                const r = await fetch("/api/admin/thumbnails/backfill", { method: "POST" });
+                const d = await r.json();
+                setMsg(r.ok ? `Thumbnails: updated ${d.updated ?? 0} in this batch` : d.error ?? "Failed");
+              }}
+            >
+              Generate missing thumbnails
+            </button>
+          </div>
         </div>
       ) : null}
 

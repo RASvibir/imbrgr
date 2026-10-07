@@ -46,6 +46,15 @@ test.describe("imbrgr e2e", () => {
     await expect(page.getByRole("heading", { name: /Image studio/i })).toBeVisible();
   });
 
+  test("hot feed images stay visible after cached navigation from home", async ({ page }) => {
+    await page.goto("/");
+    await page.goto("/hot");
+    const img = page.getByTestId("post-media-image").first();
+    await expect(img).toBeVisible({ timeout: 15000 });
+    const opacity = await img.evaluate((el) => Number.parseFloat(getComputedStyle(el).opacity));
+    expect(opacity).toBeGreaterThanOrEqual(1);
+  });
+
   test("anonymous studio import and share tab", async ({ page, request }) => {
     await page.goto("/studio");
     await page.locator("summary").filter({ hasText: "Bring your own image" }).click();

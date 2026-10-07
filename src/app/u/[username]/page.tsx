@@ -50,11 +50,11 @@ export default function ProfilePage() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={banner} alt="" className="h-full w-full object-cover" />
         ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface-base)] to-transparent" />
+        <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-t from-[var(--surface-base)] to-transparent" />
       </div>
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="relative z-10 mx-auto max-w-6xl px-4 sm:px-6">
         <div className="-mt-12 flex flex-wrap items-end gap-4">
-          <div className="h-24 w-24 overflow-hidden rounded-full border-4 border-[var(--surface-base)] bg-[var(--surface-raised)]">
+          <div className="relative z-10 h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-[var(--surface-base)] bg-[var(--surface-raised)]">
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatar} alt="" className="h-full w-full object-cover" />
