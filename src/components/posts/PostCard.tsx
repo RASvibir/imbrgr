@@ -47,7 +47,7 @@ export function PostCard({ post }: { post: PostCardData }) {
       <div className="p-3">
         <h3 className="line-clamp-2 font-semibold text-[var(--text-primary)]">{post.title}</h3>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
-          {post.user ? `@${post.user.username}` : "anonymous"} · {post.score} pts · {post.viewCount} viewers
+          {post.user ? `@${post.user.username}` : "anonymous"} · {post.score} pts · Cook count {post.viewCount}
         </p>
       </div>
     </Link>

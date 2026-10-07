@@ -220,8 +220,11 @@ test.describe("imbrgr e2e", () => {
 
     await page.goto(`/p/${shortId}`);
     await expect(page.getByTestId("cheese-spice-gauge")).toBeVisible();
+    await expect(page.getByText(/Cook count/i)).toBeVisible();
+    await expect(page.getByText(/Each cook counts once/i)).toBeVisible();
     await expect(page.getByText(/Cheese pull/i)).toBeVisible();
     await expect(page.getByText(/Spicy meter/i)).toBeVisible();
+    await expect(page.getByText(/Extra passes and guest buzz/i)).toHaveCount(0);
     await anonA.close();
   });
 
