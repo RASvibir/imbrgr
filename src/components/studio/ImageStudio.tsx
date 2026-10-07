@@ -3,10 +3,14 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { FieldPressDraftStudioChrome } from "@/components/fieldpress/FieldPressDraftStudioChrome";
+import { UseInFieldPressDraftLink } from "@/components/fieldpress/UseInFieldPressDraftLink";
 import { AiEditPreview } from "@/components/studio/AiEditPreview";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
+import { FieldPressInvite } from "@/components/fieldpress/FieldPressInvite";
+import { canOfferFieldPressLink, showFieldPressStoryInvite } from "@/lib/fieldpress";
 import { StorageMeter } from "@/components/storage/StorageMeter";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
@@ -22,6 +26,12 @@ import { StudioVersionStrip } from "@/components/studio/StudioVersionStrip";
 import { KeepOriginalToggle } from "@/components/studio/KeepOriginalToggle";
 import { readGuestKeepOriginal, writeGuestKeepOriginal } from "@/lib/studio-keep-original";
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
+import {
+  fieldpressStudioVisibilityFromUserDefault,
+  ingestFieldPressDraftFromQuery,
+  readFieldPressDraftId,
+  subscribeFieldPressDraftId,
+} from "@/lib/fieldpress-draft";
 
 type StudioAsset = {
   shortId: string;
@@ -42,6 +52,7 @@ const TABS: { id: Tab; label: string }[] = [
 function parseStudioTab(raw: string | null | undefined): Tab {
   if (raw === "share" || raw === "links") return "share";
   if (raw === "refine" || raw === "edit" || raw === "convert") return "refine";
+  if (raw === "generate" || raw === "create") return "create";
   return "create";
 }
 
@@ -74,6 +85,7 @@ export function ImageStudio({
     html: string;
     bbcode: string;
   } | null>(null);
+  const [mediaVisibility, setMediaVisibility] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [urlInput, setUrlInput] = useState("");
@@ -100,6 +112,12 @@ export function ImageStudio({
     after: StudioAsset;
   } | null>(null);
   const aiAbortRef = useRef<AbortController | null>(null);
+  const applyFieldPressVisibilityRef = useRef(false);
+  const fieldPressDraftId = useSyncExternalStore(
+    subscribeFieldPressDraftId,
+    readFieldPressDraftId,
+    () => null,
+  );
   const [suggestions, setSuggestions] = useState<{ caption?: string; alt?: string; tags?: string[] }>({});
   const [deleteToken, setDeleteToken] = useState<string | null>(null);
   const [versionRefreshKey, setVersionRefreshKey] = useState(0);
@@ -126,6 +144,7 @@ export function ImageStudio({
     if (res.ok) {
       const data = await res.json();
       setShare(data.share);
+      setMediaVisibility(typeof data.visibility === "string" ? data.visibility : null);
     }
   }, []);
 
@@ -405,11 +424,23 @@ export function ImageStudio({
   const preview = asset ? mediaUrl(asset.storageKey, asset.mimeType) : null;
 
   useEffect(() => {
+    if (params.get("from") === "fieldpress") {
+      const id = ingestFieldPressDraftFromQuery("fieldpress", params.get("draft"));
+      if (id) applyFieldPressVisibilityRef.current = true;
+    }
+  }, [params]);
+
+  useEffect(() => {
     if (signedIn) {
       void fetch("/api/me")
         .then((r) => (r.ok ? r.json() : null))
         .then((u) => {
           if (u && typeof u.studioKeepOriginal === "boolean") setKeepOriginal(u.studioKeepOriginal);
+          if (applyFieldPressVisibilityRef.current && u) {
+            applyFieldPressVisibilityRef.current = false;
+            const visibility = fieldpressStudioVisibilityFromUserDefault(u.defaultPostVisibility);
+            setSettings((s) => ({ ...s, visibility }));
+          }
         });
     } else {
       setKeepOriginal(readGuestKeepOriginal());
@@ -528,6 +559,7 @@ export function ImageStudio({
             </Link>
           </p>
         ) : null}
+        <FieldPressDraftStudioChrome />
       </header>
 
       <nav className="flex gap-1 overflow-x-auto border-b border-[var(--border-subtle)] pb-1" aria-label="Studio steps">
@@ -563,6 +595,10 @@ export function ImageStudio({
             onRevertOriginal={() => void revertToOriginal()}
             onSaved={(m) => setMsg(m)}
             onError={(m) => setErr(m)}
+            fieldPressDraftId={fieldPressDraftId}
+            fieldPressImageDirectUrl={share?.directUrl ?? null}
+            fieldPressVisibility={mediaVisibility}
+            fieldPressTitle={settings.title}
           />
           <StudioVersionStrip
             mediaShortId={asset.shortId}
@@ -759,11 +795,29 @@ export function ImageStudio({
                 </p>
               ) : null}
               {share ? (
-                <ShareLinks
-                  share={share}
-                  visibility={settings.visibility}
-                  successHref={share.pageUrl}
-                />
+                <>
+                  <ShareLinks
+                    share={share}
+                    visibility={settings.visibility}
+                    successHref={share.pageUrl}
+                  />
+                  {showFieldPressStoryInvite(fieldPressDraftId, mediaVisibility) ? (
+                    <FieldPressInvite
+                      imageDirectUrl={share.directUrl}
+                      visibility={mediaVisibility}
+                      title={settings.title}
+                    />
+                  ) : null}
+                  {fieldPressDraftId && mediaVisibility != null && canOfferFieldPressLink(mediaVisibility) ? (
+                    <UseInFieldPressDraftLink
+                      draftId={fieldPressDraftId}
+                      imageDirectUrl={share.directUrl}
+                      visibility={mediaVisibility}
+                      title={settings.title}
+                      className="text-sm text-[var(--text-secondary)] underline-offset-2 hover:underline"
+                    />
+                  ) : null}
+                </>
               ) : null}
             </>
           )}
