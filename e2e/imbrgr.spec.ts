@@ -51,8 +51,7 @@ test.describe("imbrgr e2e", () => {
     await page.goto("/hot");
     const img = page.getByTestId("post-media-image").first();
     await expect(img).toBeVisible({ timeout: 15000 });
-    const opacity = await img.evaluate((el) => Number.parseFloat(getComputedStyle(el).opacity));
-    expect(opacity).toBeGreaterThanOrEqual(1);
+    await expect(img).toHaveCSS("opacity", "1", { timeout: 5000 });
   });
 
   test("anonymous studio import and share tab", async ({ page, request }) => {
