@@ -8,7 +8,7 @@ describe("shouldSkipOwnerView", () => {
   it("skips signed-in post owner", () => {
     expect(
       shouldSkipOwnerView(
-        { id: "p1", userId: "u1", visibility: "PUBLIC", viewCount: 0, spiceScore: 0, media: [] },
+        { id: "p1", userId: "u1", visibility: "PUBLIC", viewCount: 0, spiceScore: 0, createdAt: new Date(), media: [] },
         actorUser,
       ),
     ).toBe(true);
@@ -17,7 +17,7 @@ describe("shouldSkipOwnerView", () => {
   it("does not skip other signed-in viewers", () => {
     expect(
       shouldSkipOwnerView(
-        { id: "p1", userId: "u2", visibility: "PUBLIC", viewCount: 0, spiceScore: 0, media: [] },
+        { id: "p1", userId: "u2", visibility: "PUBLIC", viewCount: 0, spiceScore: 0, createdAt: new Date(), media: [] },
         actorUser,
       ),
     ).toBe(false);
@@ -32,6 +32,7 @@ describe("shouldSkipOwnerView", () => {
           visibility: "PUBLIC",
           viewCount: 0,
           spiceScore: 0,
+          createdAt: new Date(),
           media: [{ userId: null, voterKey: "a:vid", visibility: "PUBLIC" }],
         },
         actorAnon,
