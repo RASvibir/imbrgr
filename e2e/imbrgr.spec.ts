@@ -38,6 +38,19 @@ test.describe("imbrgr e2e", () => {
     await expect(page.getByPlaceholder(/Describe the image/i)).toBeVisible({ timeout: 5000 });
   });
 
+  test("desktop header nav links share vertical alignment", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    const nav = page.getByRole("navigation", { name: "Main" });
+    const linkNames = ["Gallery", "Hot", "Studio", "Tags", "Search", "Sign in"];
+    const boxes = await Promise.all(
+      linkNames.map((name) => nav.getByRole("link", { name, exact: true }).boundingBox()),
+    );
+    const tops = boxes.map((b) => b?.y).filter((y): y is number => y != null);
+    expect(tops.length).toBe(linkNames.length);
+    expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
+  });
+
   test("anonymous browse home and studio", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: "Studio" }).first()).toBeVisible();

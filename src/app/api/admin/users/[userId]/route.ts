@@ -4,6 +4,7 @@ import { withSuperAdmin } from "@/lib/admin/api";
 import { isProtectedSuperAdmin } from "@/lib/admin/auth";
 import { logAdminAction } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
+import { collectUserStorageKeys } from "@/lib/media-storage";
 import { deleteObject } from "@/lib/storage";
 
 const patchSchema = z.object({
@@ -120,10 +121,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Protected super admin account" }, { status: 400 });
     }
 
-    for (const post of target.posts) {
-      for (const m of post.media) await deleteObject(m.storageKey);
+    for (const key of collectUserStorageKeys(target)) {
+      await deleteObject(key);
     }
-    for (const m of target.mediaAssets) await deleteObject(m.storageKey);
 
     await prisma.user.delete({ where: { id: userId } });
     await logAdminAction({

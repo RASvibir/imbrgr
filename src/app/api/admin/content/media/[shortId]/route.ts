@@ -3,7 +3,8 @@ import { z } from "zod";
 import { withSuperAdmin } from "@/lib/admin/api";
 import { logAdminAction } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
-import { deleteObject } from "@/lib/storage";
+import { onStandaloneMediaRestricted } from "@/lib/media-access-restrict";
+import { deleteMediaStorage } from "@/lib/media-storage";
 import { removeAnonymousStorage, removeUserStorage } from "@/lib/storage-quota";
 
 const patchSchema = z.object({
@@ -25,7 +26,7 @@ export async function PATCH(
     if (!parsed.success) return NextResponse.json({ error: "Invalid" }, { status: 400 });
 
     if (parsed.data.delete) {
-      await deleteObject(media.storageKey);
+      await deleteMediaStorage(media);
       if (media.userId) await removeUserStorage(media.userId, media.byteSize);
       else if (media.voterKey) await removeAnonymousStorage(media.voterKey, media.byteSize);
       await prisma.media.delete({ where: { id: media.id } });
@@ -42,6 +43,9 @@ export async function PATCH(
       where: { id: media.id },
       data: { mature: parsed.data.mature, visibility: parsed.data.visibility },
     });
+    if (parsed.data.visibility === "PRIVATE") {
+      await onStandaloneMediaRestricted(media.id);
+    }
     await logAdminAction({
       actorUserId: actor.id,
       action: "media.moderate",

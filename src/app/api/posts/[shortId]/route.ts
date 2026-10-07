@@ -6,7 +6,8 @@ import { canViewPost, isMediaOwner } from "@/lib/media-access";
 import { slugifyTag } from "@/lib/validation";
 import { recordPostView } from "@/lib/post-views";
 import { getActor } from "@/lib/request-identity";
-import { deleteObject } from "@/lib/storage";
+import { onPostRestrictedAccess } from "@/lib/media-access-restrict";
+import { deleteAllMediaStorage } from "@/lib/media-storage";
 import { removeUserStorage } from "@/lib/storage-quota";
 import { normalizeVisibility } from "@/lib/visibility";
 
@@ -89,6 +90,10 @@ export async function PATCH(
     },
   });
 
+  if (visibility === "PRIVATE") {
+    await onPostRestrictedAccess(post.id);
+  }
+
   if (parsed.data.tags) {
     const tagRows = await Promise.all(
       parsed.data.tags.map(async (name) => {
@@ -148,8 +153,8 @@ export async function DELETE(
   if (post.userId !== session.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  await deleteAllMediaStorage(post.media);
   for (const m of post.media) {
-    await deleteObject(m.storageKey);
     if (post.userId) await removeUserStorage(post.userId, m.byteSize);
   }
   await prisma.post.delete({ where: { id: post.id } });
