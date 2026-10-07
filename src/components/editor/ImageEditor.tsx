@@ -85,6 +85,10 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   const previewGen = useRef(0);
   const historyRef = useRef(history);
   historyRef.current = history;
+  const histIdxRef = useRef(histIdx);
+  histIdxRef.current = histIdx;
+  const toolRef = useRef<EditorTool>(tool);
+  toolRef.current = tool;
 
   useEffect(() => {
     setWorkingSrc(imageSrc);
@@ -99,17 +103,19 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   editStateRef.current = editState;
   const editStateKey = JSON.stringify(editState);
 
-  const pushHistory = useCallback(
-    (nextEdit: ImageEditState, drawDataUrl: string | null) => {
-      setSliderDraft(null);
-      setHistory((h) => [
-        ...h.slice(0, histIdx + 1),
-        { edit: cloneEditState(nextEdit), drawDataUrl },
-      ]);
-      setHistIdx((i) => i + 1);
-    },
-    [histIdx],
-  );
+  const pushHistory = useCallback((nextEdit: ImageEditState, drawDataUrl: string | null) => {
+    setSliderDraft(null);
+    const idx = histIdxRef.current;
+    setHistory((h) => [
+      ...h.slice(0, idx + 1),
+      { edit: cloneEditState(nextEdit), drawDataUrl },
+    ]);
+    setHistIdx((i) => {
+      const next = i + 1;
+      histIdxRef.current = next;
+      return next;
+    });
+  }, []);
 
   const commitEdit = useCallback(
     (next: ImageEditState) => {
@@ -177,8 +183,11 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
 
   function applyHistoryIndex(n: number) {
     setSliderDraft(null);
+    histIdxRef.current = n;
     setHistIdx(n);
-    restoreDrawCanvas(drawCanvas.current, historyRef.current[n]?.drawDataUrl ?? null);
+    restoreDrawCanvas(drawCanvas.current, historyRef.current[n]?.drawDataUrl ?? null, () => {
+      setDrawRev((r) => r + 1);
+    });
   }
 
   async function renderExport(): Promise<Blob> {
@@ -207,15 +216,25 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
     return canvasToJpegBlob(canvas);
   }
 
+  function stampErase(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = "rgba(0,0,0,1)";
+    ctx.beginPath();
+    ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function configureStroke(ctx: CanvasRenderingContext2D) {
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = brushSize;
-    if (tool === "eraser") {
+    if (toolRef.current === "eraser") {
       ctx.globalCompositeOperation = "destination-out";
       ctx.filter = "none";
       ctx.strokeStyle = "rgba(0,0,0,1)";
-    } else if (tool === "smooth") {
+    } else if (toolRef.current === "smooth") {
       ctx.globalCompositeOperation = "source-over";
       ctx.filter = `blur(${Math.max(2, brushSize / 2)}px)`;
       ctx.strokeStyle = "rgba(255,255,255,0.4)";
@@ -235,16 +254,22 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   }
 
   function applySpotAt(clientX: number, clientY: number) {
-    const rect = overlayRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const root = overlayRef.current;
+    if (!root) return;
+    const img = root.querySelector("img");
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return;
     const nx = (clientX - rect.left) / rect.width;
     const ny = (clientY - rect.top) / rect.height;
+    if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return;
     patchEdit({ spotFixes: [...editStateRef.current.spotFixes, { nx, ny }] });
   }
 
   function startDraw(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (tool === "move") return;
-    if (tool === "spot") {
+    const activeTool = toolRef.current;
+    if (activeTool === "move") return;
+    if (activeTool === "spot") {
       applySpotAt(e.clientX, e.clientY);
       return;
     }
@@ -253,22 +278,33 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
     if (!c) return;
     c.setPointerCapture(e.pointerId);
     const ctx = c.getContext("2d")!;
-    configureStroke(ctx);
     const { x, y } = pointerPos(e);
+    if (activeTool === "eraser") {
+      stampErase(ctx, x, y);
+      setDrawRev((r) => r + 1);
+    } else {
+      configureStroke(ctx);
+    }
     ctx.beginPath();
     ctx.moveTo(x, y);
   }
 
   function moveDraw(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (!drawing.current || tool === "spot" || tool === "move") return;
+    const activeTool = toolRef.current;
+    if (!drawing.current || activeTool === "spot" || activeTool === "move") return;
     const c = drawCanvas.current;
     if (!c) return;
     const ctx = c.getContext("2d")!;
     const { x, y } = pointerPos(e);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, y);
+    if (activeTool === "eraser") {
+      stampErase(ctx, x, y);
+    } else {
+      configureStroke(ctx);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
     setDrawRev((r) => r + 1);
   }
 
@@ -278,8 +314,10 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
     if (e && drawCanvas.current?.hasPointerCapture(e.pointerId)) {
       drawCanvas.current.releasePointerCapture(e.pointerId);
     }
-    if (tool === "draw" || tool === "eraser" || tool === "smooth") {
+    const activeTool = toolRef.current;
+    if (activeTool === "draw" || activeTool === "eraser" || activeTool === "smooth") {
       pushHistory(editStateRef.current, snapshotDrawCanvas(drawCanvas.current));
+      setDrawRev((r) => r + 1);
     }
   }
 
@@ -336,6 +374,7 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
       className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-black/80 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
       style={{ touchAction: "manipulation" }}
       data-testid="image-editor"
+      data-active-tool={tool}
     >
       <div
         ref={overlayRef}
@@ -364,7 +403,7 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
           <canvas
             ref={drawCanvas}
             data-testid="image-editor-draw-canvas"
-            className={`absolute inset-0 h-full w-full ${overlayInteractive ? "pointer-events-auto cursor-crosshair" : "pointer-events-none"}`}
+            className={`absolute inset-0 z-10 h-full w-full ${overlayInteractive ? "pointer-events-auto cursor-crosshair" : "pointer-events-none"}`}
             width={800}
             height={600}
             onPointerDown={startDraw}
@@ -505,6 +544,20 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
               </button>
             </label>
           ))}
+          <label className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="w-24 shrink-0">Spot size</span>
+            <input
+              type="range"
+              data-testid="image-editor-spot-size"
+              min={8}
+              max={100}
+              value={editState.spotSize}
+              onChange={(e) => setSliderDraft((d) => ({ ...d, spotSize: +e.target.value }))}
+              onPointerUp={commitSlider}
+              onTouchEnd={commitSlider}
+              className="min-w-0 flex-1"
+            />
+          </label>
           {tool === "spot" ? (
             <p className="mt-1 text-xs text-[var(--text-muted)]">Tap a blemish on the photo to soften it.</p>
           ) : null}
@@ -561,7 +614,7 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
                 type="button"
                 data-testid="image-editor-tool-eraser"
                 className={`tap-target rounded px-3 py-2 text-sm ${tool === "eraser" ? "bg-[var(--accent-primary)]" : "border"}`}
-                onClick={() => setTool(tool === "eraser" ? "move" : "eraser")}
+                onClick={() => setTool("eraser")}
               >
                 Eraser
               </button>

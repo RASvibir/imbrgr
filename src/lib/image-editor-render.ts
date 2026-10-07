@@ -13,6 +13,8 @@ export type ImageEditState = {
   sharpen: number;
   smooth: number;
   spotFixes: SpotFix[];
+  /** Spot-fix brush size (8–100); scales heal radius with image dimensions. */
+  spotSize: number;
 };
 
 export type CropArea = { x: number; y: number; width: number; height: number };
@@ -30,6 +32,7 @@ export const DEFAULT_IMAGE_EDIT_STATE: ImageEditState = {
   sharpen: 0,
   smooth: 0,
   spotFixes: [],
+  spotSize: 48,
 };
 
 export const AUTO_ENHANCE_EDIT: Partial<ImageEditState> = {
@@ -106,13 +109,26 @@ export function applySharpen(imageData: ImageData, amount: number): void {
   }
 }
 
-export function applySpotHeal(imageData: ImageData, cx: number, cy: number, radius = 10): void {
+/** Heal radius in pixels from UI spot size and image dimensions. */
+export function spotRadiusPixels(width: number, height: number, spotSize: number): number {
+  const minDim = Math.min(width, height);
+  const clamped = Math.min(100, Math.max(8, spotSize));
+  return Math.max(8, Math.round((clamped / 100) * minDim * 0.28));
+}
+
+export function applySpotHeal(
+  imageData: ImageData,
+  nx: number,
+  ny: number,
+  radiusPx: number,
+): void {
   const w = imageData.width;
   const h = imageData.height;
   const d = imageData.data;
-  const px = Math.round(cx * (w - 1));
-  const py = Math.round(cy * (h - 1));
-  const r = Math.max(3, radius);
+  const src = new Uint8ClampedArray(d);
+  const px = Math.round(nx * (w - 1));
+  const py = Math.round(ny * (h - 1));
+  const r = Math.max(8, radiusPx);
   let ar = 0;
   let ag = 0;
   let ab = 0;
@@ -120,14 +136,14 @@ export function applySpotHeal(imageData: ImageData, cx: number, cy: number, radi
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
       const dist = Math.hypot(dx, dy);
-      if (dist < r * 0.45 || dist > r) continue;
+      if (dist < r * 0.55 || dist > r * 1.05) continue;
       const x = px + dx;
       const y = py + dy;
       if (x < 0 || y < 0 || x >= w || y >= h) continue;
       const i = (y * w + x) * 4;
-      ar += d[i];
-      ag += d[i + 1];
-      ab += d[i + 2];
+      ar += src[i];
+      ag += src[i + 1];
+      ab += src[i + 2];
       n++;
     }
   }
@@ -135,23 +151,48 @@ export function applySpotHeal(imageData: ImageData, cx: number, cy: number, radi
   ar /= n;
   ag /= n;
   ab /= n;
+
   for (let dy = -r; dy <= r; dy++) {
     for (let dx = -r; dx <= r; dx++) {
-      if (Math.hypot(dx, dy) > r) continue;
+      const dist = Math.hypot(dx, dy);
+      if (dist > r) continue;
       const x = px + dx;
       const y = py + dy;
       if (x < 0 || y < 0 || x >= w || y >= h) continue;
       const i = (y * w + x) * 4;
-      d[i] = ar;
-      d[i + 1] = ag;
-      d[i + 2] = ab;
+      let br = 0;
+      let bg = 0;
+      let bb = 0;
+      let bn = 0;
+      for (let ky = -2; ky <= 2; ky++) {
+        for (let kx = -2; kx <= 2; kx++) {
+          const sx = Math.min(w - 1, Math.max(0, x + kx));
+          const sy = Math.min(h - 1, Math.max(0, y + ky));
+          const si = (sy * w + sx) * 4;
+          br += src[si];
+          bg += src[si + 1];
+          bb += src[si + 2];
+          bn++;
+        }
+      }
+      br /= bn;
+      bg /= bn;
+      bb /= bn;
+      const targetR = ar * 0.55 + br * 0.45;
+      const targetG = ag * 0.55 + bg * 0.45;
+      const targetB = ab * 0.55 + bb * 0.45;
+      const strength = 0.25 + 0.75 * (1 - dist / r);
+      d[i] = Math.round(src[i] * (1 - strength) + targetR * strength);
+      d[i + 1] = Math.round(src[i + 1] * (1 - strength) + targetG * strength);
+      d[i + 2] = Math.round(src[i + 2] * (1 - strength) + targetB * strength);
     }
   }
 }
 
-export function applySpotFixes(imageData: ImageData, fixes: SpotFix[]): void {
+export function applySpotFixes(imageData: ImageData, fixes: SpotFix[], spotSize: number): void {
+  const radius = spotRadiusPixels(imageData.width, imageData.height, spotSize);
   for (const f of fixes) {
-    applySpotHeal(imageData, f.nx, f.ny);
+    applySpotHeal(imageData, f.nx, f.ny, radius);
   }
 }
 
@@ -228,7 +269,7 @@ export async function renderEditedImageCanvas(
   }
   applyWarmth(pixels, state.warmth);
   if (state.spotFixes.length) {
-    applySpotFixes(pixels, state.spotFixes);
+    applySpotFixes(pixels, state.spotFixes, state.spotSize);
   }
   if (state.sharpen > 0) {
     applySharpen(pixels, state.sharpen);
