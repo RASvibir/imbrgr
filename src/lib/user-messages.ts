@@ -61,6 +61,12 @@ export const COPY = {
   galleryLivePublic: "It's on the gallery — you'll see it on Home and Hot.",
   gallerySavedPrivate: "Saved just for you — it won't show on the public gallery.",
   gallerySavedUnlisted: "Saved with a link — it won't appear on Home or Hot.",
+  librarySave: "Save to my images",
+  librarySaveToFolder: "Save to folder…",
+  libraryDownload: "Download",
+  libraryRevertOriginal: "Revert to original",
+  librarySaved: "Saved to your images.",
+  librarySavedToFolder: (name: string) => `Saved to folder “${name}”.`,
   guestDeleteHint:
     "Save this secret code somewhere safe — you'll need it to remove this guest upload later.",
 } as const;

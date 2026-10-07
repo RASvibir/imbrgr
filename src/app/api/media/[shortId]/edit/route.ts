@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isLockedOriginal } from "@/lib/media-root";
 import { isMediaOwner } from "@/lib/media-access";
 import { processAndStoreUpload, replaceMediaInPlace } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
@@ -38,6 +39,12 @@ export async function POST(
 
   try {
     if (parsed.data.mode === "replace") {
+      if (isLockedOriginal(media)) {
+        return NextResponse.json(
+          { error: "The original is locked — your edit was saved as a new version instead." },
+          { status: 400 },
+        );
+      }
       if (!session?.user) {
         return NextResponse.json({ error: "Sign in to replace the original file" }, { status: 401 });
       }

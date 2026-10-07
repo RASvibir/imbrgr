@@ -17,6 +17,8 @@ import { mediaUrl } from "@/lib/urls";
 import { StudioMobileActionBar } from "@/components/studio/StudioMobileActionBar";
 import { StudioAiAssist } from "@/components/studio/StudioAiAssist";
 import { StudioPromptHero } from "@/components/studio/StudioPromptHero";
+import { StudioImageMenu } from "@/components/studio/StudioImageMenu";
+import { StudioVersionStrip } from "@/components/studio/StudioVersionStrip";
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
 
 type StudioAsset = {
@@ -98,6 +100,8 @@ export function ImageStudio({
   const aiAbortRef = useRef<AbortController | null>(null);
   const [suggestions, setSuggestions] = useState<{ caption?: string; alt?: string; tags?: string[] }>({});
   const [deleteToken, setDeleteToken] = useState<string | null>(null);
+  const [versionRefreshKey, setVersionRefreshKey] = useState(0);
+  const [canRevertOriginal, setCanRevertOriginal] = useState(false);
   const [settings, setSettings] = useState<ImageSettingsValues>({
     title: "",
     description: "",
@@ -107,9 +111,10 @@ export function ImageStudio({
     visibility: "PUBLIC",
   });
 
-  const selectTab = (next: Tab) => {
+  const selectTab = (next: Tab, mediaShortId?: string) => {
     setTabOverride(next);
-    const q = asset ? `?tab=${next}&media=${asset.shortId}` : `?tab=${next}`;
+    const id = mediaShortId ?? asset?.shortId;
+    const q = id ? `?tab=${next}&media=${id}` : `?tab=${next}`;
     router.replace(`/studio${q}`, { scroll: false });
   };
 
@@ -130,11 +135,38 @@ export function ImageStudio({
   const setActiveAsset = useCallback(
     async (next: StudioAsset) => {
       setAsset(next);
+      setVersionRefreshKey((k) => k + 1);
       setMsg(COPY.imageReady);
       await refreshShare(next.shortId);
     },
     [refreshShare],
   );
+
+  const onVersionsLoaded = useCallback((versions: { locked: boolean; isCurrent: boolean }[]) => {
+    const current = versions.find((v) => v.isCurrent);
+    setCanRevertOriginal(Boolean(current && !current.locked && versions.some((v) => v.locked)));
+  }, []);
+
+  const revertToOriginal = useCallback(async () => {
+    if (!asset) return;
+    setErr("");
+    const res = await fetch(`/api/media/${asset.shortId}/revert-original`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      setErr(friendlyError(data.error ?? "Could not revert"));
+      return;
+    }
+    await setActiveAsset(
+      normalizeStudioAsset({
+        shortId: data.shortId,
+        storageKey: data.storageKey,
+        mimeType: data.mimeType,
+        width: data.width,
+        height: data.height,
+      }),
+    );
+    setMsg(COPY.libraryRevertOriginal);
+  }, [asset, setActiveAsset]);
 
   const importFile = async (file: File) => {
     setErr("");
@@ -148,8 +180,9 @@ export function ImageStudio({
       return;
     }
     if (data.deleteToken) setDeleteToken(data.deleteToken);
-    await setActiveAsset(normalizeStudioAsset(data));
-    selectTab("refine");
+    const next = normalizeStudioAsset(data);
+    await setActiveAsset(next);
+    selectTab("refine", next.shortId);
   };
 
   const importFromUrl = async () => {
@@ -244,18 +277,17 @@ export function ImageStudio({
       setKitchenOpen(true);
       if (data.deleteToken) setDeleteToken(data.deleteToken);
       const primary = data.variations?.[0] ?? data;
-      await setActiveAsset(
-        normalizeStudioAsset({
-          mediaShortId: primary.mediaShortId ?? data.mediaShortId,
-          storageKey: primary.storageKey ?? data.storageKey,
-          mimeType: "image/png",
-        }),
-      );
+      const next = normalizeStudioAsset({
+        mediaShortId: primary.mediaShortId ?? data.mediaShortId,
+        storageKey: primary.storageKey ?? data.storageKey,
+        mimeType: "image/png",
+      });
+      await setActiveAsset(next);
       const vis = data.galleryVisibility ?? settings.visibility ?? "PUBLIC";
       if (vis === "PUBLIC") setMsg(COPY.galleryLivePublic);
       else if (vis === "PRIVATE") setMsg(COPY.gallerySavedPrivate);
       else setMsg(COPY.gallerySavedUnlisted);
-      selectTab("refine");
+      selectTab("refine", next.shortId);
     } catch (e) {
       const aborted = e instanceof DOMException && e.name === "AbortError";
       setErr(
@@ -479,9 +511,32 @@ export function ImageStudio({
       </nav>
 
       {asset && preview ? (
-        <div className="mt-4 overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt="" className="max-h-72 w-full object-contain" />
+        <div className="mt-4">
+          <StudioImageMenu
+            imageSrc={preview}
+            mediaShortId={asset.shortId}
+            mimeType={asset.mimeType}
+            storageKey={asset.storageKey}
+            defaultVisibility={(settings.visibility ?? "PUBLIC") as "PUBLIC" | "UNLISTED" | "PRIVATE"}
+            canRevert={canRevertOriginal}
+            onRevertOriginal={() => void revertToOriginal()}
+            onSaved={(m) => setMsg(m)}
+            onError={(m) => setErr(m)}
+          />
+          <StudioVersionStrip
+            mediaShortId={asset.shortId}
+            refreshKey={versionRefreshKey}
+            onVersionsLoaded={onVersionsLoaded}
+            onSelectVersion={(v) => {
+              void setActiveAsset({
+                shortId: v.shortId,
+                storageKey: v.storageKey,
+                mimeType: v.mimeType,
+                width: v.width,
+                height: v.height,
+              });
+            }}
+          />
         </div>
       ) : null}
 

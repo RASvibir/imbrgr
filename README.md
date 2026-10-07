@@ -56,6 +56,15 @@ Guest uploads default to **unlisted**; private posts require a signed-in owner.
 - **Privacy:** thumbs are served only through **`/api/media/file/*`** with the same access checks as originals; going private or admin-hidden **purges** thumb blobs and clears thumb columns; deletes remove **storageKey** and both thumb keys.
 - **Cache:** private/hidden media uses `Cache-Control: private, no-store`; other gated gallery media avoids long `immutable` public cache (see `src/lib/serve-media-file.ts`).
 
+### Studio library, locked original, and folders
+
+- **Click-to-save:** In the studio, click the preview image for **Save**, **Save to folder…**, **Download**, or **Revert to original** (keyboard-friendly menu; Esc closes).
+- **Locked original:** The first file for each studio chain (upload or generation) is the **immutable original** (`Media.rootMediaId` points at that row). Manual edits and AI edits create **new** `Media` rows with the same `rootMediaId`; the original blob is never overwritten (`replace` on the root is rejected).
+- **Versions strip:** Thumbnails for all versions in the family; the original shows a lock badge.
+- **Library saves:** `POST /api/library/save` records the **current** media version in `LibrarySave` (signed-in `userId` or guest `voterKey`). Visibility on save respects the studio visibility control (AI gens default public unless the user chose otherwise).
+- **Folders:** `LibraryFolder` per owner; create/rename/delete via `/api/library/folders`. Saves can target a folder by id or **new folder name** from the studio menu.
+- **My images:** `/library` and the **My images** tab on your own profile list folders and saves (`GET /api/library`). Guest library rows are **claimed** on sign-in with posts/media (`claim-guest.ts`).
+
 ### Remix, collections, guests, reports
 
 - **Remix** creates a new post linked to `remixedFromPostId` from a **public** source post; studio can open with `?remixFrom=`.
