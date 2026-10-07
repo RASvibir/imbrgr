@@ -39,6 +39,11 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
+  const { isPromptBlocked, blockedPromptMessage } = await import("@/lib/prompt-safety");
+  if (isPromptBlocked(parsed.data.prompt)) {
+    return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
+  }
+
   const needed = generationsNeededForRequest({ variations: parsed.data.variations });
   const rateKey = `ai:${actor.userId ?? actor.ipHash}`;
   try {

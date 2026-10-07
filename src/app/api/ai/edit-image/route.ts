@@ -16,6 +16,7 @@ import { getActor } from "@/lib/request-identity";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { readLocalObject, readObject } from "@/lib/storage";
 import { simpleImageEdit } from "@/lib/simple-image-edit";
+import { blockedPromptMessage, isPromptBlocked } from "@/lib/prompt-safety";
 import { friendlyError } from "@/lib/user-messages";
 import { normalizeVisibility } from "@/lib/visibility";
 
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: friendlyError("Invalid request") }, { status: 400 });
+  if (isPromptBlocked(parsed.data.instruction)) {
+    return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
+  }
 
   try {
     await consumeRateLimit(`ai:${actor.userId ?? actor.ipHash}`, aiRateLimitPerHour(), 60 * 60 * 1000);

@@ -192,9 +192,9 @@ export function AdminConsole({ initialDashboard }: { initialDashboard: Dashboard
 
       {tab === "reports" ? (
         <ul className="divide-y rounded-xl border text-sm">
-          {(reports as { id: string; reason: string; post: { shortId: string; title: string } }[]).map((r) => (
+          {(reports as { id: string; reason: string; targetLabel?: string; post: { shortId: string; title: string } | null }[]).map((r) => (
             <li key={r.id} className="flex justify-between gap-2 p-3">
-              <span>{r.post.title} — {r.reason}</span>
+              <span>{r.targetLabel ?? r.post?.title ?? "Report"} — {r.reason}</span>
               <button
                 type="button"
                 onClick={async () => {
