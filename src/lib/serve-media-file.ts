@@ -16,9 +16,15 @@ export async function serveMediaFile(
   }
 
   const media = await prisma.media.findFirst({
-    where: { storageKey },
-    include: { post: { select: { userId: true, visibility: true } } },
+    where: {
+      OR: [{ storageKey }, { thumbSmKey: storageKey }, { thumbMdKey: storageKey }],
+    },
+    include: { post: { select: { userId: true, visibility: true, hiddenByAdmin: true } } },
   });
+
+  if (media?.post?.hiddenByAdmin) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
 
   if (media && !canViewMedia(media, actor)) {
     return Response.json({ error: "Not found" }, { status: 404 });

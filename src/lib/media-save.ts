@@ -14,6 +14,7 @@ import { hashDeleteToken, newDeleteToken } from "@/lib/anon-delete";
 import { normalizeVisibility, type Visibility } from "@/lib/visibility";
 import { MAX_VIDEO_DURATION_SEC, VIDEO_MIME, validateUploadMime } from "@/lib/validation";
 import { probeVideoDurationSec } from "@/lib/video-duration";
+import { generateImageThumbnails } from "@/lib/thumbnails";
 
 export async function prepareUploadBuffer(buffer: Buffer, mime: string, opts?: { losslessPng?: boolean }) {
   if (!validateUploadMime(mime)) throw new Error(`Unsupported type: ${mime}`);
@@ -68,11 +69,18 @@ export async function processAndStoreUpload(params: {
 
   let width: number | null = null;
   let height: number | null = null;
+  let thumbSmKey: string | null = null;
+  let thumbMdKey: string | null = null;
+  let placeholderCss: string | null = null;
   if (outMime.startsWith("image/")) {
     try {
       const meta = await imageMeta(out);
       width = meta.width;
       height = meta.height;
+      const thumbs = await generateImageThumbnails(out);
+      thumbSmKey = thumbs.thumbSmKey;
+      thumbMdKey = thumbs.thumbMdKey;
+      placeholderCss = thumbs.placeholderCss;
     } catch {
       /* ignore */
     }
@@ -96,6 +104,9 @@ export async function processAndStoreUpload(params: {
       byteSize: out.byteLength,
       width,
       height,
+      thumbSmKey,
+      thumbMdKey,
+      placeholderCss,
       aiGenerated: params.aiGenerated ?? false,
       aiEdited: params.aiEdited ?? false,
       aiPrompt: params.aiPrompt,
