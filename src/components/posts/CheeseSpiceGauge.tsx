@@ -28,16 +28,16 @@ export function CheeseSpiceGauge({ viewCount, spiceScore, compact }: Props) {
 
   return (
     <div
-      className="mt-3 max-w-md rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3"
+      className="mt-3 max-w-md rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-3"
       data-testid="cheese-spice-gauge"
       aria-label={`Cook count ${viewCount}. Kitchen heat: ${copy.chili}.`}
     >
       <CookCountFlameLabel count={viewCount} />
 
       <div className="mt-3">
-        <div className="mb-1 flex items-center justify-between text-xs text-[var(--text-muted)]">
-          <span>Cheese pull</span>
-          <span>{copy.cheese}</span>
+        <div className="mb-1 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-xs text-[var(--text-muted)]">
+          <span className="min-w-0">Cheese pull</span>
+          <span className="shrink-0 text-right">{copy.cheese}</span>
         </div>
         <div
           className="relative h-3 overflow-hidden rounded-full bg-[var(--surface-hover)]"
@@ -55,8 +55,9 @@ export function CheeseSpiceGauge({ viewCount, spiceScore, compact }: Props) {
       </div>
 
       <div className="mt-3">
-        <div className="mb-1 flex items-center justify-end text-xs text-[var(--text-muted)]">
-          <span>{copy.chili}</span>
+        <div className="mb-1 grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 text-xs text-[var(--text-muted)]">
+          <span className="min-w-0">Kitchen heat</span>
+          <span className="shrink-0 text-right">{copy.chili}</span>
         </div>
         <div className="flex gap-1" role="img" aria-label={`${level} of ${SPICE_LEVEL_MAX} chili ticks`}>
           {Array.from({ length: SPICE_LEVEL_MAX }, (_, i) => (

@@ -28,13 +28,34 @@ export async function POST(req: Request) {
   }
 
   let postId: string | null = null;
+  let targetId = parsed.data.targetId;
+
   if (parsed.data.targetType === "POST") {
     const post = await prisma.post.findFirst({
-      where: { OR: [{ id: parsed.data.targetId }, { shortId: parsed.data.targetId }] },
+      where: { OR: [{ id: targetId }, { shortId: targetId }] },
     });
     if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 });
     postId = post.id;
-    parsed.data.targetId = post.id;
+    targetId = post.id;
+  } else if (parsed.data.targetType === "MEDIA") {
+    const media = await prisma.media.findFirst({
+      where: { OR: [{ id: targetId }, { shortId: targetId }] },
+    });
+    if (!media) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    targetId = media.id;
+    postId = media.postId;
+  } else if (parsed.data.targetType === "COLLECTION") {
+    const collection = await prisma.collection.findFirst({
+      where: { OR: [{ id: targetId }, { shortId: targetId }] },
+    });
+    if (!collection) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    targetId = collection.id;
+  } else if (parsed.data.targetType === "USER") {
+    const user = await prisma.user.findFirst({
+      where: { OR: [{ id: targetId }, { username: targetId }] },
+    });
+    if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    targetId = user.id;
   } else if (parsed.data.postShortId) {
     const post = await prisma.post.findUnique({ where: { shortId: parsed.data.postShortId } });
     postId = post?.id ?? null;
@@ -43,7 +64,7 @@ export async function POST(req: Request) {
   const existing = await prisma.report.findFirst({
     where: {
       targetType: parsed.data.targetType,
-      targetId: parsed.data.targetId,
+      targetId,
       voterKey: actor.voterKey,
       status: "OPEN",
     },
@@ -55,7 +76,7 @@ export async function POST(req: Request) {
   await prisma.report.create({
     data: {
       targetType: parsed.data.targetType,
-      targetId: parsed.data.targetId,
+      targetId,
       postId,
       userId: session?.user?.id ?? null,
       voterKey: actor.voterKey,

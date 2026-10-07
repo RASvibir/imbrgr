@@ -30,7 +30,7 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
       </div>
       <Link
         href="/tags"
-        className="tap-target hidden rounded-md px-3 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] sm:inline-flex"
+        className="tap-target hidden items-center rounded-md px-3 py-2 text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] sm:inline-flex"
       >
         Tags
       </Link>
