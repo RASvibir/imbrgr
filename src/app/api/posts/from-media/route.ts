@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { newShortId } from "@/lib/ids";
+import { resolveGalleryPostVisibility } from "@/lib/gallery-visibility";
 import { postInputSchema, slugifyTag } from "@/lib/validation";
 
 const schema = postInputSchema.extend({
@@ -28,6 +29,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Media not found or already attached" }, { status: 400 });
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { defaultPostVisibility: true },
+  });
+  const visibility = resolveGalleryPostVisibility(
+    parsed.data.visibility,
+    session.user.id,
+    user?.defaultPostVisibility,
+  );
+
   const aiRow = media.find((m) => m.aiGenerated);
   const postShortId = newShortId();
   const post = await prisma.post.create({
@@ -36,7 +47,7 @@ export async function POST(req: Request) {
       userId: session.user.id,
       title: parsed.data.title,
       description: parsed.data.description,
-      visibility: parsed.data.visibility ?? "PUBLIC",
+      visibility,
       aiGenerated: Boolean(aiRow),
       aiPrompt: aiRow?.aiPrompt ?? undefined,
     },
@@ -44,7 +55,7 @@ export async function POST(req: Request) {
 
   await prisma.media.updateMany({
     where: { id: { in: media.map((m) => m.id) } },
-    data: { postId: post.id },
+    data: { postId: post.id, visibility },
   });
 
   const tagSlugs = parsed.data.tags ?? [];

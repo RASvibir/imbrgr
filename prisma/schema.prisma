@@ -25,7 +25,7 @@ model User {
   links             Json?
   favoritesPublic   Boolean   @default(true)
   storageBytesUsed       BigInt    @default(0)
-  defaultPostVisibility      String    @default("UNLISTED")
+  defaultPostVisibility      String    @default("PUBLIC")
   studioKeepOriginal         Boolean   @default(true)
   role                       UserRole  @default(USER)
   banned                     Boolean   @default(false)

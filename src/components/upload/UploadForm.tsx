@@ -20,7 +20,7 @@ export function UploadForm() {
     tags: "",
     altText: "",
     mature: false,
-    visibility: "UNLISTED",
+    visibility: "PUBLIC",
   });
   const [urlInput, setUrlInput] = useState("");
   const [error, setError] = useState("");
@@ -94,7 +94,7 @@ export function UploadForm() {
     form.set("title", settings.title ?? "");
     form.set("description", settings.description ?? "");
     form.set("tags", settings.tags ?? "");
-    form.set("visibility", settings.visibility ?? "UNLISTED");
+    form.set("visibility", settings.visibility ?? "PUBLIC");
     form.set("altText", settings.altText ?? "");
     form.set("mature", settings.mature ? "true" : "false");
     files.forEach((f) => form.append("files", f.file));

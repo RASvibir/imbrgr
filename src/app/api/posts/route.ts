@@ -8,7 +8,8 @@ import { uploadRateLimitPerHour } from "@/lib/config";
 import { getActor } from "@/lib/request-identity";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { assertUserMayUpload } from "@/lib/user-guards";
-import { normalizeVisibility, type Visibility } from "@/lib/visibility";
+import { resolveGalleryPostVisibility } from "@/lib/gallery-visibility";
+import type { Visibility } from "@/lib/visibility";
 import {
   maxBytesForMime,
   parseTags,
@@ -63,19 +64,19 @@ export async function POST(req: Request) {
   const altText = form.get("altText")?.toString();
   const mature = form.get("mature") === "true";
 
-  let visibility: Visibility = "UNLISTED";
+  let userDefault: string | null = null;
   if (session?.user) {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { defaultPostVisibility: true },
     });
-    visibility = normalizeVisibility(
-      parsed.data.visibility ?? user?.defaultPostVisibility ?? "UNLISTED",
-    );
-  } else {
-    const anonVis = normalizeVisibility(parsed.data.visibility ?? "UNLISTED");
-    visibility = anonVis === "PRIVATE" ? "UNLISTED" : anonVis;
+    userDefault = user?.defaultPostVisibility ?? null;
   }
+  const visibility: Visibility = resolveGalleryPostVisibility(
+    parsed.data.visibility,
+    session?.user?.id ?? null,
+    userDefault,
+  );
 
   try {
     const postShortId = newShortId();

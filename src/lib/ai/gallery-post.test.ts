@@ -10,7 +10,8 @@ describe("gallery post helpers", () => {
   it("honors explicit unlisted or private", () => {
     expect(resolveAiGalleryVisibility("UNLISTED", "user-1")).toBe("UNLISTED");
     expect(resolveAiGalleryVisibility("PRIVATE", "user-1")).toBe("PRIVATE");
-    expect(resolveAiGalleryVisibility("PRIVATE", null)).toBe("UNLISTED");
+    expect(resolveAiGalleryVisibility("PRIVATE", null)).toBe("PUBLIC");
+    expect(resolveAiGalleryVisibility("UNLISTED", null)).toBe("PUBLIC");
   });
 
   it("builds a post title from the prompt", () => {

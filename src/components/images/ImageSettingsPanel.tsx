@@ -1,5 +1,6 @@
 "use client";
 
+import { COPY } from "@/lib/user-messages";
 import { VISIBILITY_OPTIONS, type Visibility } from "@/lib/visibility";
 
 export type ImageSettingsValues = {
@@ -19,10 +20,6 @@ type Props = {
 };
 
 export function ImageSettingsPanel({ values, onChange, signedIn, compact }: Props) {
-  const visOptions = signedIn
-    ? VISIBILITY_OPTIONS
-    : VISIBILITY_OPTIONS.filter((v) => v.value !== "PRIVATE");
-
   return (
     <div className={`space-y-3 ${compact ? "text-sm" : ""}`}>
       {values.title !== undefined ? (
@@ -76,25 +73,31 @@ export function ImageSettingsPanel({ values, onChange, signedIn, compact }: Prop
         Mature / sensitive content
       </label>
       {values.visibility !== undefined ? (
-        <div>
-          <p className="font-medium">Visibility</p>
-          <div className="mt-2 space-y-2">
-            {visOptions.map((opt) => (
-              <label key={opt.value} className="flex cursor-pointer gap-2 rounded-lg border p-2">
-                <input
-                  type="radio"
-                  name="visibility"
-                  checked={values.visibility === opt.value}
-                  onChange={() => onChange({ ...values, visibility: opt.value })}
-                />
-                <span>
-                  <span className="font-medium">{opt.label}</span>
-                  <span className="block text-xs text-[var(--text-muted)]">{opt.hint}</span>
-                </span>
-              </label>
-            ))}
+        signedIn ? (
+          <div>
+            <p className="font-medium">Visibility</p>
+            <div className="mt-2 space-y-2">
+              {VISIBILITY_OPTIONS.map((opt) => (
+                <label key={opt.value} className="flex cursor-pointer gap-2 rounded-lg border p-2">
+                  <input
+                    type="radio"
+                    name="visibility"
+                    checked={values.visibility === opt.value}
+                    onChange={() => onChange({ ...values, visibility: opt.value })}
+                  />
+                  <span>
+                    <span className="font-medium">{opt.label}</span>
+                    <span className="block text-xs text-[var(--text-muted)]">{opt.hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <p className="text-xs text-[var(--text-muted)]" data-testid="guest-gallery-visibility-note">
+            {COPY.signInForPrivateGallery}
+          </p>
+        )
       ) : null}
     </div>
   );

@@ -11,6 +11,7 @@ import { onPostRestrictedAccess, onStandaloneMediaRestricted } from "@/lib/media
 import { cleanupPostIfNoMedia } from "@/lib/post-cleanup";
 import { deleteMediaStorage } from "@/lib/media-storage";
 import { removeAnonymousStorage, removeUserStorage } from "@/lib/storage-quota";
+import { resolveGalleryPostVisibility } from "@/lib/gallery-visibility";
 import { normalizeVisibility } from "@/lib/visibility";
 
 const patchSchema = z.object({
@@ -76,13 +77,17 @@ export async function PATCH(
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
 
+  if (parsed.data.visibility) {
+    parsed.data.visibility = resolveGalleryPostVisibility(
+      parsed.data.visibility,
+      actor.userId,
+    );
+  }
+
   if (!media.postId && parsed.data.visibility) {
-    if (!actor.userId && parsed.data.visibility === "PRIVATE") {
-      return NextResponse.json({ error: "Sign in for private images" }, { status: 400 });
-    }
     await prisma.media.update({
       where: { id: media.id },
-      data: { visibility: normalizeVisibility(parsed.data.visibility) },
+      data: { visibility: parsed.data.visibility },
     });
   }
 
@@ -95,12 +100,15 @@ export async function PATCH(
   });
 
   if (media.postId && parsed.data.visibility) {
-    const vis = normalizeVisibility(parsed.data.visibility);
     await prisma.post.update({
       where: { id: media.postId },
-      data: { visibility: vis },
+      data: { visibility: parsed.data.visibility },
     });
-    if (vis === "PRIVATE") {
+    await prisma.media.updateMany({
+      where: { postId: media.postId },
+      data: { visibility: parsed.data.visibility },
+    });
+    if (parsed.data.visibility === "PRIVATE") {
       await onPostRestrictedAccess(media.postId);
     }
   }

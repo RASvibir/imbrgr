@@ -34,10 +34,16 @@ async function main() {
     create: {
       email: "e2euser@imbrgr.test",
       username: "e2euser",
+      defaultPostVisibility: "PUBLIC",
       passwordHash: hash,
       role: "USER",
     },
-    update: { role: "USER", banned: false, suspended: false },
+    update: {
+      role: "USER",
+      banned: false,
+      suspended: false,
+      defaultPostVisibility: "PUBLIC",
+    },
   });
 
   await prisma.aiAnonymousUsage.deleteMany({});

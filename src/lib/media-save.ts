@@ -95,7 +95,7 @@ export async function processAndStoreUpload(params: {
       shortId: newShortId(),
       userId,
       voterKey: userId ? null : voterKey,
-      visibility: normalizeVisibility(params.visibility ?? (userId ? "UNLISTED" : "UNLISTED")),
+      visibility: normalizeVisibility(params.visibility ?? "PUBLIC"),
       altText: params.altText,
       mature: params.mature ?? false,
       deleteTokenHash: anonToken ? hashDeleteToken(anonToken) : null,

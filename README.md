@@ -47,7 +47,7 @@ Plain-language mechanics for operators and contributors. End users see friendly 
 | **PRIVATE** | Owner-only | Hidden from others; file route returns 404 to non-owners |
 | **Admin-hidden** (`hiddenByAdmin`) | Moderation hold | Treated like hidden from the public; owners may still see their post depending on route |
 
-Guest uploads default to **unlisted**; private posts require a signed-in owner.
+Uploads and studio creations default to **public** on the gallery (Home / Hot). Signed-in users can choose **unlisted** or **private** before or after upload; their **default post visibility** in settings applies when they do not pick one (migration `20261007200000_default_post_visibility_public` sets existing `UNLISTED` defaults to **PUBLIC**; users who chose **PRIVATE** are unchanged). **Guests** are always **public** (server-enforced); private and unlisted controls are hidden until they sign in.
 
 ### Thumbnails
 
@@ -104,7 +104,7 @@ See the table below for descriptions. Never commit values. Common names: `DATABA
 - In-browser **image editor** on upload, studio Refine, settings avatar/banner, and your own images: crop, rotate, looks (filters), **Adjust** sliders (brightness, contrast, saturation, exposure, warmth) with live preview and per-slider reset, **Touch up** (auto-enhance, vignette, sharpen, soft blur, spot fix, smooth brush), **Draw** (ember palette + custom color, brush size, eraser), undo/redo, save as new version or replace
 - **Image studio** (`/studio`): import (upload / paste / URL), convert (PNG/JPEG/WebP/AVIF + resize), manual editor, AI Flux generation, Gemini natural-language edits, share/embed links
 - Prompt enhance: Ollama Cloud → Groq; Gemini only for complex prompts or fallback; cached repeats in Postgres (`AiPromptCache`)
-- Anonymous uploads default to **unlisted**; owners can set public / unlisted / hidden, delete posts, report content
+- Anonymous uploads are **always public** on the gallery; sign in to use unlisted or private. Owners can delete posts and report content
 - Search across titles and tags
 - Ember burger brand system, light/dark themes, responsive layout
 

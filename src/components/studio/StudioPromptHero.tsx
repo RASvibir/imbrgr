@@ -42,10 +42,6 @@ export function StudioPromptHero({
   onGenerate,
 }: Props) {
   const canSubmit = prompt.trim().length >= 3 && !busy;
-  const visOptions = signedIn
-    ? VISIBILITY_OPTIONS
-    : VISIBILITY_OPTIONS.filter((v) => v.value !== "PRIVATE");
-
   return (
     <section className="rounded-2xl border border-[var(--border-subtle)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--surface-sunken)] p-5 sm:p-8 shadow-[var(--shadow-ember)]">
       <label className="block">
@@ -74,6 +70,11 @@ export function StudioPromptHero({
         </button>
         <span className="text-xs text-[var(--text-muted)]">⌘/Ctrl + Enter</span>
       </div>
+      {!signedIn ? (
+        <p className="mt-4 text-xs text-[var(--text-muted)]" data-testid="guest-gallery-visibility-note">
+          {COPY.signInForPrivateGallery}
+        </p>
+      ) : null}
       <details className="mt-5 group">
         <summary className="tap-target flex cursor-pointer list-none items-center text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
           More options
@@ -116,27 +117,29 @@ export function StudioPromptHero({
               ))}
             </select>
           </div>
-          <div>
-            <p className="text-sm font-medium text-[var(--text-secondary)]">Gallery visibility</p>
-            <p className="text-xs text-[var(--text-muted)]">Public images show on Home and Hot.</p>
-            <div className="mt-2 space-y-2" data-testid="studio-create-visibility">
-              {visOptions.map((opt) => (
-                <label key={opt.value} className="flex cursor-pointer gap-2 rounded-lg border border-[var(--border-subtle)] p-2">
-                  <input
-                    type="radio"
-                    name="studio-create-visibility"
-                    checked={visibility === opt.value}
-                    onChange={() => onVisibilityChange(opt.value)}
-                    data-testid={`studio-visibility-${opt.value.toLowerCase()}`}
-                  />
-                  <span>
-                    <span className="text-sm font-medium">{opt.label}</span>
-                    <span className="block text-xs text-[var(--text-muted)]">{opt.hint}</span>
-                  </span>
-                </label>
-              ))}
+          {signedIn ? (
+            <div>
+              <p className="text-sm font-medium text-[var(--text-secondary)]">Gallery visibility</p>
+              <p className="text-xs text-[var(--text-muted)]">Public images show on Home and Hot.</p>
+              <div className="mt-2 space-y-2" data-testid="studio-create-visibility">
+                {VISIBILITY_OPTIONS.map((opt) => (
+                  <label key={opt.value} className="flex cursor-pointer gap-2 rounded-lg border border-[var(--border-subtle)] p-2">
+                    <input
+                      type="radio"
+                      name="studio-create-visibility"
+                      checked={visibility === opt.value}
+                      onChange={() => onVisibilityChange(opt.value)}
+                      data-testid={`studio-visibility-${opt.value.toLowerCase()}`}
+                    />
+                    <span>
+                      <span className="text-sm font-medium">{opt.label}</span>
+                      <span className="block text-xs text-[var(--text-muted)]">{opt.hint}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </details>
     </section>
