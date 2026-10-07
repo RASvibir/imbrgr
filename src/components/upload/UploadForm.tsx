@@ -1,16 +1,25 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
+import { ShareChoiceCard } from "@/components/share/ShareChoiceCard";
 import { StorageMeter } from "@/components/storage/StorageMeter";
+import { resolveShareChoiceHighlight } from "@/lib/share-choice-default";
 import { COPY, friendlyError } from "@/lib/user-messages";
+
 type StagedFile = { file: File; preview: string };
 
+type SharePayload = {
+  pageUrl: string;
+  directUrl: string;
+  markdown: string;
+  html: string;
+  bbcode: string;
+};
+
 export function UploadForm() {
-  const router = useRouter();
   const { data: session } = useSession();
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<StagedFile[]>([]);
@@ -27,6 +36,25 @@ export function UploadForm() {
   const [busy, setBusy] = useState(false);
   const [editIdx, setEditIdx] = useState<number | null>(null);
   const [deleteToken, setDeleteToken] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<{
+    postShortId: string;
+    mediaShortId: string;
+    share: SharePayload;
+  } | null>(null);
+  const [defaultPostVisibility, setDefaultPostVisibility] = useState<string | null>(null);
+
+  const signedIn = Boolean(session?.user);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    void fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((u) => {
+        if (u && typeof u.defaultPostVisibility === "string") {
+          setDefaultPostVisibility(u.defaultPostVisibility);
+        }
+      });
+  }, [signedIn]);
 
   const addFiles = useCallback((list: FileList | File[]) => {
     const next: StagedFile[] = [];
@@ -85,13 +113,13 @@ export function UploadForm() {
 
   const submit = async () => {
     setError("");
-    if (!settings.title?.trim() || files.length === 0) {
-      setError("Title and at least one file required");
+    if (files.length === 0) {
+      setError("At least one file required");
       return;
     }
     setBusy(true);
     const form = new FormData();
-    form.set("title", settings.title ?? "");
+    form.set("title", settings.title?.trim() || "Shared image");
     form.set("description", settings.description ?? "");
     form.set("tags", settings.tags ?? "");
     form.set("visibility", settings.visibility ?? "PUBLIC");
@@ -100,14 +128,56 @@ export function UploadForm() {
     files.forEach((f) => form.append("files", f.file));
     const res = await fetch("/api/posts", { method: "POST", body: form });
     const data = await res.json();
-    setBusy(false);
     if (!res.ok) {
+      setBusy(false);
       setError(friendlyError(data.error ?? "Upload failed"));
       return;
     }
     if (data.deleteToken) setDeleteToken(data.deleteToken);
-    router.push(`/p/${data.shortId}`);
+    const postShortId = data.shortId as string;
+    const postRes = await fetch(`/api/posts/${postShortId}`);
+    const post = await postRes.json();
+    const mediaShortId = post.media?.[0]?.shortId as string | undefined;
+    if (!mediaShortId) {
+      setBusy(false);
+      setError(friendlyError("Upload failed"));
+      return;
+    }
+    const mediaRes = await fetch(`/api/media/${mediaShortId}`);
+    const mediaData = await mediaRes.json();
+    setBusy(false);
+    setOutcome({
+      postShortId,
+      mediaShortId,
+      share: mediaData.share as SharePayload,
+    });
+    setFiles([]);
   };
+
+  const highlight = resolveShareChoiceHighlight({
+    signedIn,
+    defaultPostVisibility,
+  });
+
+  if (outcome) {
+    return (
+      <div className="space-y-4">
+        <ShareChoiceCard
+          mediaShortId={outcome.mediaShortId}
+          share={outcome.share}
+          signedIn={signedIn}
+          highlight={highlight}
+          visibility={settings.visibility}
+          shareTitle={settings.title}
+        />
+        {deleteToken ? (
+          <p className="text-xs text-[var(--text-muted)]">
+            {COPY.guestDeleteHint} <code>{deleteToken}</code>
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6" onPaste={onPaste}>
@@ -180,13 +250,12 @@ export function UploadForm() {
       ) : null}
 
       <section className="rounded-xl border border-[var(--border-subtle)] p-4">
-        <h2 className="font-semibold">Image settings</h2>
+        <h2 className="font-semibold">Details (optional)</h2>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          You&apos;ll choose link vs gallery after upload.
+        </p>
         <div className="mt-3">
-          <ImageSettingsPanel
-            signedIn={Boolean(session?.user)}
-            values={settings}
-            onChange={setSettings}
-          />
+          <ImageSettingsPanel signedIn={signedIn} values={settings} onChange={setSettings} />
         </div>
       </section>
 
@@ -197,11 +266,12 @@ export function UploadForm() {
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
       <button
         type="button"
-        disabled={busy}
+        disabled={busy || files.length === 0}
         onClick={submit}
         className="rounded-xl bg-[var(--accent-primary)] px-6 py-3 font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)] disabled:opacity-50"
+        data-testid="upload-submit"
       >
-        {busy ? "Uploading…" : "Serve it hot"}
+        {busy ? "Uploading…" : "Upload"}
       </button>
 
       {editIdx != null && files[editIdx] ? (

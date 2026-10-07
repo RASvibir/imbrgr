@@ -74,4 +74,18 @@ export const COPY = {
   librarySavedToFolder: (name: string) => `Saved to folder “${name}”.`,
   guestDeleteHint:
     "Save this secret code somewhere safe — you'll need it to remove this guest upload later.",
+  shareChoiceHeading: "Link or gallery?",
+  shareChoiceBlurb:
+    "Copy a direct image link to use anywhere, or post to the public gallery so everyone can find it on Home and Hot.",
+  shareChoiceCopyLink: "Copy link",
+  shareChoiceCopyLinkHint: "Direct image URL · stays off the gallery",
+  shareChoicePostGallery: "Post to gallery",
+  shareChoicePostGalleryHint: "Shows on Home and Hot",
+  shareChoiceCopyPageLink: "Copy page link",
+  shareChoiceGuestGalleryTitle: "Gallery posting needs an account",
+  shareLinkCopied: "Link copied",
+  sharePageLinkCopied: "Page link copied",
+  sharePostedToast: "Posted",
+  shareChoiceViewPost: "View post",
+  fieldpressComposeAria: "Use in a FieldPress post",
 } as const;

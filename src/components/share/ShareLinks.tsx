@@ -15,11 +15,14 @@ export function ShareLinks({
   title = "Share",
   visibility,
   successHref,
+  advancedOnly = false,
 }: {
   share: SharePayload;
   title?: string;
   visibility?: string;
   successHref?: string;
+  /** When true, only show embed formats (primary actions live on ShareChoiceCard). */
+  advancedOnly?: boolean;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -67,39 +70,43 @@ export function ShareLinks({
     <section className="rounded-xl border border-[var(--border-subtle)] p-4" data-testid="share-panel">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <h3 className="font-semibold text-[var(--text-primary)]">{title}</h3>
-        {visLabel ? (
+        {!advancedOnly && visLabel ? (
           <span className="rounded-full bg-[var(--surface-hover)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
             {visLabel}
           </span>
         ) : null}
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <button
-          type="button"
-          onClick={() => copy("page", share.pageUrl, "page link")}
-          className="min-h-11 flex-1 rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
-        >
-          {copied === "page" ? "Copied!" : "Copy page link"}
-        </button>
-        <button
-          type="button"
-          onClick={() => void nativeShare()}
-          className="min-h-11 rounded-lg border border-[var(--border-strong)] px-4 py-2 text-sm font-medium"
-        >
-          Share…
-        </button>
-      </div>
+      {!advancedOnly ? (
+        <>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => copy("page", share.pageUrl, "page link")}
+              className="min-h-11 flex-1 rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
+            >
+              {copied === "page" ? "Copied!" : "Copy page link"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void nativeShare()}
+              className="min-h-11 rounded-lg border border-[var(--border-strong)] px-4 py-2 text-sm font-medium"
+            >
+              Share…
+            </button>
+          </div>
 
-      <label className="mt-3 block text-xs font-medium text-[var(--text-muted)]">Page link</label>
-      <input
-        readOnly
-        value={share.pageUrl}
-        className="mt-1 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-2 text-xs"
-        aria-label="Page link"
-      />
+          <label className="mt-3 block text-xs font-medium text-[var(--text-muted)]">Page link</label>
+          <input
+            readOnly
+            value={share.pageUrl}
+            className="mt-1 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-2 text-xs"
+            aria-label="Page link"
+          />
+        </>
+      ) : null}
 
-      {toast ? (
+      {toast && !advancedOnly ? (
         <p className="toast-above-mobile-chrome mt-3 text-sm text-[var(--accent-primary)] md:static" role="status" data-testid="share-toast">
           {toast}
           {successHref ? (
@@ -111,8 +118,10 @@ export function ShareLinks({
         </p>
       ) : null}
 
-      <details className="mt-4">
-        <summary className="cursor-pointer text-xs text-[var(--text-muted)]">More embed formats</summary>
+      <details className={advancedOnly ? "mt-2" : "mt-4"} open={advancedOnly ? false : undefined}>
+        <summary className="cursor-pointer text-xs text-[var(--text-muted)]">
+          {advancedOnly ? "More embed formats" : "More embed formats"}
+        </summary>
         <ul className="mt-3 space-y-2">
           {rows.map((row) => (
             <li key={row.key} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">

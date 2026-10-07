@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import { MobileBottomSheet } from "@/components/layout/MobileBottomSheet";
+import { FIELDPRESS_URL } from "@/lib/fieldpress";
 
 const PRIMARY = [
   { href: "/", label: "Gallery" },
@@ -69,6 +70,18 @@ export function MobileBottomNav() {
             <Link href="/upload" className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]" onClick={() => setMoreOpen(false)}>
               Multi-image upload
             </Link>
+          </li>
+          <li>
+            <a
+              href={FIELDPRESS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+              data-testid="fieldpress-mobile-link"
+            >
+              FieldPress ↗
+            </a>
           </li>
           {session?.user ? (
             <>

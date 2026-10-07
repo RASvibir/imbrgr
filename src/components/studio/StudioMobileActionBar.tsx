@@ -73,7 +73,7 @@ export function StudioMobileActionBar({
           onClick={onSharePrimary}
           className="tap-target min-h-11 w-full rounded-xl bg-[var(--accent-primary)] text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
         >
-          Copy page link
+          Copy link
         </button>
       ) : null}
     </div>

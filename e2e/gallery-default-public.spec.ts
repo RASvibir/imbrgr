@@ -37,7 +37,8 @@ test.describe("gallery default public", () => {
   test("guest media PATCH cannot make post private", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("home-upload-input").setInputFiles(png);
-    await expect(page).toHaveURL(/tab=refine&media=/, { timeout: 20000 });
+    await expect(page).toHaveURL(/tab=share&media=/, { timeout: 20000 });
+    await expect(page.getByTestId("share-choice-card")).toBeVisible({ timeout: 15000 });
     const mediaMatch = page.url().match(/media=([^&]+)/);
     const mediaShortId = mediaMatch?.[1];
     expect(mediaShortId).toBeTruthy();
@@ -62,16 +63,15 @@ test.describe("gallery default public", () => {
     const title = `gallery public default ${Date.now()}`;
     await page.goto("/upload");
     await page.locator('input[type="file"]').setInputFiles(png);
-    await page.getByLabel("Title").fill(title);
-    await page.getByRole("button", { name: /Serve it hot/i }).click();
-    await page.waitForURL(/\/p\//, { timeout: 30000 });
-    const shortId = postShortIdFromUrl(page.url());
-    expect(shortId).toBeTruthy();
+    await page.getByTestId("upload-submit").click();
+    await expect(page.getByTestId("share-choice-card")).toBeVisible({ timeout: 30000 });
+    await page.getByTestId("share-choice-gallery-title").fill(title);
+    await page.getByTestId("share-choice-post-gallery").click();
 
     const feed = await page.request.get("/api/posts?sort=newest");
     const data = await feed.json();
-    const ids = (data.items ?? []).map((p: { shortId: string }) => p.shortId);
-    expect(ids).toContain(shortId);
+    const titles = (data.items ?? []).map((p: { title: string }) => p.title);
+    expect(titles).toContain(title);
   });
 
   test("signed-in private choice stays off public feed", async ({ page }) => {
@@ -81,19 +81,17 @@ test.describe("gallery default public", () => {
     await page.getByRole("button", { name: /sign in/i }).click();
     await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
 
-    const title = `gallery private opt ${Date.now()}`;
+    const title = `gallery unlisted opt ${Date.now()}`;
     await page.goto("/upload");
     await page.locator('input[type="file"]').setInputFiles(png);
-    await page.getByLabel("Title").fill(title);
-    await page.getByRole("radio", { name: /Private/i }).check();
-    await page.getByRole("button", { name: /Serve it hot/i }).click();
-    await page.waitForURL(/\/p\//, { timeout: 30000 });
-    const shortId = postShortIdFromUrl(page.url());
-    expect(shortId).toBeTruthy();
+    await page.getByTestId("upload-submit").click();
+    await expect(page.getByTestId("share-choice-card")).toBeVisible({ timeout: 30000 });
+    await page.getByTestId("share-choice-gallery-title").fill(title);
+    await page.getByTestId("share-choice-copy-link").click();
 
     const feed = await page.request.get("/api/posts?sort=newest");
     const data = await feed.json();
-    const ids = (data.items ?? []).map((p: { shortId: string }) => p.shortId);
-    expect(ids).not.toContain(shortId);
+    const titles = (data.items ?? []).map((p: { title: string }) => p.title);
+    expect(titles).not.toContain(title);
   });
 });

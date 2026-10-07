@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { FieldPressComposeIconButton } from "@/components/fieldpress/FieldPressComposeIconButton";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaFilePath } from "@/lib/urls";
@@ -15,6 +16,12 @@ type Props = {
   onError?: (message: string) => void;
   onRevertOriginal?: () => void;
   canRevert: boolean;
+  onCopyLink?: () => void;
+  onPostToGallery?: () => void;
+  fieldPressDraftId?: string | null;
+  fieldPressImageDirectUrl?: string | null;
+  fieldPressVisibility?: string | null;
+  fieldPressTitle?: string | null;
 };
 
 export function StudioImageMenu({
@@ -27,6 +34,12 @@ export function StudioImageMenu({
   onError,
   onRevertOriginal,
   canRevert,
+  onCopyLink,
+  onPostToGallery,
+  fieldPressDraftId,
+  fieldPressImageDirectUrl,
+  fieldPressVisibility,
+  fieldPressTitle,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [folderMode, setFolderMode] = useState(false);
@@ -139,6 +152,38 @@ export function StudioImageMenu({
             </div>
           ) : (
             <ul className="flex flex-col gap-1">
+              {onCopyLink ? (
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${btnPrimary} w-full justify-center text-sm`}
+                    data-testid="studio-menu-copy-link"
+                    onClick={() => {
+                      onCopyLink();
+                      close();
+                    }}
+                  >
+                    {COPY.shareChoiceCopyLink}
+                  </button>
+                </li>
+              ) : null}
+              {onPostToGallery ? (
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${btnSecondary} w-full justify-center text-sm`}
+                    data-testid="studio-menu-post-gallery"
+                    onClick={() => {
+                      onPostToGallery();
+                      close();
+                    }}
+                  >
+                    {COPY.shareChoicePostGallery}
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button
                   type="button"
@@ -167,6 +212,17 @@ export function StudioImageMenu({
                   {COPY.libraryDownload}
                 </button>
               </li>
+              {fieldPressImageDirectUrl ? (
+                <li role="none" className="flex justify-end border-t border-[var(--border-subtle)] pt-2">
+                  <FieldPressComposeIconButton
+                    imageDirectUrl={fieldPressImageDirectUrl}
+                    visibility={fieldPressVisibility}
+                    title={fieldPressTitle}
+                    draftId={fieldPressDraftId}
+                    onNavigate={close}
+                  />
+                </li>
+              ) : null}
               {canRevert ? (
                 <li role="none">
                   <button

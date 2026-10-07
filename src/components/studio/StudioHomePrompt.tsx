@@ -50,7 +50,7 @@ export function StudioHomePrompt() {
           setErr(friendlyError("Upload failed"));
           return;
         }
-        const params = new URLSearchParams({ tab: "refine", media: data.shortId });
+        const params = new URLSearchParams({ tab: "share", media: data.shortId });
         const q = prompt.trim();
         if (q) params.set("prompt", q);
         router.push(`/studio?${params.toString()}`);

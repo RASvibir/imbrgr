@@ -8,7 +8,6 @@ import {
   headerNavLinkClass,
   headerNavLinkPrimaryClass,
 } from "@/components/layout/header-nav-classes";
-
 export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean }) {
   const { data: session } = useSession();
   return (
