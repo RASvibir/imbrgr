@@ -175,7 +175,7 @@ export function ImageStudio({
     setErr("");
     const form = new FormData();
     form.set("file", file);
-    form.set("visibility", settings.visibility ?? "UNLISTED");
+    form.set("visibility", settings.visibility ?? "PUBLIC");
     form.set("keepOriginal", keepOriginal ? "true" : "false");
     const res = await fetch("/api/studio/import", { method: "POST", body: form });
     const data = await res.json();

@@ -17,6 +17,7 @@ import {
   resolveAiGalleryVisibility,
   titleFromAiPrompt,
 } from "@/lib/ai/gallery-post";
+import { prisma } from "@/lib/db";
 import { syncStudioAutoLibrarySave, parseStudioKeepOriginal } from "@/lib/library-auto-save";
 import { processAndStoreUpload } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
@@ -75,7 +76,19 @@ export async function POST(req: Request) {
     const width = parsed.data.width ?? 1024;
     const height = parsed.data.height ?? 1024;
     const baseSeed = parsed.data.seed ?? Math.floor(Math.random() * 2_147_483_647);
-    const galleryVisibility = resolveAiGalleryVisibility(parsed.data.visibility, actor.userId);
+    let userDefault: string | null = null;
+    if (actor.userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: actor.userId },
+        select: { defaultPostVisibility: true },
+      });
+      userDefault = user?.defaultPostVisibility ?? null;
+    }
+    const galleryVisibility = resolveAiGalleryVisibility(
+      parsed.data.visibility,
+      actor.userId,
+      userDefault,
+    );
     const keepOriginal = parseStudioKeepOriginal(parsed.data.keepOriginal);
 
     const results: {

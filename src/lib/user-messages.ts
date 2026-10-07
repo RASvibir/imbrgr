@@ -61,6 +61,7 @@ export const COPY = {
   galleryLivePublic: "It's on the gallery — you'll see it on Home and Hot.",
   gallerySavedPrivate: "Saved just for you — it won't show on the public gallery.",
   gallerySavedUnlisted: "Saved with a link — it won't appear on Home or Hot.",
+  signInForPrivateGallery: "Sign in to keep images private or unlisted — guest uploads always go on the public gallery.",
   librarySave: "Save to my images",
   librarySaveToFolder: "Save to folder…",
   libraryDownload: "Download",
