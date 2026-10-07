@@ -44,7 +44,9 @@ test.describe("imbrgr e2e", () => {
     const nav = page.getByRole("navigation", { name: "Main" });
     const linkNames = ["Gallery", "Hot", "Studio", "Tags", "Search", "Sign in"];
     const boxes = await Promise.all(
-      linkNames.map((name) => nav.getByRole("link", { name, exact: true }).boundingBox()),
+      linkNames.map((name) =>
+        nav.getByRole("link", { name, exact: true }).boundingBox(),
+      ),
     );
     const tops = boxes.map((b) => b?.y).filter((y): y is number => y != null);
     expect(tops.length).toBe(linkNames.length);

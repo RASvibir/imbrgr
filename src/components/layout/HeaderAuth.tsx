@@ -14,17 +14,17 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
   return (
     <nav className="flex items-center gap-1 sm:gap-2" aria-label="Main">
       <div className="hidden items-center gap-1 lg:flex">
-        <Link href="/" className={headerNavLinkClass}>
+        <Link href="/" className={`${headerNavLinkClass} inline-flex`}>
           Gallery
         </Link>
-        <Link href="/hot" className={headerNavLinkClass}>
+        <Link href="/hot" className={`${headerNavLinkClass} inline-flex`}>
           Hot
         </Link>
-        <Link href="/studio" className={headerNavLinkAccentClass}>
+        <Link href="/studio" className={`${headerNavLinkAccentClass} inline-flex`}>
           Studio
         </Link>
       </div>
-      <Link href="/tags" className={`${headerNavLinkClass} hidden lg:inline-flex`}>
+      <Link href="/tags" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
         Tags
       </Link>
       <Link href="/search" className={`${headerNavLinkClass} hidden lg:inline-flex`}>
