@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
+import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { buildShareCodes } from "@/lib/embed-codes";
 import { mediaUrl, postUrl } from "@/lib/urls";
@@ -39,6 +40,7 @@ type Post = {
   upvoteCount: number;
   downvoteCount: number;
   viewCount: number;
+  spiceScore: number;
   visibility: string;
   aiGenerated?: boolean;
   aiPrompt?: string | null;
@@ -50,7 +52,7 @@ type Post = {
 
 export function PostDetail({ shortId }: { shortId: string }) {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentBody, setCommentBody] = useState("");
@@ -61,6 +63,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
   const [ownerSettings, setOwnerSettings] = useState<ImageSettingsValues | null>(null);
 
   useEffect(() => {
+    if (sessionStatus === "loading") return;
     void fetch(`/api/posts/${shortId}`)
       .then(async (r) => {
         if (!r.ok) {
@@ -85,7 +88,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
     void fetch(`/api/posts/${shortId}/comments`)
       .then((r) => r.json())
       .then(setComments);
-  }, [shortId]);
+  }, [shortId, sessionStatus]);
 
   const vote = async (value: number) => {
     const res = await fetch(`/api/posts/${shortId}/vote`, {
@@ -193,8 +196,9 @@ export function PostDetail({ shortId }: { shortId: string }) {
             ) : (
               "anonymous"
             )}{" "}
-            · {post.viewCount} views · {post.visibility.toLowerCase()}
+            · {post.visibility.toLowerCase()}
           </p>
+          <CheeseSpiceGauge viewCount={post.viewCount} spiceScore={post.spiceScore ?? 0} />
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => vote(1)} className="rounded-lg border px-3 py-1 text-sm">

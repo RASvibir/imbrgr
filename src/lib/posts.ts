@@ -12,6 +12,7 @@ export const postCardSelect = {
   upvoteCount: true,
   downvoteCount: true,
   viewCount: true,
+  spiceScore: true,
   visibility: true,
   aiGenerated: true,
   createdAt: true,

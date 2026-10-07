@@ -91,6 +91,7 @@ model Post {
   upvoteCount   Int        @default(0)
   downvoteCount Int        @default(0)
   viewCount     Int        @default(0)
+  spiceScore    Int        @default(0)
   aiGenerated    Boolean    @default(false)
   aiPrompt       String?    @db.Text
   hiddenByAdmin  Boolean    @default(false)
@@ -101,6 +102,7 @@ model Post {
   favorites     Favorite[]
   comments      Comment[]
   reports       Report[]
+  views         PostView[]
 
   @@index([createdAt])
   @@index([score])
@@ -156,6 +158,20 @@ model PostTag {
 
   @@id([postId, tagId])
   @@index([tagId])
+}
+
+model PostView {
+  id          String   @id @default(cuid())
+  postId      String
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  voterKey    String
+  hitCount    Int      @default(1)
+  isAnonymous Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([postId, voterKey])
+  @@index([postId])
 }
 
 model PostVote {

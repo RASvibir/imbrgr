@@ -180,6 +180,51 @@ test.describe("imbrgr e2e", () => {
     expect(res.status()).toBe(404);
   });
 
+  test("unique viewers and cheese spice meter on public post", async ({ page, request, browser }) => {
+    await page.goto("/auth/signin");
+    await page.getByPlaceholder(/email/i).fill("e2euser@imbrgr.test");
+    await page.getByPlaceholder(/password/i).fill("password12345");
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
+
+    const createRes = await request.post("/api/posts", {
+      multipart: {
+        title: `Public views ${Date.now()}`,
+        visibility: "PUBLIC",
+        files: {
+          name: "tiny.png",
+          mimeType: "image/png",
+          buffer: await fs.readFile(png),
+        },
+      },
+    });
+    expect(createRes.ok()).toBeTruthy();
+    const { shortId } = await createRes.json();
+    expect(shortId).toBeTruthy();
+
+    const ownerRes = await request.get(`/api/posts/${shortId}`);
+    const ownerJson = await ownerRes.json();
+    expect(ownerJson.viewCount).toBe(0);
+
+    const anonA = await browser.newContext();
+    const anonReq = anonA.request;
+    const r1 = await anonReq.get(`/api/posts/${shortId}`);
+    const j1 = await r1.json();
+    expect(j1.viewCount).toBe(1);
+    expect(j1.spiceScore).toBeGreaterThanOrEqual(1);
+
+    const r2 = await anonReq.get(`/api/posts/${shortId}`);
+    const j2 = await r2.json();
+    expect(j2.viewCount).toBe(1);
+    expect(j2.spiceScore).toBeGreaterThan(j1.spiceScore);
+
+    await page.goto(`/p/${shortId}`);
+    await expect(page.getByTestId("cheese-spice-gauge")).toBeVisible();
+    await expect(page.getByText(/Cheese pull/i)).toBeVisible();
+    await expect(page.getByText(/Spicy meter/i)).toBeVisible();
+    await anonA.close();
+  });
+
   test("sign up, sign in, private post enforcement", async ({ page, context }) => {
     const email = `e2e_${Date.now()}@imbrgr.test`;
     const username = `e2e${Date.now().toString().slice(-6)}`;
