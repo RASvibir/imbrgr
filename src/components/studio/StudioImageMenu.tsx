@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { FieldPressComposeIconButton } from "@/components/fieldpress/FieldPressComposeIconButton";
+import { ShareBurgerMenu } from "@/components/share/ShareBurgerMenu";
+import type { SharePayload } from "@/lib/share-payload";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaFilePath } from "@/lib/urls";
@@ -19,9 +20,9 @@ type Props = {
   onCopyLink?: () => void;
   onPostToGallery?: () => void;
   fieldPressDraftId?: string | null;
-  fieldPressImageDirectUrl?: string | null;
-  fieldPressVisibility?: string | null;
-  fieldPressTitle?: string | null;
+  sharePayload?: SharePayload | null;
+  shareVisibility?: string | null;
+  shareTitle?: string | null;
 };
 
 export function StudioImageMenu({
@@ -37,9 +38,9 @@ export function StudioImageMenu({
   onCopyLink,
   onPostToGallery,
   fieldPressDraftId,
-  fieldPressImageDirectUrl,
-  fieldPressVisibility,
-  fieldPressTitle,
+  sharePayload,
+  shareVisibility,
+  shareTitle,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [folderMode, setFolderMode] = useState(false);
@@ -212,14 +213,13 @@ export function StudioImageMenu({
                   {COPY.libraryDownload}
                 </button>
               </li>
-              {fieldPressImageDirectUrl ? (
+              {sharePayload ? (
                 <li role="none" className="flex justify-end border-t border-[var(--border-subtle)] pt-2">
-                  <FieldPressComposeIconButton
-                    imageDirectUrl={fieldPressImageDirectUrl}
-                    visibility={fieldPressVisibility}
-                    title={fieldPressTitle}
-                    draftId={fieldPressDraftId}
-                    onNavigate={close}
+                  <ShareBurgerMenu
+                    payload={sharePayload}
+                    visibility={shareVisibility}
+                    shareTitle={shareTitle}
+                    fieldPressDraftId={fieldPressDraftId}
                   />
                 </li>
               ) : null}

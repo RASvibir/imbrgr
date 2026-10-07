@@ -7,8 +7,8 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { FieldPressDraftStudioChrome } from "@/components/fieldpress/FieldPressDraftStudioChrome";
 import { AiEditPreview } from "@/components/studio/AiEditPreview";
 import { ImageEditor } from "@/components/editor/ImageEditor";
+import { ShareBurgerMenu } from "@/components/share/ShareBurgerMenu";
 import { ShareChoiceCard } from "@/components/share/ShareChoiceCard";
-import { ShareLinks } from "@/components/share/ShareLinks";
 import { StorageMeter } from "@/components/storage/StorageMeter";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
@@ -603,23 +603,40 @@ export function ImageStudio({
 
       {asset && preview ? (
         <div className="mt-3 space-y-2">
-          <StudioImageMenu
-            imageSrc={preview}
-            mediaShortId={asset.shortId}
-            mimeType={asset.mimeType}
-            storageKey={asset.storageKey}
-            defaultVisibility={(settings.visibility ?? "PUBLIC") as "PUBLIC" | "UNLISTED" | "PRIVATE"}
-            canRevert={canRevertOriginal}
-            onRevertOriginal={() => void revertToOriginal()}
-            onSaved={(m) => setMsg(m)}
-            onError={(m) => setErr(m)}
-            onCopyLink={() => void runCopyLink()}
-            onPostToGallery={signedIn ? () => void runPostToGallery() : undefined}
-            fieldPressDraftId={fieldPressDraftId}
-            fieldPressImageDirectUrl={share?.directUrl ?? null}
-            fieldPressVisibility={mediaVisibility}
-            fieldPressTitle={settings.title}
-          />
+          <div className="group relative">
+            {share ? (
+              <ShareBurgerMenu
+                overlay
+                className="absolute right-2 top-2 z-30"
+                payload={
+                  (mediaVisibility ?? settings.visibility) === "PRIVATE" ? null : share
+                }
+                visibility={mediaVisibility ?? settings.visibility}
+                isOwner={signedIn}
+                shareTitle={settings.title}
+                fieldPressDraftId={fieldPressDraftId}
+              />
+            ) : null}
+            <StudioImageMenu
+              imageSrc={preview}
+              mediaShortId={asset.shortId}
+              mimeType={asset.mimeType}
+              storageKey={asset.storageKey}
+              defaultVisibility={(settings.visibility ?? "PUBLIC") as "PUBLIC" | "UNLISTED" | "PRIVATE"}
+              canRevert={canRevertOriginal}
+              onRevertOriginal={() => void revertToOriginal()}
+              onSaved={(m) => setMsg(m)}
+              onError={(m) => setErr(m)}
+              onCopyLink={() => void runCopyLink()}
+              onPostToGallery={signedIn ? () => void runPostToGallery() : undefined}
+              fieldPressDraftId={fieldPressDraftId}
+              sharePayload={
+                (mediaVisibility ?? settings.visibility) === "PRIVATE" ? null : share
+              }
+              shareVisibility={mediaVisibility ?? settings.visibility}
+              shareTitle={settings.title}
+            />
+          </div>
           <StudioVersionStrip
             mediaShortId={asset.shortId}
             refreshKey={versionRefreshKey}
@@ -835,9 +852,7 @@ export function ImageStudio({
         tab={tab}
         busy={busy}
         canGenerate={prompt.trim().length >= 3 && kitchenOpen}
-        canShare={Boolean(share?.pageUrl)}
         onGenerate={() => void generate()}
-        onSharePrimary={() => void runCopyLink()}
         showKeepUndo={Boolean(aiPreview)}
         onKeep={() => void keepAiPreview()}
         onUndo={() => setAiPreview(null)}

@@ -17,7 +17,7 @@ After studio upload/generate/edit and `/upload`, users see a **Link or gallery?*
 - **Copy link** — copies `share.directUrl` to the clipboard. Signed-in users also set the post to **UNLISTED** (hidden from Home/Hot/Newest feeds). Guests only copy the URL; content stays **PUBLIC** (server-enforced).
 - **Post to gallery** — signed-in only; sets **PUBLIC** and optional title so the post appears in feeds.
 
-Default highlight follows `User.defaultPostVisibility` and **UNLISTED** when returning from FieldPress (`from=fieldpress`). Advanced embed formats remain under **Share & embed** (`ShareLinks`). E2E: `e2e/share-choice.spec.ts`.
+Default highlight follows `User.defaultPostVisibility` and **UNLISTED** when returning from FieldPress (`from=fieldpress`). The ember **burger share** button opens a compact tray (page link, direct link, markdown, HTML, BBCode, optional FieldPress + native share). E2E: `e2e/share-choice.spec.ts`, `e2e/share-burger-tray.spec.ts`.
 
 **FieldPress** — a small favicon button (“Use in a FieldPress post”) beside the share row, studio image menu, and the owner’s post page when visibility is PUBLIC or UNLISTED. Header **FieldPress ↗** stays in the mobile More sheet only (`/fieldpress-favicon.ico` bundled locally).
 

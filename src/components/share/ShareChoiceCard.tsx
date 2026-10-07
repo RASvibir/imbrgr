@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { ShareLinks } from "@/components/share/ShareLinks";
+import { ShareBurgerMenu } from "@/components/share/ShareBurgerMenu";
 import { applyCopyLinkVisibility, applyPostToGallery } from "@/lib/share-choice-actions";
 import { postShortIdFromSharePageUrl, type ShareChoiceHighlight } from "@/lib/share-choice-default";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
-import { FieldPressComposeIconButton } from "@/components/fieldpress/FieldPressComposeIconButton";
 import { COPY } from "@/lib/user-messages";
 
 export type SharePayload = {
@@ -86,11 +85,6 @@ export function ShareChoiceCard({
     }
   }, [galleryTitle, onVisibilityChange, postShortId, signedIn]);
 
-  const copyPageLink = async () => {
-    await navigator.clipboard.writeText(share.pageUrl);
-    showToast(COPY.sharePageLinkCopied);
-  };
-
   const linkRing = highlight === "link" ? "ring-2 ring-[var(--accent-primary)]" : "";
   const galleryRing = highlight === "gallery" ? "ring-2 ring-[var(--accent-primary)]" : "";
 
@@ -99,8 +93,18 @@ export function ShareChoiceCard({
       className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4"
       data-testid="share-choice-card"
     >
-      <h2 className="text-base font-semibold text-[var(--text-primary)]">{COPY.shareChoiceHeading}</h2>
-      <p className="mt-1 text-sm text-[var(--text-muted)]">{COPY.shareChoiceBlurb}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">{COPY.shareChoiceHeading}</h2>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{COPY.shareChoiceBlurb}</p>
+        </div>
+        <ShareBurgerMenu
+          payload={share}
+          visibility={visibility}
+          shareTitle={shareTitle ?? galleryTitle}
+          fieldPressDraftId={fieldPressDraftId}
+        />
+      </div>
 
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <button
@@ -150,23 +154,6 @@ export function ShareChoiceCard({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="share-choice-actions-row">
-        <button
-          type="button"
-          onClick={() => void copyPageLink()}
-          className="text-xs font-medium text-[var(--accent-primary)] underline"
-          data-testid="share-choice-copy-page"
-        >
-          {COPY.shareChoiceCopyPageLink}
-        </button>
-        <FieldPressComposeIconButton
-          imageDirectUrl={share.directUrl}
-          visibility={visibility}
-          title={shareTitle ?? galleryTitle}
-          draftId={fieldPressDraftId}
-        />
-      </div>
-
       {toast ? (
         <p className="toast-above-mobile-chrome mt-3 text-sm text-[var(--accent-primary)]" role="status" data-testid="share-choice-toast">
           {toast}
@@ -179,9 +166,6 @@ export function ShareChoiceCard({
         </p>
       ) : null}
 
-      <div className="mt-4">
-        <ShareLinks share={share} title="Share & embed" advancedOnly />
-      </div>
     </section>
   );
 }

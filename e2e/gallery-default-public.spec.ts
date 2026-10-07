@@ -67,6 +67,7 @@ test.describe("gallery default public", () => {
     await expect(page.getByTestId("share-choice-card")).toBeVisible({ timeout: 30000 });
     await page.getByTestId("share-choice-gallery-title").fill(title);
     await page.getByTestId("share-choice-post-gallery").click();
+    await expect(page.getByTestId("share-choice-toast")).toContainText(/posted/i);
 
     const feed = await page.request.get("/api/posts?sort=newest");
     const data = await feed.json();

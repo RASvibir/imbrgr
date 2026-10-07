@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { PostMediaImage } from "@/components/media/PostMediaImage";
 import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
@@ -11,10 +11,9 @@ import { PostRemixButton } from "@/components/posts/PostRemixButton";
 import { PostOwnerMenu } from "@/components/posts/PostOwnerMenu";
 import { CollectionQuickAdd } from "@/components/collections/CollectionQuickAdd";
 import { ReportButton } from "@/components/report/ReportButton";
-import { ShareLinks } from "@/components/share/ShareLinks";
-import { FieldPressComposeIconButton } from "@/components/fieldpress/FieldPressComposeIconButton";
-import { buildShareCodes } from "@/lib/embed-codes";
-import { mediaUrl, postUrl } from "@/lib/urls";
+import { ShareBurgerMenu } from "@/components/share/ShareBurgerMenu";
+import { buildSharePayload } from "@/lib/share-payload";
+import { mediaUrl } from "@/lib/urls";
 import type { Visibility } from "@/lib/visibility";
 
 type Media = {
@@ -162,12 +161,6 @@ export function PostDetail({ shortId }: { shortId: string }) {
     setMsg("Settings saved");
   };
 
-  const publicShare = useMemo(() => {
-    if (!post || post.visibility === "PRIVATE" || !post.media[0]) return null;
-    const m = post.media[0];
-    return buildShareCodes(m.shortId, m.storageKey, m.mimeType, post.title, postUrl(shortId));
-  }, [post, shortId]);
-
   if (notFound) {
     return <p className="p-8 text-center text-[var(--text-muted)]">This post is private or does not exist.</p>;
   }
@@ -177,6 +170,8 @@ export function PostDetail({ shortId }: { shortId: string }) {
 
   const threaded = comments.filter((c) => !c.parentId);
   const children = (parentId: string) => comments.filter((c) => c.parentId === parentId);
+  const isOwner = session?.user?.id === post.userId;
+  const isPrivate = post.visibility === "PRIVATE" || post.visibility === "HIDDEN";
 
   return (
     <div className="space-y-8">
@@ -244,10 +239,30 @@ export function PostDetail({ shortId }: { shortId: string }) {
         {post.media.map((m) => {
           const src = mediaUrl(m.storageKey, m.mimeType);
           return (
-            <div key={m.shortId} className="relative overflow-hidden rounded-xl border">
+            <div key={m.shortId} className="group relative overflow-hidden rounded-xl border">
               {m.aiEdited ? (
                 <span className="absolute left-2 top-2 z-10 rounded bg-black/60 px-2 py-0.5 text-xs text-white">Edited here</span>
               ) : null}
+              {isPrivate && !isOwner ? null : (
+                <ShareBurgerMenu
+                  overlay
+                  className="absolute right-2 top-2 z-20"
+                  payload={
+                    isPrivate
+                      ? null
+                      : buildSharePayload({
+                          mediaShortId: m.shortId,
+                          storageKey: m.storageKey,
+                          mimeType: m.mimeType,
+                          title: post.title,
+                          postShortId: shortId,
+                        })
+                  }
+                  visibility={post.visibility}
+                  isOwner={isOwner}
+                  shareTitle={post.title}
+                />
+              )}
               {m.mimeType.startsWith("video/") ? (
                 <video src={src} controls className="w-full" />
               ) : (
@@ -282,22 +297,6 @@ export function PostDetail({ shortId }: { shortId: string }) {
 
       {session?.user?.id === post.userId ? (
         <CollectionQuickAdd postShortId={shortId} />
-      ) : null}
-
-      {publicShare ? (
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <ShareLinks title="Share & embed" share={publicShare} />
-          </div>
-          {session?.user?.id === post.userId ? (
-            <FieldPressComposeIconButton
-              imageDirectUrl={publicShare.directUrl}
-              visibility={post.visibility}
-              title={post.title}
-              className="mt-1"
-            />
-          ) : null}
-        </div>
       ) : null}
 
       {session?.user?.id === post.userId && ownerSettings ? (

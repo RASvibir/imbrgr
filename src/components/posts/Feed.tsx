@@ -12,7 +12,18 @@ type PostItem = {
   title: string;
   score: number;
   viewCount: number;
-  media: { storageKey: string; mimeType: string; width?: number | null; height?: number | null }[];
+  visibility?: string;
+  aiGenerated?: boolean;
+  media: {
+    shortId: string;
+    storageKey: string;
+    mimeType: string;
+    width?: number | null;
+    height?: number | null;
+    thumbSmKey?: string | null;
+    thumbMdKey?: string | null;
+    placeholderCss?: string | null;
+  }[];
   user: { username: string } | null;
 };
 

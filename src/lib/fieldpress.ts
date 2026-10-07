@@ -49,3 +49,4 @@ export function fieldpressStoryHref(input: FieldPressStoryLinkInput): string | n
   if (!isSafeFieldPressImageUrl(direct)) return null;
   return fieldpressComposeUrl(direct, input.title);
 }
+

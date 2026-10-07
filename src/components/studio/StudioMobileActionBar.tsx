@@ -8,9 +8,7 @@ type Props = {
   tab: Tab;
   busy: boolean;
   canGenerate: boolean;
-  canShare: boolean;
   onGenerate: () => void;
-  onSharePrimary: () => void;
   onKeep?: () => void;
   onUndo?: () => void;
   showKeepUndo: boolean;
@@ -20,18 +18,14 @@ export function StudioMobileActionBar({
   tab,
   busy,
   canGenerate,
-  canShare,
   onGenerate,
-  onSharePrimary,
   onKeep,
   onUndo,
   showKeepUndo,
 }: Props) {
   const showCreate = tab === "create";
   const showKeep = tab === "refine" && showKeepUndo;
-  const showShare = tab === "share";
-
-  if (!showCreate && !showKeep && !showShare) {
+  if (!showCreate && !showKeep) {
     return null;
   }
 
@@ -65,16 +59,6 @@ export function StudioMobileActionBar({
             Keep
           </button>
         </div>
-      ) : null}
-      {showShare ? (
-        <button
-          type="button"
-          disabled={!canShare}
-          onClick={onSharePrimary}
-          className="tap-target min-h-11 w-full rounded-xl bg-[var(--accent-primary)] text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
-        >
-          Copy link
-        </button>
       ) : null}
     </div>
   );
