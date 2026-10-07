@@ -94,12 +94,6 @@ export function ImageSettingsPanel({ values, onChange, signedIn, compact }: Prop
               </label>
             ))}
           </div>
-          {!signedIn ? (
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Guest uploads are public or unlisted only.{" "}
-              <a href="/auth/signup" className="text-[var(--accent-primary)]">Sign up</a> to keep images private.
-            </p>
-          ) : null}
         </div>
       ) : null}
     </div>

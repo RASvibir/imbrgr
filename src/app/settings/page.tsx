@@ -270,9 +270,6 @@ export default function SettingsPage() {
 
       <section className="mt-10 rounded-xl border border-[var(--danger)]/40 p-4">
         <h2 className="font-semibold text-[var(--danger)]">Delete account</h2>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          Removes your profile, posts, comments, and uploaded files from storage.
-        </p>
         <button type="button" onClick={deleteAccount} className="mt-3 rounded-lg border border-[var(--danger)] px-4 py-2 text-sm text-[var(--danger)]">
           Delete my account
         </button>

@@ -274,9 +274,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
             postUrl(shortId),
           )}
         />
-      ) : (
-        <p className="text-sm text-[var(--text-muted)]">Private posts are not shareable via public embed links.</p>
-      )}
+      ) : null}
 
       {session?.user?.id === post.userId && ownerSettings ? (
         <section className="rounded-xl border border-[var(--border-subtle)] p-4">
