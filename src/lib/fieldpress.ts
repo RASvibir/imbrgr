@@ -7,8 +7,19 @@ export const FIELDPRESS_URL = "https://fieldpress.studio";
 export const FIELDPRESS_INVITE_DISMISS_STORAGE_KEY = "imbrgr-fieldpress-invite-dismissed";
 
 export function canOfferFieldPressLink(visibility: string | null | undefined): boolean {
+  if (visibility == null || visibility === "") return false;
   const v = normalizeVisibility(visibility);
   return v === "PUBLIC" || v === "UNLISTED";
+}
+
+/** Generic “story on FieldPress” invite — not when a draft return path is active. */
+export function showFieldPressStoryInvite(
+  activeFieldPressDraftId: string | null | undefined,
+  mediaVisibility: string | null | undefined,
+): boolean {
+  if (activeFieldPressDraftId) return false;
+  if (mediaVisibility == null) return false;
+  return canOfferFieldPressLink(mediaVisibility);
 }
 
 /** Absolute direct file URL (`share.directUrl`) for FieldPress compose `image=`. */

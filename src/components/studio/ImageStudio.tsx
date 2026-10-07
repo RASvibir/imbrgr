@@ -10,6 +10,7 @@ import { AiEditPreview } from "@/components/studio/AiEditPreview";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { FieldPressInvite } from "@/components/fieldpress/FieldPressInvite";
+import { canOfferFieldPressLink, showFieldPressStoryInvite } from "@/lib/fieldpress";
 import { StorageMeter } from "@/components/storage/StorageMeter";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
@@ -26,7 +27,7 @@ import { KeepOriginalToggle } from "@/components/studio/KeepOriginalToggle";
 import { readGuestKeepOriginal, writeGuestKeepOriginal } from "@/lib/studio-keep-original";
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
 import {
-  FIELDPRESS_RETURN_DEFAULT_VISIBILITY,
+  fieldpressStudioVisibilityFromUserDefault,
   ingestFieldPressDraftFromQuery,
   readFieldPressDraftId,
   subscribeFieldPressDraftId,
@@ -430,17 +431,16 @@ export function ImageStudio({
   }, [params]);
 
   useEffect(() => {
-    if (!applyFieldPressVisibilityRef.current || !signedIn) return;
-    applyFieldPressVisibilityRef.current = false;
-    setSettings((s) => ({ ...s, visibility: FIELDPRESS_RETURN_DEFAULT_VISIBILITY }));
-  }, [signedIn]);
-
-  useEffect(() => {
     if (signedIn) {
       void fetch("/api/me")
         .then((r) => (r.ok ? r.json() : null))
         .then((u) => {
           if (u && typeof u.studioKeepOriginal === "boolean") setKeepOriginal(u.studioKeepOriginal);
+          if (applyFieldPressVisibilityRef.current && u) {
+            applyFieldPressVisibilityRef.current = false;
+            const visibility = fieldpressStudioVisibilityFromUserDefault(u.defaultPostVisibility);
+            setSettings((s) => ({ ...s, visibility }));
+          }
         });
     } else {
       setKeepOriginal(readGuestKeepOriginal());
@@ -801,14 +801,14 @@ export function ImageStudio({
                     visibility={settings.visibility}
                     successHref={share.pageUrl}
                   />
-                  {mediaVisibility !== null ? (
+                  {showFieldPressStoryInvite(fieldPressDraftId, mediaVisibility) ? (
                     <FieldPressInvite
                       imageDirectUrl={share.directUrl}
                       visibility={mediaVisibility}
                       title={settings.title}
                     />
                   ) : null}
-                  {fieldPressDraftId && mediaVisibility !== null ? (
+                  {fieldPressDraftId && mediaVisibility != null && canOfferFieldPressLink(mediaVisibility) ? (
                     <UseInFieldPressDraftLink
                       draftId={fieldPressDraftId}
                       imageDirectUrl={share.directUrl}

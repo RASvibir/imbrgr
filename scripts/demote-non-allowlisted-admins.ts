@@ -3,14 +3,15 @@
  * Dry run by default. Apply: DATABASE_URL=... npx tsx scripts/demote-non-allowlisted-admins.ts --apply
  */
 import dotenv from "dotenv";
-import { prisma } from "../src/lib/db";
-import { superadminUsernameAllowlist } from "../src/lib/admin/policy";
-import { shouldDemoteToUser } from "../src/lib/admin/role-policy";
 
 dotenv.config();
-dotenv.config({ path: ".env.local", override: true });
+dotenv.config({ path: ".env.local" });
 
-function assertSuperAdminEnv(): void {
+async function main() {
+  const { prisma } = await import("../src/lib/db");
+  const { superadminUsernameAllowlist } = await import("../src/lib/admin/policy");
+  const { shouldDemoteToUser } = await import("../src/lib/admin/role-policy");
+
   const raw = process.env.SUPERADMIN_USERNAMES?.trim();
   if (!raw) {
     console.error("SUPERADMIN_USERNAMES must be set (e.g. vibir). Refusing to run.");
@@ -21,10 +22,7 @@ function assertSuperAdminEnv(): void {
     console.error("SUPERADMIN_USERNAMES must include vibir. Refusing to run.");
     process.exit(1);
   }
-}
 
-async function main() {
-  assertSuperAdminEnv();
   const apply = process.argv.includes("--apply");
 
   const users = await prisma.user.findMany({
@@ -35,6 +33,7 @@ async function main() {
 
   if (toDemote.length === 0) {
     console.log("No accounts to demote.");
+    await prisma.$disconnect();
     return;
   }
 
@@ -44,6 +43,7 @@ async function main() {
 
   if (!apply) {
     console.log("\nDry run only. Pass --apply to write changes.");
+    await prisma.$disconnect();
     return;
   }
 
@@ -51,11 +51,10 @@ async function main() {
     await prisma.user.update({ where: { id: u.id }, data: { role: "USER" } });
   }
   console.log(`Demoted ${toDemote.length} account(s).`);
+  await prisma.$disconnect();
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

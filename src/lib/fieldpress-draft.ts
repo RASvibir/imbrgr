@@ -1,4 +1,4 @@
-import type { Visibility } from "@/lib/visibility";
+import { normalizeVisibility, type Visibility } from "@/lib/visibility";
 import { FIELDPRESS_URL, isSafeFieldPressImageUrl } from "@/lib/fieldpress";
 
 export const FIELDPRESS_DRAFT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
@@ -80,6 +80,15 @@ export function fieldpressDraftComposeWithImageUrl(
   const trimmed = title?.trim();
   if (trimmed) url.searchParams.set("title", trimmed);
   return url.toString();
+}
+
+/** Apply FieldPress return visibility without overriding a stricter saved user default. */
+export function fieldpressStudioVisibilityFromUserDefault(
+  userDefaultPostVisibility: string | null | undefined,
+): Visibility {
+  const saved = normalizeVisibility(userDefaultPostVisibility ?? "UNLISTED");
+  if (saved === "PUBLIC") return FIELDPRESS_RETURN_DEFAULT_VISIBILITY;
+  return saved;
 }
 
 export function ingestFieldPressDraftFromQuery(

@@ -3,6 +3,7 @@ import {
   clearFieldPressDraftId,
   fieldpressDraftComposeWithImageUrl,
   fieldpressDraftReturnUrl,
+  fieldpressStudioVisibilityFromUserDefault,
   ingestFieldPressDraftFromQuery,
   parseFieldPressDraftId,
   readFieldPressDraftId,
@@ -54,6 +55,12 @@ describe("fieldpress draft context", () => {
     expect(
       fieldpressDraftComposeWithImageUrl("d1", "http://localhost:3000/api/media/file/x.png"),
     ).toBeNull();
+  });
+
+  it("maps only public saved defaults to unlisted for FieldPress return", () => {
+    expect(fieldpressStudioVisibilityFromUserDefault("PUBLIC")).toBe("UNLISTED");
+    expect(fieldpressStudioVisibilityFromUserDefault("PRIVATE")).toBe("PRIVATE");
+    expect(fieldpressStudioVisibilityFromUserDefault("UNLISTED")).toBe("UNLISTED");
   });
 
   it("persists valid draft in sessionStorage for the tab", () => {

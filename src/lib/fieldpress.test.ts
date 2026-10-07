@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import {
   canOfferFieldPressLink,
   fieldpressComposeUrl,
+  showFieldPressStoryInvite,
   isSafeFieldPressImageUrl,
   mediaDirectFileUrl,
 } from "@/lib/fieldpress";
@@ -23,16 +24,25 @@ describe("fieldpress", () => {
       "https://imbrgr.vercel.app/api/media/file/uploads/x.png?mime=image%2Fpng",
     );
     const compose = fieldpressComposeUrl(direct, "My title");
-    const parsed = new URL(compose);
+    expect(compose).not.toBeNull();
+    const parsed = new URL(compose!);
     expect(parsed.searchParams.get("compose")).toBe("1");
     expect(parsed.searchParams.get("image")).toBe(direct);
     expect(parsed.searchParams.get("title")).toBe("My title");
   });
 
-  it("gates private media", () => {
+  it("gates private and unknown visibility", () => {
     expect(canOfferFieldPressLink("PUBLIC")).toBe(true);
     expect(canOfferFieldPressLink("UNLISTED")).toBe(true);
     expect(canOfferFieldPressLink("PRIVATE")).toBe(false);
+    expect(canOfferFieldPressLink(null)).toBe(false);
+    expect(canOfferFieldPressLink(undefined)).toBe(false);
+  });
+
+  it("hides generic story invite when a FieldPress draft is active", () => {
+    expect(showFieldPressStoryInvite(null, "PUBLIC")).toBe(true);
+    expect(showFieldPressStoryInvite("draft-1", "PUBLIC")).toBe(false);
+    expect(showFieldPressStoryInvite(null, null)).toBe(false);
   });
 
   it("rejects localhost compose image URLs", () => {
