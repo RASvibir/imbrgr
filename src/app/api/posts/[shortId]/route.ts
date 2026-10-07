@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { canViewPost } from "@/lib/media-access";
+import { canViewPost, isMediaOwner } from "@/lib/media-access";
 import { slugifyTag } from "@/lib/validation";
 import { getActor } from "@/lib/request-identity";
 import { deleteObject } from "@/lib/storage";
@@ -48,7 +48,13 @@ export async function GET(
     where: { id: post.id },
     data: { viewCount: { increment: 1 } },
   });
-  return NextResponse.json(post);
+  return NextResponse.json({
+    ...post,
+    media: post.media.map((m) => ({
+      ...m,
+      canRefine: m.mimeType.startsWith("image/") && isMediaOwner(m, actor),
+    })),
+  });
 }
 
 export async function PATCH(

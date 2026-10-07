@@ -62,6 +62,28 @@ test.describe("imbrgr e2e", () => {
     await expect(page.getByText(/Page link/i)).toBeVisible();
   });
 
+  test("public image page exposes og:image for crawlers", async ({ page, request }) => {
+    const importRes = await request.post("/api/studio/import", {
+      multipart: {
+        file: {
+          name: "tiny.png",
+          mimeType: "image/png",
+          buffer: await fs.readFile(png),
+        },
+      },
+    });
+    const imported = await importRes.json();
+    await page.goto(`/i/${imported.shortId}`);
+    const ogImage = await page.locator('meta[property="og:image"]').getAttribute("content");
+    expect(ogImage).toMatch(/\/api\/og\/m\//);
+    expect(ogImage).toContain(imported.shortId);
+    const ogUrl = await page.locator('meta[property="og:url"]').getAttribute("content");
+    expect(ogUrl).toMatch(/\/i\//);
+    const ogRes = await request.get(`/api/og/m/${imported.shortId}`);
+    expect(ogRes.status()).toBe(200);
+    expect(ogRes.headers()["content-type"]).toMatch(/image\//);
+  });
+
   test("anonymous AI generate mock", async ({ page }) => {
     await page.goto("/studio");
     await page.getByPlaceholder(/Describe the image/i).fill("ember burger test");
@@ -71,16 +93,41 @@ test.describe("imbrgr e2e", () => {
     await page.screenshot({ path: `${artifactsDir}/studio-after-generate.png`, fullPage: true });
   });
 
-  test("studio refine works without assist; assist optional", async ({ page }) => {
+  test("studio refine: manual editor and assist apply change", async ({ page }) => {
     await page.goto("/studio");
     await page.getByPlaceholder(/Describe the image/i).fill("ember plate test");
     await page.getByRole("button", { name: /Cook up image/i }).click();
     await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible({ timeout: 20000 });
-    await expect(page.getByRole("button", { name: "Refine" })).toBeVisible();
     await page.getByRole("button", { name: "Open editor" }).click();
     await page.getByRole("button", { name: "Cancel" }).click();
     await page.getByRole("checkbox", { name: /Assist/i }).check();
-    await page.getByRole("button", { name: /Suggest alt/i }).click();
+    await page.getByPlaceholder(/Describe a change/i).fill("warmer light");
+    await page.getByRole("button", { name: /Apply change/i }).click();
+    await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText(/couldn't finish that image/i)).toHaveCount(0);
+  });
+
+  test("guest uploaded image handoff to studio refine", async ({ page, request }) => {
+    await page.goto("/studio");
+    await page.locator("summary").filter({ hasText: "Bring your own image" }).click();
+    await page.locator('input[type="file"]').setInputFiles(png);
+    await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 15000 });
+    await page.getByRole("navigation", { name: "Studio steps" }).getByRole("button", { name: "Share" }).click();
+    const pageLink = await page.locator('input[readonly][value*="/i/"]').first().inputValue();
+    const shortId = pageLink.match(/\/i\/([^/?#]+)/)?.[1];
+    expect(shortId).toBeTruthy();
+    await page.goto(`/i/${shortId}`);
+    await page.getByRole("link", { name: /Refine in studio/i }).click();
+    await expect(page.getByRole("button", { name: /Open editor/i })).toBeVisible();
+    await page.getByRole("button", { name: /Open editor/i }).click();
+    await page.getByRole("button", { name: /Save to studio/i }).click();
+    await expect(page.getByRole("button", { name: /Open editor/i })).toBeVisible({ timeout: 15000 });
+    const fileRes = await request.get(`/api/media/${shortId}`);
+    const meta = await fileRes.json();
+    const fileBytes = await request.get(
+      `/api/media/file/${meta.storageKey}?mime=${encodeURIComponent(meta.mimeType)}`,
+    );
+    expect(fileBytes.status()).toBe(200);
   });
 
   test("signed-in generate refine share to gallery", async ({ page }) => {
@@ -99,6 +146,9 @@ test.describe("imbrgr e2e", () => {
     await page.getByRole("button", { name: /Serve to gallery/i }).click();
     await page.waitForURL(/\/p\//, { timeout: 15000 });
     await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible();
+    await expect(page.getByRole("link", { name: /Refine in studio/i })).toBeVisible();
+    await page.getByRole("link", { name: /Refine in studio/i }).click();
+    await expect(page.getByRole("button", { name: /Open editor/i })).toBeVisible();
   });
 
   test("admin: e2eadmin sees Admin link and loads console", async ({ page }) => {

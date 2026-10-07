@@ -47,7 +47,16 @@ export async function POST(
         buffer: buf,
         mime: file.type || "image/jpeg",
       });
-      return NextResponse.json({ shortId: media.shortId, mode: "replace" });
+      const refreshed = await prisma.media.findUnique({ where: { id: media.id } });
+      if (!refreshed) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({
+        shortId: refreshed.shortId,
+        storageKey: refreshed.storageKey,
+        mimeType: refreshed.mimeType,
+        width: refreshed.width,
+        height: refreshed.height,
+        mode: "replace",
+      });
     }
 
     const parentId = media.parentMediaId ?? media.id;
@@ -60,9 +69,24 @@ export async function POST(
       postId: media.postId ?? undefined,
       sortOrder: media.sortOrder,
       visibility: normalizeVisibility(media.visibility),
+      aiEdited: true,
     });
 
-    return NextResponse.json({ shortId: created.shortId, mode: "version" });
+    if (media.postId) {
+      await prisma.media.update({
+        where: { id: media.id },
+        data: { postId: null },
+      });
+    }
+
+    return NextResponse.json({
+      shortId: created.shortId,
+      storageKey: created.storageKey,
+      mimeType: created.mimeType,
+      width: created.width,
+      height: created.height,
+      mode: "version",
+    });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Edit failed" }, { status: 400 });
   }

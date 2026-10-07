@@ -1,7 +1,13 @@
-import { imagePageUrl, mediaUrl, siteUrl } from "@/lib/urls";
+import { imagePageUrl, mediaUrl, postUrl, siteUrl } from "@/lib/urls";
 
-export function buildShareCodes(shortId: string, storageKey: string, mimeType: string, title = "image") {
-  const page = siteUrl(imagePageUrl(shortId));
+export function buildShareCodes(
+  shortId: string,
+  storageKey: string,
+  mimeType: string,
+  title = "image",
+  publicPagePath?: string,
+) {
+  const page = siteUrl(publicPagePath ?? imagePageUrl(shortId));
   const direct = siteUrl(mediaUrl(storageKey, mimeType));
   const safeTitle = title.replace(/"/g, "&quot;");
   return {

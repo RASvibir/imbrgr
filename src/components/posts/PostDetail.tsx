@@ -4,11 +4,10 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { buildShareCodes } from "@/lib/embed-codes";
-import { mediaUrl } from "@/lib/urls";
+import { mediaUrl, postUrl } from "@/lib/urls";
 import type { Visibility } from "@/lib/visibility";
 
 type Media = {
@@ -20,6 +19,7 @@ type Media = {
   aiEdited?: boolean;
   altText?: string | null;
   mature?: boolean;
+  canRefine?: boolean;
 };
 
 type Comment = {
@@ -57,7 +57,6 @@ export function PostDetail({ shortId }: { shortId: string }) {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [msg, setMsg] = useState("");
-  const [editMedia, setEditMedia] = useState<Media | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [ownerSettings, setOwnerSettings] = useState<ImageSettingsValues | null>(null);
 
@@ -226,14 +225,15 @@ export function PostDetail({ shortId }: { shortId: string }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={src} alt={m.altText ?? ""} className="w-full" />
               )}
-              {session?.user?.id === post.userId && m.mimeType.startsWith("image/") ? (
-                <button
-                  type="button"
-                  className="mt-2 text-sm text-[var(--accent-primary)]"
-                  onClick={() => setEditMedia(m)}
-                >
-                  Edit image
-                </button>
+              {m.canRefine ? (
+                <div className="border-t border-[var(--border-subtle)] p-3">
+                  <Link
+                    href={`/studio?tab=refine&media=${m.shortId}`}
+                    className="inline-flex rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
+                  >
+                    Refine in studio
+                  </Link>
+                </div>
               ) : null}
             </div>
           );
@@ -260,6 +260,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
             post.media[0]?.storageKey ?? "",
             post.media[0]?.mimeType ?? "image/jpeg",
             post.title,
+            postUrl(shortId),
           )}
         />
       ) : (
@@ -342,27 +343,6 @@ export function PostDetail({ shortId }: { shortId: string }) {
       </section>
       {msg ? <p className="text-sm text-[var(--text-muted)]">{msg}</p> : null}
 
-      {editMedia ? (
-        <ImageEditor
-          imageSrc={mediaUrl(editMedia.storageKey, editMedia.mimeType)}
-          onCancel={() => setEditMedia(null)}
-          onExport={async (blob, mode) => {
-            const form = new FormData();
-            form.set("file", blob, "edit.jpg");
-            form.set("mode", mode);
-            const res = await fetch(`/api/media/${editMedia.shortId}/edit`, { method: "POST", body: form });
-            if (res.ok) {
-              const updated = await fetch(`/api/posts/${shortId}`).then((r) => r.json());
-              setPost(updated);
-              setEditMedia(null);
-              setMsg("Image updated");
-            } else {
-              const data = await res.json();
-              setMsg(data.error ?? "Edit failed");
-            }
-          }}
-        />
-      ) : null}
     </div>
   );
 }

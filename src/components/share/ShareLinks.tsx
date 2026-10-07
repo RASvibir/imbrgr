@@ -30,7 +30,6 @@ export function ShareLinks({ share, title = "Share" }: { share: SharePayload; ti
   return (
     <section className="rounded-xl border border-[var(--border-subtle)] p-4">
       <h3 className="font-semibold text-[var(--text-primary)]">{title}</h3>
-      <p className="mt-1 text-xs text-[var(--text-muted)]">Every saved image gets a direct link and embed codes.</p>
       <ul className="mt-3 space-y-2">
         {rows.map((row) => (
           <li key={row.key} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">

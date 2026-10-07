@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { StorageMeter } from "@/components/storage/StorageMeter";
@@ -14,6 +14,7 @@ import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaUrl } from "@/lib/urls";
 import { StudioAiAssist } from "@/components/studio/StudioAiAssist";
 import { StudioPromptHero } from "@/components/studio/StudioPromptHero";
+import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
 
 type StudioAsset = {
   shortId: string;
@@ -42,9 +43,11 @@ const GENERATE_CLIENT_TIMEOUT_MS = 90_000;
 export function ImageStudio({
   defaultTab,
   initialPrompt,
+  initialAsset,
 }: {
   defaultTab?: string;
   initialPrompt?: string;
+  initialAsset?: StudioInitialAsset | null;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -52,7 +55,7 @@ export function ImageStudio({
   const urlTab = parseStudioTab(defaultTab ?? params.get("tab"));
   const [tabOverride, setTabOverride] = useState<Tab | null>(null);
   const tab = tabOverride ?? urlTab;
-  const [asset, setAsset] = useState<StudioAsset | null>(null);
+  const [asset, setAsset] = useState<StudioAsset | null>(initialAsset ?? null);
   const [share, setShare] = useState<{
     pageUrl: string;
     directUrl: string;
@@ -94,7 +97,8 @@ export function ImageStudio({
 
   const selectTab = (next: Tab) => {
     setTabOverride(next);
-    router.replace(`/studio?tab=${next}`, { scroll: false });
+    const q = asset ? `?tab=${next}&media=${asset.shortId}` : `?tab=${next}`;
+    router.replace(`/studio${q}`, { scroll: false });
   };
 
   const refreshShare = useCallback(async (shortId: string) => {
@@ -104,6 +108,12 @@ export function ImageStudio({
       setShare(data.share);
     }
   }, []);
+
+  useEffect(() => {
+    if (initialAsset?.shortId) {
+      void refreshShare(initialAsset.shortId);
+    }
+  }, [initialAsset?.shortId, refreshShare]);
 
   const setActiveAsset = useCallback(
     async (next: StudioAsset) => {
@@ -252,14 +262,13 @@ export function ImageStudio({
       setErr(friendlyError(data.error ?? "Save failed"));
       return;
     }
-    const meta = await fetch(`/api/media/${data.shortId}`).then((r) => r.json());
     await setActiveAsset(
       normalizeStudioAsset({
         shortId: data.shortId,
-        storageKey: meta.storageKey,
-        mimeType: meta.mimeType,
-        width: meta.width,
-        height: meta.height,
+        storageKey: data.storageKey,
+        mimeType: data.mimeType ?? "image/jpeg",
+        width: data.width,
+        height: data.height,
       }),
     );
     setEditing(false);
@@ -285,10 +294,11 @@ export function ImageStudio({
       normalizeStudioAsset({
         mediaShortId: data.mediaShortId,
         storageKey: data.storageKey,
-        mimeType: "image/png",
+        mimeType: data.mimeType ?? "image/png",
       }),
     );
     setAiEditText("");
+    setAssistErr("");
   };
 
   const autoEnhance = async () => {
@@ -469,10 +479,6 @@ export function ImageStudio({
                   Import
                 </button>
               </div>
-              <p className="text-xs text-[var(--text-muted)]">
-                Need a classic multi-file upload?{" "}
-                <Link href="/upload" className="text-[var(--accent-primary)]">Upload page</Link>
-              </p>
             </div>
           </details>
         </div>
@@ -537,13 +543,6 @@ export function ImageStudio({
                   </button>
                 </div>
               </details>
-              <button
-                type="button"
-                onClick={() => selectTab("share")}
-                className="text-sm font-medium text-[var(--accent-primary)]"
-              >
-                Continue to share →
-              </button>
             </>
           )}
         </section>
