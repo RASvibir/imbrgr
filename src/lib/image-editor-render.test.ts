@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyPixelFilter, meanRedChannel } from "@/lib/image-editor-render";
+import {
+  applyPixelFilter,
+  applyWarmth,
+  meanRedChannel,
+} from "@/lib/image-editor-render";
 
 function imageDataFromRgba(pixels: number[]): ImageData {
   return {
@@ -15,6 +19,13 @@ describe("applyPixelFilter", () => {
     const img = imageDataFromRgba([100, 100, 100, 255, 100, 100, 100, 255, 100, 100, 100, 255, 100, 100, 100, 255]);
     const before = meanRedChannel(img);
     applyPixelFilter(img, "ember");
+    expect(meanRedChannel(img)).toBeGreaterThan(before);
+  });
+
+  it("warmth shifts red channel up", () => {
+    const img = imageDataFromRgba([100, 100, 100, 255]);
+    const before = meanRedChannel(img);
+    applyWarmth(img, 120);
     expect(meanRedChannel(img)).toBeGreaterThan(before);
   });
 

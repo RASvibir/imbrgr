@@ -647,7 +647,12 @@ export function ImageStudio({
             </div>
           ) : (
             <>
-              <button type="button" onClick={() => setEditing(true)} className={`${btnPrimary} w-full sm:w-auto`}>
+              <button
+                type="button"
+                data-testid="studio-open-editor"
+                onClick={() => setEditing(true)}
+                className={`${btnPrimary} w-full sm:w-auto`}
+              >
                 Open editor
               </button>
               <StudioAiAssist

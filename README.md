@@ -101,7 +101,7 @@ See the table below for descriptions. Never commit values. Common names: `DATABA
 - Accounts (self-serve sign-up), editable **settings** (username, display name, avatar/banner with crop, bio, links, public/private favorites, storage meter, account delete)
 - Public profiles (`/u/{username}`): posts, favorites (if public), comments, stats
 - **Storage quotas** per user (default 1 GB, `USER_STORAGE_QUOTA_BYTES`) and smaller anonymous cap; server-enforced on every upload
-- In-browser **image editor** on upload and on your own images (crop, rotate, filters, annotate, undo/redo; save as new version or replace)
+- In-browser **image editor** on upload, studio Refine, settings avatar/banner, and your own images: crop, rotate, looks (filters), **Adjust** sliders (brightness, contrast, saturation, exposure, warmth) with live preview and per-slider reset, **Touch up** (auto-enhance, vignette, sharpen, soft blur, spot fix, smooth brush), **Draw** (ember palette + custom color, brush size, eraser), undo/redo, save as new version or replace
 - **Image studio** (`/studio`): import (upload / paste / URL), convert (PNG/JPEG/WebP/AVIF + resize), manual editor, AI Flux generation, Gemini natural-language edits, share/embed links
 - Prompt enhance: Ollama Cloud → Groq; Gemini only for complex prompts or fallback; cached repeats in Postgres (`AiPromptCache`)
 - Anonymous uploads default to **unlisted**; owners can set public / unlisted / hidden, delete posts, report content
