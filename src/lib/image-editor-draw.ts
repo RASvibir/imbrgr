@@ -42,19 +42,33 @@ export function drawCanvasHasInk(canvas: HTMLCanvasElement | null): boolean {
 }
 
 export function snapshotDrawCanvas(canvas: HTMLCanvasElement | null): string | null {
-  if (!canvas || !drawCanvasHasInk(canvas)) return null;
+  if (!canvas) return null;
   return canvas.toDataURL("image/png");
 }
 
-export function restoreDrawCanvas(canvas: HTMLCanvasElement | null, dataUrl: string | null): void {
-  if (!canvas) return;
+export function restoreDrawCanvas(
+  canvas: HTMLCanvasElement | null,
+  dataUrl: string | null,
+  onDone?: () => void,
+): void {
+  if (!canvas) {
+    onDone?.();
+    return;
+  }
   const ctx = canvas.getContext("2d");
-  if (!ctx) return;
+  if (!ctx) {
+    onDone?.();
+    return;
+  }
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!dataUrl) return;
+  if (!dataUrl) {
+    onDone?.();
+    return;
+  }
   const img = new Image();
   img.onload = () => {
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    onDone?.();
   };
   img.src = dataUrl;
 }
