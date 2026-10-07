@@ -3,6 +3,7 @@
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { STYLES } from "@/lib/ai/styles";
 import { VISIBILITY_OPTIONS, type Visibility } from "@/lib/visibility";
+import { btnPrimary } from "@/lib/ui/button-classes";
 import { COPY } from "@/lib/user-messages";
 
 type Props = {
@@ -67,7 +68,7 @@ export function StudioPromptHero({
           type="button"
           disabled={!canSubmit}
           onClick={onGenerate}
-          className="tap-target hidden rounded-xl bg-[var(--accent-primary)] px-6 text-sm font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)] disabled:opacity-50 lg:inline-flex"
+          className={`${btnPrimary} hidden px-6 lg:inline-flex`}
         >
           {busy ? COPY.generateWorking : COPY.generateCta}
         </button>

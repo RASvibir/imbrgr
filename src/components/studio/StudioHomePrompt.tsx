@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { validateLandingImageFile } from "@/lib/landing-image-upload";
+import { btnPrimary } from "@/lib/ui/button-classes";
 import { COPY, friendlyError } from "@/lib/user-messages";
 
 function UploadIcon({ className }: { className?: string }) {
@@ -150,7 +151,7 @@ export function StudioHomePrompt() {
             type="button"
             onClick={goGenerate}
             disabled={uploading}
-            className="tap-target min-h-11 shrink-0 rounded-lg bg-[var(--accent-primary)] px-4 text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
+            className={`${btnPrimary} w-full shrink-0 sm:w-auto`}
           >
             {uploading ? "Uploading…" : COPY.generateCta}
           </button>

@@ -11,6 +11,7 @@ import { StorageMeter } from "@/components/storage/StorageMeter";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { normalizeStudioAsset } from "@/lib/studio-asset";
+import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaUrl } from "@/lib/urls";
 import { StudioMobileActionBar } from "@/components/studio/StudioMobileActionBar";
@@ -542,16 +543,15 @@ export function ImageStudio({
       {tab === "refine" ? (
         <section className="mt-6 space-y-4">
           {!asset ? (
-            <p className="text-sm text-[var(--text-muted)]">
-              Create or import an image first, then refine it here.
-            </p>
+            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-4 py-8 text-center">
+              <p className="text-sm text-[var(--text-secondary)]">Add an image on Create, then edit and assist here.</p>
+              <button type="button" onClick={() => selectTab("create")} className={`${btnPrimary} mt-4`}>
+                Go to Create
+              </button>
+            </div>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="min-h-11 w-full rounded-xl bg-[var(--accent-primary)] px-4 py-3 text-sm font-semibold text-[var(--on-accent)] sm:w-auto"
-              >
+              <button type="button" onClick={() => setEditing(true)} className={`${btnPrimary} w-full sm:w-auto`}>
                 Open editor
               </button>
               <StudioAiAssist
@@ -615,12 +615,17 @@ export function ImageStudio({
       {tab === "share" ? (
         <div className="mt-6 space-y-4">
           {!asset ? (
-            <p className="text-sm text-[var(--text-muted)]">Nothing to share yet — start in Create.</p>
+            <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-4 py-8 text-center">
+              <p className="text-sm text-[var(--text-secondary)]">Cook or upload an image first, then share links here.</p>
+              <button type="button" onClick={() => selectTab("create")} className={`${btnPrimary} mt-4`}>
+                Go to Create
+              </button>
+            </div>
           ) : (
             <>
               <ImageSettingsPanel signedIn={signedIn} values={settings} onChange={(v) => setSettings(v)} compact />
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={saveMediaSettings} className="rounded-lg border px-4 py-2 text-sm font-medium">
+                <button type="button" onClick={saveMediaSettings} className={btnSecondary}>
                   Save details
                 </button>
                 {signedIn ? (
@@ -628,7 +633,7 @@ export function ImageStudio({
                     type="button"
                     disabled={busy || !settings.title?.trim()}
                     onClick={publishToGallery}
-                    className="rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)] disabled:opacity-50"
+                    className={btnPrimary}
                   >
                     {COPY.publishCta}
                   </button>
@@ -664,8 +669,16 @@ export function ImageStudio({
         </div>
       ) : null}
 
-      {err ? <p className="mt-4 text-sm text-[var(--danger)]">{err}</p> : null}
-      {msg ? <p className="mt-4 text-sm text-[var(--accent-primary)]">{msg}</p> : null}
+      {err ? (
+        <p className="mt-4 rounded-lg border border-[var(--danger)]/40 bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--danger)]" role="alert">
+          {err}
+        </p>
+      ) : null}
+      {msg ? (
+        <p className="mt-4 rounded-lg border border-[var(--accent-primary)]/30 bg-[var(--surface-raised)] px-4 py-3 text-sm text-[var(--accent-primary)]" role="status">
+          {msg}
+        </p>
+      ) : null}
 
       {editing && preview ? (
         <ImageEditor
