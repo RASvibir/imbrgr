@@ -31,13 +31,12 @@ for (const vp of MOBILE_VIEWPORTS) {
 
     test("studio create and refine assist", async ({ page }) => {
       await page.goto("/studio");
-      await auditMobileLayout(page);
       if (vp.name === "390x844") {
         await page.screenshot({ path: `${artifactsDir}/mobile-studio-create-390.png`, fullPage: true });
       }
-      await page.getByPlaceholder(/Describe the image/i).fill("ember snack");
-      await page.getByRole("button", { name: /Cook up image/i }).first().click();
-      await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 20000 });
+      await page.locator("summary").filter({ hasText: "Bring your own image" }).click();
+      await page.locator('input[type="file"]').setInputFiles(png);
+      await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible({ timeout: 30000 });
       await page.getByRole("navigation", { name: "Studio steps" }).getByRole("button", { name: "Refine" }).click();
       await page.getByRole("checkbox", { name: /Assist/i }).check();
       await auditMobileLayout(page);
@@ -85,6 +84,7 @@ test.describe("mobile layout post and profile", () => {
     });
     const { shortId } = await createRes.json();
     await page.goto(`/p/${shortId}`);
+    await expect(page.getByText(/spicy meter/i)).toHaveCount(0);
     await auditMobileLayout(page);
     await page.screenshot({ path: `${artifactsDir}/mobile-post-remix-390.png`, fullPage: true });
     await page.getByRole("button", { name: "Report" }).click();

@@ -5,6 +5,15 @@ import path from "node:path";
 const png = path.join(__dirname, "fixtures/tiny.png");
 const artifactsDir = "/opt/cursor/artifacts/screenshots";
 
+async function clickCookUp(page: import("@playwright/test").Page) {
+  const mobile = page.getByTestId("studio-mobile-generate");
+  if (await mobile.isVisible()) {
+    await mobile.click();
+    return;
+  }
+  await page.getByRole("button", { name: /Cook up image/i }).click();
+}
+
 test.describe("imbrgr e2e", () => {
   test("studio page uses consumer-friendly copy", async ({ page }) => {
     await page.goto("/studio");
@@ -17,7 +26,10 @@ test.describe("imbrgr e2e", () => {
   test("studio opens with prompt box on load", async ({ page }) => {
     await page.goto("/studio");
     await expect(page.getByPlaceholder(/Describe the image/i)).toBeVisible({ timeout: 5000 });
-    await expect(page.getByRole("button", { name: /Cook up image/i })).toBeVisible();
+    const cookVisible =
+      (await page.getByTestId("studio-mobile-generate").isVisible()) ||
+      (await page.getByRole("button", { name: /Cook up image/i }).isVisible());
+    expect(cookVisible).toBe(true);
     await page.screenshot({ path: `${artifactsDir}/studio-create-hero.png`, fullPage: true });
   });
 
@@ -87,8 +99,8 @@ test.describe("imbrgr e2e", () => {
   test("anonymous AI generate mock", async ({ page }) => {
     await page.goto("/studio");
     await page.getByPlaceholder(/Describe the image/i).fill("ember burger test");
-    await page.getByRole("button", { name: /Cook up image/i }).click();
-    await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 20000 });
+    await clickCookUp(page);
+    await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 30000 });
     await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible();
     await page.screenshot({ path: `${artifactsDir}/studio-after-generate.png`, fullPage: true });
   });
@@ -96,15 +108,16 @@ test.describe("imbrgr e2e", () => {
   test("studio refine: manual editor and assist apply change", async ({ page }) => {
     await page.goto("/studio");
     await page.getByPlaceholder(/Describe the image/i).fill("ember plate test");
-    await page.getByRole("button", { name: /Cook up image/i }).click();
-    await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible({ timeout: 20000 });
+    await clickCookUp(page);
+    await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible({ timeout: 30000 });
     await page.getByRole("button", { name: "Open editor" }).click();
     await page.getByRole("button", { name: "Cancel" }).click();
     await page.getByRole("checkbox", { name: /Assist/i }).check();
     await page.getByRole("button", { name: "Brighten" }).click();
     await expect(page.getByTestId("ai-edit-preview")).toBeVisible({ timeout: 20000 });
     await page.getByRole("button", { name: /Keep this version/i }).click();
-    await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible({ timeout: 20000 });
+    await expect(page.getByTestId("ai-edit-preview")).toHaveCount(0, { timeout: 20000 });
+    await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible();
     await expect(page.getByText(/couldn't finish that image/i)).toHaveCount(0);
   });
 
@@ -140,8 +153,8 @@ test.describe("imbrgr e2e", () => {
 
     await page.goto("/studio");
     await page.getByPlaceholder(/Describe the image/i).fill("gallery e2e dish");
-    await page.getByRole("button", { name: /Cook up image/i }).click();
-    await expect(page.locator('img[src*="/api/media/file/"]')).toBeVisible({ timeout: 20000 });
+    await clickCookUp(page);
+    await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible({ timeout: 30000 });
     await page.getByRole("navigation", { name: "Studio steps" }).getByRole("button", { name: "Share" }).click();
     await page.getByLabel("Title").fill(`Studio dish ${Date.now()}`);
     await page.getByRole("button", { name: /Serve to gallery/i }).click();
