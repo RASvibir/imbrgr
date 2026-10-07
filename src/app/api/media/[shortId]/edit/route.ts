@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { isLockedOriginal } from "@/lib/media-root";
 import { isMediaOwner } from "@/lib/media-access";
+import { syncStudioAutoLibrarySave, parseStudioKeepOriginal } from "@/lib/library-auto-save";
 import { processAndStoreUpload, replaceMediaInPlace } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
 import { normalizeVisibility } from "@/lib/visibility";
@@ -44,11 +45,10 @@ export async function POST(
   const buf = Buffer.from(await file.arrayBuffer());
 
   try {
-    const keepOriginal = parsed.data.keepOriginal ?? true;
-    const useReplace = parsed.data.mode === "replace" || !keepOriginal;
+    const keepOriginal = parseStudioKeepOriginal(parsed.data.keepOriginal);
 
-    if (useReplace) {
-      if (isLockedOriginal(media) && keepOriginal) {
+    if (parsed.data.mode === "replace") {
+      if (isLockedOriginal(media)) {
         return NextResponse.json(
           { error: "The original is locked — your edit was saved as a new version instead." },
           { status: 400 },
@@ -60,7 +60,6 @@ export async function POST(
         voterKey: actor.userId ? null : actor.voterKey,
         buffer: buf,
         mime: file.type || "image/jpeg",
-        allowLockedRoot: !keepOriginal,
       });
       const refreshed = await prisma.media.findUnique({ where: { id: media.id } });
       if (!refreshed) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -94,6 +93,8 @@ export async function POST(
         data: { postId: null },
       });
     }
+
+    await syncStudioAutoLibrarySave(actor, created.id, keepOriginal);
 
     return NextResponse.json({
       shortId: created.shortId,

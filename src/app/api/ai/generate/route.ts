@@ -17,6 +17,7 @@ import {
   resolveAiGalleryVisibility,
   titleFromAiPrompt,
 } from "@/lib/ai/gallery-post";
+import { syncStudioAutoLibrarySave, parseStudioKeepOriginal } from "@/lib/library-auto-save";
 import { processAndStoreUpload } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
 import { friendlyError } from "@/lib/user-messages";
@@ -35,6 +36,7 @@ const schema = z.object({
   safe: z.boolean().optional(),
   variations: z.number().int().min(1).max(4).optional(),
   visibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]).optional(),
+  keepOriginal: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -74,6 +76,7 @@ export async function POST(req: Request) {
     const height = parsed.data.height ?? 1024;
     const baseSeed = parsed.data.seed ?? Math.floor(Math.random() * 2_147_483_647);
     const galleryVisibility = resolveAiGalleryVisibility(parsed.data.visibility, actor.userId);
+    const keepOriginal = parseStudioKeepOriginal(parsed.data.keepOriginal);
 
     const results: {
       mediaShortId: string;
@@ -127,10 +130,11 @@ export async function POST(req: Request) {
       aiPrompt: fullPrompt,
     });
 
+    const primary = results[0];
+    await syncStudioAutoLibrarySave(actor, primary.mediaId, keepOriginal);
+
     if (actor.userId) await recordAiGenerationSuccess(actor.userId, needed);
     else await recordAnonymousAiSuccess(actor.ipHash, needed);
-
-    const primary = results[0];
     return NextResponse.json({
       mediaShortId: primary.mediaShortId,
       storageKey: primary.storageKey,

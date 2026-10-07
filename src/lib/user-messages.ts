@@ -65,7 +65,9 @@ export const COPY = {
   librarySaveToFolder: "Save to folder…",
   libraryDownload: "Download",
   libraryRevertOriginal: "Revert to original",
-  studioKeepOriginal: "Keep original",
+  studioKeepOriginal: "Keep original in my images",
+  studioKeepOriginalHint:
+    "When on, we automatically keep the first version in your images when you edit. When off, only your latest version is kept automatically—you can still save any version from the image menu.",
   librarySaved: "Saved to your images.",
   librarySavedToFolder: (name: string) => `Saved to folder “${name}”.`,
   guestDeleteHint:

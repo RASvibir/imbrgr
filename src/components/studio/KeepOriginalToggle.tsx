@@ -24,7 +24,10 @@ export function KeepOriginalToggle({
         className="h-4 w-4 shrink-0 rounded-sm border-[var(--border-strong)] accent-[var(--accent-primary)]"
         data-testid="studio-keep-original-checkbox"
       />
-      <span>{COPY.studioKeepOriginal}</span>
+      <span className="flex flex-col">
+        <span>{COPY.studioKeepOriginal}</span>
+        <span className="text-xs font-normal text-[var(--text-muted)]">{COPY.studioKeepOriginalHint}</span>
+      </span>
     </label>
   );
 }

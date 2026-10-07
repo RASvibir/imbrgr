@@ -176,6 +176,7 @@ export function ImageStudio({
     const form = new FormData();
     form.set("file", file);
     form.set("visibility", settings.visibility ?? "UNLISTED");
+    form.set("keepOriginal", keepOriginal ? "true" : "false");
     const res = await fetch("/api/studio/import", { method: "POST", body: form });
     const data = await res.json();
     if (!res.ok) {
@@ -269,6 +270,7 @@ export function ImageStudio({
           safe: true,
           variations,
           visibility: settings.visibility,
+          keepOriginal,
         }),
       });
       const data = await res.json();
@@ -306,7 +308,7 @@ export function ImageStudio({
     if (!asset) return;
     const form = new FormData();
     form.set("file", blob, "studio-edit.jpg");
-    form.set("mode", keepOriginal ? "version" : "replace");
+    form.set("mode", "version");
     form.set("keepOriginal", keepOriginal ? "true" : "false");
     const res = await fetch(`/api/media/${asset.shortId}/edit`, { method: "POST", body: form });
     const data = await res.json();
@@ -433,10 +435,6 @@ export function ImageStudio({
     [signedIn, keepOriginal],
   );
 
-  useEffect(() => {
-    if (!keepOriginal) setCanRevertOriginal(false);
-  }, [keepOriginal]);
-
   const saveMediaSettings = async () => {
     if (!asset) return;
     await fetch(`/api/media/${asset.shortId}`, {
@@ -561,27 +559,25 @@ export function ImageStudio({
             mimeType={asset.mimeType}
             storageKey={asset.storageKey}
             defaultVisibility={(settings.visibility ?? "PUBLIC") as "PUBLIC" | "UNLISTED" | "PRIVATE"}
-            canRevert={keepOriginal && canRevertOriginal}
+            canRevert={canRevertOriginal}
             onRevertOriginal={() => void revertToOriginal()}
             onSaved={(m) => setMsg(m)}
             onError={(m) => setErr(m)}
           />
-          {keepOriginal ? (
-            <StudioVersionStrip
-              mediaShortId={asset.shortId}
-              refreshKey={versionRefreshKey}
-              onVersionsLoaded={onVersionsLoaded}
-              onSelectVersion={(v) => {
-                void setActiveAsset({
-                  shortId: v.shortId,
-                  storageKey: v.storageKey,
-                  mimeType: v.mimeType,
-                  width: v.width,
-                  height: v.height,
-                });
-              }}
-            />
-          ) : null}
+          <StudioVersionStrip
+            mediaShortId={asset.shortId}
+            refreshKey={versionRefreshKey}
+            onVersionsLoaded={onVersionsLoaded}
+            onSelectVersion={(v) => {
+              void setActiveAsset({
+                shortId: v.shortId,
+                storageKey: v.storageKey,
+                mimeType: v.mimeType,
+                width: v.width,
+                height: v.height,
+              });
+            }}
+          />
         </div>
       ) : null}
 

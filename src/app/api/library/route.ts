@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { libraryOwnerWhere } from "@/lib/library-access";
+import { STUDIO_AUTO_LIBRARY_LABEL } from "@/lib/library-auto-save";
 import { getActor } from "@/lib/request-identity";
 import { mediaUrl } from "@/lib/urls";
 
@@ -54,6 +55,7 @@ export async function GET(req: Request) {
       savedAt: s.savedAt,
       visibility: s.visibility,
       label: s.label,
+      autoSaved: s.label === STUDIO_AUTO_LIBRARY_LABEL,
       folder: s.folder,
       media: {
         ...s.media,
