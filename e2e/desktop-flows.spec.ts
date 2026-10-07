@@ -26,12 +26,13 @@ test.describe("desktop 1280×800 flows", () => {
   test("home upload lands in refine with assist prompt carryover", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("home-prompt-input").fill("warmer sunset tones");
-    const importDone = page.waitForResponse(
-      (r) => r.url().includes("/api/studio/import") && r.status() === 200,
-      { timeout: 20000 },
-    );
-    await page.getByTestId("home-upload-input").setInputFiles(png);
-    await importDone;
+    await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes("/api/studio/import") && r.status() === 200,
+        { timeout: 20000 },
+      ),
+      page.getByTestId("home-upload-input").setInputFiles(png),
+    ]);
     await expect(page).toHaveURL(/tab=refine&media=.*prompt=/, { timeout: 20000 });
     await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible({ timeout: 15000 });
     const assist = page.getByTestId("studio-assist-prompt");
