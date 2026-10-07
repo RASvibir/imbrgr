@@ -23,7 +23,8 @@ describe("fieldpress", () => {
       "https://imbrgr.vercel.app/api/media/file/uploads/x.png?mime=image%2Fpng",
     );
     const compose = fieldpressComposeUrl(direct, "My title");
-    const parsed = new URL(compose);
+    expect(compose).toBeTruthy();
+    const parsed = new URL(compose!);
     expect(parsed.searchParams.get("compose")).toBe("1");
     expect(parsed.searchParams.get("image")).toBe(direct);
     expect(parsed.searchParams.get("title")).toBe("My title");

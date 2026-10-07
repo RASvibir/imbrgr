@@ -16,6 +16,8 @@ type Props = {
   onError?: (message: string) => void;
   onRevertOriginal?: () => void;
   canRevert: boolean;
+  onCopyLink?: () => void;
+  onPostToGallery?: () => void;
   fieldPressDraftId?: string | null;
   fieldPressImageDirectUrl?: string | null;
   fieldPressVisibility?: string | null;
@@ -32,6 +34,8 @@ export function StudioImageMenu({
   onError,
   onRevertOriginal,
   canRevert,
+  onCopyLink,
+  onPostToGallery,
   fieldPressDraftId,
   fieldPressImageDirectUrl,
   fieldPressVisibility,
@@ -148,6 +152,38 @@ export function StudioImageMenu({
             </div>
           ) : (
             <ul className="flex flex-col gap-1">
+              {onCopyLink ? (
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${btnPrimary} w-full justify-center text-sm`}
+                    data-testid="studio-menu-copy-link"
+                    onClick={() => {
+                      onCopyLink();
+                      close();
+                    }}
+                  >
+                    {COPY.shareChoiceCopyLink}
+                  </button>
+                </li>
+              ) : null}
+              {onPostToGallery ? (
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`${btnSecondary} w-full justify-center text-sm`}
+                    data-testid="studio-menu-post-gallery"
+                    onClick={() => {
+                      onPostToGallery();
+                      close();
+                    }}
+                  >
+                    {COPY.shareChoicePostGallery}
+                  </button>
+                </li>
+              ) : null}
               <li role="none">
                 <button
                   type="button"

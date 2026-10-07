@@ -8,6 +8,7 @@ import { FieldPressDraftStudioChrome } from "@/components/fieldpress/FieldPressD
 import { UseInFieldPressDraftLink } from "@/components/fieldpress/UseInFieldPressDraftLink";
 import { AiEditPreview } from "@/components/studio/AiEditPreview";
 import { ImageEditor } from "@/components/editor/ImageEditor";
+import { ShareChoiceCard } from "@/components/share/ShareChoiceCard";
 import { ShareLinks } from "@/components/share/ShareLinks";
 import { FieldPressInvite } from "@/components/fieldpress/FieldPressInvite";
 import { StorageMeter } from "@/components/storage/StorageMeter";
@@ -31,6 +32,8 @@ import {
   readFieldPressDraftId,
   subscribeFieldPressDraftId,
 } from "@/lib/fieldpress-draft";
+import { applyCopyLinkVisibility, applyPostToGallery } from "@/lib/share-choice-actions";
+import { postShortIdFromSharePageUrl, resolveShareChoiceHighlight } from "@/lib/share-choice-default";
 
 type StudioAsset = {
   shortId: string;
@@ -130,6 +133,10 @@ export function ImageStudio({
     mature: false,
     visibility: "PUBLIC",
   });
+  const [shareChoiceOpen, setShareChoiceOpen] = useState(false);
+  const [defaultPostVisibility, setDefaultPostVisibility] = useState<string | null>(null);
+  const [fieldPressHandoff, setFieldPressHandoff] = useState(false);
+  const openedShareForMediaRef = useRef<string | null>(null);
 
   const selectTab = (next: Tab, mediaShortId?: string) => {
     setTabOverride(next);
@@ -153,14 +160,24 @@ export function ImageStudio({
     }
   }, [initialAsset?.shortId, refreshShare]);
 
+  const promptShareChoice = useCallback(
+    (mediaShortId?: string) => {
+      setShareChoiceOpen(true);
+      selectTab("share", mediaShortId);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selectTab is stable enough for UX
+    [asset?.shortId],
+  );
+
   const setActiveAsset = useCallback(
-    async (next: StudioAsset) => {
+    async (next: StudioAsset, opts?: { promptShare?: boolean }) => {
       setAsset(next);
       setVersionRefreshKey((k) => k + 1);
       setMsg(COPY.imageReady);
       await refreshShare(next.shortId);
+      if (opts?.promptShare) promptShareChoice(next.shortId);
     },
-    [refreshShare],
+    [promptShareChoice, refreshShare],
   );
 
   const onVersionsLoaded = useCallback((versions: { locked: boolean; isCurrent: boolean }[]) => {
@@ -203,8 +220,7 @@ export function ImageStudio({
     }
     if (data.deleteToken) setDeleteToken(data.deleteToken);
     const next = normalizeStudioAsset(data);
-    await setActiveAsset(next);
-    selectTab("refine", next.shortId);
+    await setActiveAsset(next, { promptShare: true });
   };
 
   const importFromUrl = async () => {
@@ -264,8 +280,7 @@ export function ImageStudio({
       setErr(friendlyError(data.error ?? "Convert failed"));
       return;
     }
-    await setActiveAsset(normalizeStudioAsset(data));
-    selectTab("share");
+    await setActiveAsset(normalizeStudioAsset(data), { promptShare: true });
   };
 
   const generate = async () => {
@@ -305,12 +320,7 @@ export function ImageStudio({
         storageKey: primary.storageKey ?? data.storageKey,
         mimeType: "image/png",
       });
-      await setActiveAsset(next);
-      const vis = data.galleryVisibility ?? settings.visibility ?? "PUBLIC";
-      if (vis === "PUBLIC") setMsg(COPY.galleryLivePublic);
-      else if (vis === "PRIVATE") setMsg(COPY.gallerySavedPrivate);
-      else setMsg(COPY.gallerySavedUnlisted);
-      selectTab("refine", next.shortId);
+      await setActiveAsset(next, { promptShare: true });
     } catch (e) {
       const aborted = e instanceof DOMException && e.name === "AbortError";
       setErr(
@@ -345,6 +355,7 @@ export function ImageStudio({
     );
     setEditing(false);
     setMsg(COPY.settingsSaved);
+    promptShareChoice(data.shortId);
   };
 
   const cancelAiEdit = () => {
@@ -395,9 +406,9 @@ export function ImageStudio({
 
   const keepAiPreview = async () => {
     if (!aiPreview) return;
-    await setActiveAsset(aiPreview.after);
+    const next = aiPreview.after;
     setAiPreview(null);
-    setMsg("Change kept. Head to Share when you're ready.");
+    await setActiveAsset(next, { promptShare: true });
   };
 
   const runSuggest = async (type: "caption" | "alt" | "tags") => {
@@ -425,9 +436,20 @@ export function ImageStudio({
   useEffect(() => {
     if (params.get("from") === "fieldpress") {
       const id = ingestFieldPressDraftFromQuery("fieldpress", params.get("draft"));
-      if (id) applyFieldPressVisibilityRef.current = true;
+      if (id) {
+        applyFieldPressVisibilityRef.current = true;
+        setFieldPressHandoff(true);
+      }
     }
   }, [params]);
+
+  useEffect(() => {
+    const mediaId = params.get("media");
+    if (!asset?.shortId || mediaId !== asset.shortId) return;
+    if (openedShareForMediaRef.current === asset.shortId) return;
+    openedShareForMediaRef.current = asset.shortId;
+    setShareChoiceOpen(true);
+  }, [asset?.shortId, params]);
 
   useEffect(() => {
     if (!applyFieldPressVisibilityRef.current || !signedIn) return;
@@ -441,6 +463,9 @@ export function ImageStudio({
         .then((r) => (r.ok ? r.json() : null))
         .then((u) => {
           if (u && typeof u.studioKeepOriginal === "boolean") setKeepOriginal(u.studioKeepOriginal);
+          if (u && typeof u.defaultPostVisibility === "string") {
+            setDefaultPostVisibility(u.defaultPostVisibility);
+          }
         });
     } else {
       setKeepOriginal(readGuestKeepOriginal());
@@ -481,52 +506,47 @@ export function ImageStudio({
     setMsg(COPY.settingsSaved);
   };
 
-  const publishToGallery = async () => {
-    if (!asset || !signedIn) return;
-    setErr("");
-    setBusy(true);
-    const title = settings.title?.trim() || "Untitled";
-    const tags =
-      settings.tags?.split(/[,\s#]+/).map((t) => t.trim()).filter(Boolean) ?? [];
-    const mediaRes = await fetch(`/api/media/${asset.shortId}`);
-    const mediaData = await mediaRes.json().catch(() => ({}));
-    const postPath =
-      typeof mediaData.share?.pageUrl === "string" && mediaData.share.pageUrl.includes("/p/")
-        ? mediaData.share.pageUrl.replace(/^.*\/p\//, "").split(/[?#]/)[0]
-        : null;
+  const shareHighlight = resolveShareChoiceHighlight({
+    signedIn,
+    defaultPostVisibility,
+    fieldPressHandoff,
+  });
 
-    const res = postPath
-      ? await fetch(`/api/posts/${postPath}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            description: settings.description || undefined,
-            tags,
-            visibility: settings.visibility ?? "PUBLIC",
-          }),
-        })
-      : await fetch("/api/posts/from-media", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title,
-            description: settings.description || undefined,
-            tags,
-            visibility: settings.visibility ?? "PUBLIC",
-            mediaShortIds: [asset.shortId],
-          }),
-        });
-    const data = await res.json();
-    setBusy(false);
-    if (!res.ok) {
-      setErr(friendlyError(data.error ?? "Could not publish"));
+  const runCopyLink = async () => {
+    if (!asset || !share) return;
+    setErr("");
+    const visErr = await applyCopyLinkVisibility(asset.shortId, signedIn);
+    if (visErr) {
+      setErr(visErr);
       return;
     }
-    const shortId = postPath ?? data.shortId;
-    setMsg(COPY.publishSuccess);
-    router.push(`/p/${shortId}`);
+    if (signedIn) {
+      setSettings((s) => ({ ...s, visibility: "UNLISTED" }));
+      setMediaVisibility("UNLISTED");
+    }
+    await navigator.clipboard.writeText(share.directUrl);
+    setMsg(COPY.shareLinkCopied);
+    setShareChoiceOpen(true);
   };
+
+  const runPostToGallery = async (title?: string) => {
+    if (!share || !signedIn) return;
+    const postShortId = postShortIdFromSharePageUrl(share.pageUrl);
+    if (!postShortId) return;
+    setErr("");
+    const postErr = await applyPostToGallery(postShortId, title ?? settings.title);
+    if (postErr) {
+      setErr(postErr);
+      return;
+    }
+    setSettings((s) => ({ ...s, visibility: "PUBLIC" }));
+    setMediaVisibility("PUBLIC");
+    setMsg(COPY.publishSuccess);
+    setShareChoiceOpen(true);
+    selectTab("share");
+  };
+
+  const showShareChoice = Boolean(asset && share && (shareChoiceOpen || tab === "share"));
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 pb-44 sm:px-6 lg:pb-8" onPaste={onPaste}>
@@ -595,6 +615,8 @@ export function ImageStudio({
             onRevertOriginal={() => void revertToOriginal()}
             onSaved={(m) => setMsg(m)}
             onError={(m) => setErr(m)}
+            onCopyLink={() => void runCopyLink()}
+            onPostToGallery={signedIn ? () => void runPostToGallery() : undefined}
             fieldPressDraftId={fieldPressDraftId}
             fieldPressImageDirectUrl={share?.directUrl ?? null}
             fieldPressVisibility={mediaVisibility}
@@ -614,6 +636,18 @@ export function ImageStudio({
               });
             }}
           />
+          {showShareChoice ? (
+            <ShareChoiceCard
+              mediaShortId={asset.shortId}
+              share={share!}
+              signedIn={signedIn}
+              highlight={shareHighlight}
+              onVisibilityChange={(v) => {
+                setSettings((s) => ({ ...s, visibility: v }));
+                setMediaVisibility(v);
+              }}
+            />
+          ) : null}
         </div>
       ) : null}
 
@@ -765,42 +799,14 @@ export function ImageStudio({
                 <button type="button" onClick={saveMediaSettings} className={btnSecondary}>
                   Save details
                 </button>
-                {signedIn ? (
-                  <button
-                    type="button"
-                    disabled={busy || !settings.title?.trim()}
-                    onClick={publishToGallery}
-                    className={btnPrimary}
-                  >
-                    {COPY.publishCta}
-                  </button>
-                ) : (
-                  <p className="text-sm text-[var(--text-muted)]" data-testid="guest-keep-signin">
-                    <Link
-                      href={`/auth/signin?callbackUrl=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname + window.location.search : "/studio")}`}
-                      className="text-[var(--accent-primary)]"
-                    >
-                      Sign in
-                    </Link>
-                    {" · "}
-                    <Link href="/auth/signup" className="tap-target inline-flex items-center text-[var(--accent-primary)]">
-                      Create an account
-                    </Link>
-                  </p>
-                )}
               </div>
               {deleteToken ? (
                 <p className="rounded-lg border border-[var(--warning)]/50 bg-[var(--surface-raised)] p-3 text-xs">
                   {COPY.guestDeleteHint} <code className="break-all">{deleteToken}</code>
                 </p>
               ) : null}
-              {share ? (
+              {share && !showShareChoice ? (
                 <>
-                  <ShareLinks
-                    share={share}
-                    visibility={settings.visibility}
-                    successHref={share.pageUrl}
-                  />
                   {mediaVisibility !== null ? (
                     <FieldPressInvite
                       imageDirectUrl={share.directUrl}
@@ -850,11 +856,7 @@ export function ImageStudio({
         canGenerate={prompt.trim().length >= 3 && kitchenOpen}
         canShare={Boolean(share?.pageUrl)}
         onGenerate={() => void generate()}
-        onSharePrimary={async () => {
-          if (!share?.pageUrl) return;
-          await navigator.clipboard.writeText(share.pageUrl);
-          setMsg("Link copied — share it anywhere.");
-        }}
+        onSharePrimary={() => void runCopyLink()}
         showKeepUndo={Boolean(aiPreview)}
         onKeep={() => void keepAiPreview()}
         onUndo={() => setAiPreview(null)}

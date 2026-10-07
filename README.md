@@ -10,6 +10,15 @@ Built by **ChloReform Studios** (Irie Pharm · Victor Birkle). Visual identity: 
 
 Plain-language mechanics for operators and contributors. End users see friendly labels in the app, not this section.
 
+### Link vs gallery (share choice)
+
+After studio upload/generate/edit and `/upload`, users see a **Link or gallery?** card:
+
+- **Copy link** — copies `share.directUrl` to the clipboard. Signed-in users also set the post to **UNLISTED** (hidden from Home/Hot/Newest feeds). Guests only copy the URL; content stays **PUBLIC** (server-enforced).
+- **Post to gallery** — signed-in only; sets **PUBLIC** and optional title so the post appears in feeds.
+
+Default highlight follows `User.defaultPostVisibility` and **UNLISTED** when returning from FieldPress (`from=fieldpress`). Advanced embed formats remain under **Share & embed** (`ShareLinks`). E2E: `e2e/share-choice.spec.ts`.
+
 ### Cook count
 
 - **Cook count** on a post is the number of **unique viewers** (`Post.viewCount`), not page reloads.
