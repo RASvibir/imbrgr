@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/db";
 import { newShortId } from "@/lib/ids";
 import { libraryOwnerWhere } from "@/lib/library-access";
+import { STUDIO_AUTO_LIBRARY_LABEL } from "@/lib/library-constants";
 import type { Actor } from "@/lib/request-identity";
 import { normalizeVisibility } from "@/lib/visibility";
 
-export const STUDIO_AUTO_LIBRARY_LABEL = "__studio_auto__";
+export { STUDIO_AUTO_LIBRARY_LABEL } from "@/lib/library-constants";
 
 export function parseStudioKeepOriginal(raw: unknown): boolean {
   if (raw === false || raw === "false" || raw === "0") return false;

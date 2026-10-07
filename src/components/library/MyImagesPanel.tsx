@@ -3,18 +3,22 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
-import { friendlyError } from "@/lib/user-messages";
+import { librarySaveCaption } from "@/lib/library-display";
+import { COPY, friendlyError } from "@/lib/user-messages";
 
 type SaveRow = {
   shortId: string;
   savedAt: string;
   visibility: string;
   label: string | null;
+  autoSaved?: boolean;
   folder: { shortId: string; name: string } | null;
   media: {
     shortId: string;
     previewUrl: string;
     mimeType: string;
+    title?: string | null;
+    altText?: string | null;
   };
 };
 
@@ -117,7 +121,7 @@ export function MyImagesPanel({
       ) : null}
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        <aside className="lg:w-56 shrink-0">
+        <aside className="w-full shrink-0 lg:w-64 lg:min-w-[16rem]">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Folders</p>
           <ul className="space-y-1">
             <li>
@@ -183,16 +187,21 @@ export function MyImagesPanel({
               </li>
             ))}
           </ul>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex min-w-0 flex-col gap-2">
             <input
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
               placeholder="New folder"
-              className="min-h-10 flex-1 rounded-lg border px-2 text-sm"
+              className="min-h-10 w-full min-w-0 rounded-lg border px-2 text-sm"
               data-testid="library-new-folder-name"
             />
-            <button type="button" className={`${btnSecondary} text-sm`} onClick={() => void createFolder()}>
-              Add
+            <button
+              type="button"
+              className={`${btnSecondary} w-full shrink-0 text-sm sm:w-auto`}
+              data-testid="library-new-folder-add"
+              onClick={() => void createFolder()}
+            >
+              Add folder
             </button>
           </div>
         </aside>
@@ -209,18 +218,40 @@ export function MyImagesPanel({
             </p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {saves.map((s) => (
-                <Link
-                  key={s.shortId}
-                  href={`/studio?tab=refine&media=${s.media.shortId}`}
-                  className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] hover:border-[var(--accent-primary)]/40"
-                  data-testid={`library-save-${s.shortId}`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={s.media.previewUrl} alt="" className="aspect-square w-full object-cover" />
-                  {s.label ? <p className="truncate px-2 py-1 text-xs text-[var(--text-muted)]">{s.label}</p> : null}
-                </Link>
-              ))}
+              {saves.map((s) => {
+                const caption = librarySaveCaption({
+                  label: s.label,
+                  autoSaved: Boolean(s.autoSaved),
+                  mediaTitle: s.media.title,
+                  altText: s.media.altText,
+                });
+                return (
+                  <Link
+                    key={s.shortId}
+                    href={`/studio?tab=refine&media=${s.media.shortId}`}
+                    className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] hover:border-[var(--accent-primary)]/40"
+                    data-testid={`library-save-${s.shortId}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={s.media.previewUrl} alt="" className="aspect-square w-full object-cover" />
+                    {caption || s.autoSaved ? (
+                      <div className="flex min-w-0 items-center gap-2 px-2 py-1.5">
+                        {caption ? (
+                          <p className="min-w-0 flex-1 truncate text-xs text-[var(--text-secondary)]">{caption}</p>
+                        ) : null}
+                        {s.autoSaved ? (
+                          <span
+                            className="shrink-0 rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]"
+                            data-testid="library-auto-saved-chip"
+                          >
+                            {COPY.libraryAutoSavedChip}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { libraryOwnerWhere } from "@/lib/library-access";
-import { STUDIO_AUTO_LIBRARY_LABEL } from "@/lib/library-auto-save";
+import { STUDIO_AUTO_LIBRARY_LABEL } from "@/lib/library-constants";
 import { getActor } from "@/lib/request-identity";
 import { mediaUrl } from "@/lib/urls";
 
@@ -37,6 +37,8 @@ export async function GET(req: Request) {
           height: true,
           thumbSmKey: true,
           thumbMdKey: true,
+          altText: true,
+          post: { select: { title: true } },
         },
       },
     },
@@ -54,11 +56,17 @@ export async function GET(req: Request) {
       shortId: s.shortId,
       savedAt: s.savedAt,
       visibility: s.visibility,
-      label: s.label,
+      label: s.label === STUDIO_AUTO_LIBRARY_LABEL ? null : s.label,
       autoSaved: s.label === STUDIO_AUTO_LIBRARY_LABEL,
       folder: s.folder,
       media: {
-        ...s.media,
+        shortId: s.media.shortId,
+        storageKey: s.media.storageKey,
+        mimeType: s.media.mimeType,
+        width: s.media.width,
+        height: s.media.height,
+        altText: s.media.altText,
+        title: s.media.post?.title ?? null,
         previewUrl: mediaUrl(s.media.storageKey, s.media.mimeType),
       },
     })),

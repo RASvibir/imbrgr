@@ -199,7 +199,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
           ) : null}
           <CheeseSpiceGauge viewCount={post.viewCount} spiceScore={post.spiceScore ?? 0} />
         </div>
-        <div className="flex flex-wrap items-start gap-2">
+        <div className="flex w-full max-w-full flex-wrap items-start gap-2 sm:w-auto sm:justify-end">
           {post.canManage ? (
             <PostOwnerMenu
               postShortId={shortId}
@@ -209,13 +209,23 @@ export function PostDetail({ shortId }: { shortId: string }) {
           ) : null}
           <PostRemixButton shortId={shortId} isPublic={post.visibility === "PUBLIC"} />
           <ReportButton target={{ type: "POST", id: shortId, label: "post" }} />
-          <button type="button" onClick={() => vote(1)} className="rounded-lg border px-3 py-1 text-sm">
+          <button
+            type="button"
+            onClick={() => vote(1)}
+            className="tap-target rounded-lg border px-3 py-1 text-sm"
+            aria-label={`Upvote, ${post.upvoteCount} up`}
+          >
             ▲ {post.upvoteCount}
           </button>
-          <button type="button" onClick={() => vote(-1)} className="rounded-lg border px-3 py-1 text-sm">
+          <button
+            type="button"
+            onClick={() => vote(-1)}
+            className="tap-target rounded-lg border px-3 py-1 text-sm"
+            aria-label={`Downvote, ${post.downvoteCount} down`}
+          >
             ▼ {post.downvoteCount}
           </button>
-          <button type="button" onClick={favorite} className="rounded-lg border px-3 py-1 text-sm">
+          <button type="button" onClick={favorite} className="tap-target rounded-lg border px-3 py-1 text-sm" aria-label="Favorite">
             ★ Favorite
           </button>
         </div>
