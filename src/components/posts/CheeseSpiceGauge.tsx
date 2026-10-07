@@ -1,3 +1,4 @@
+import { CookCountFlameLabel } from "@/components/posts/CookCountFlameLabel";
 import {
   cheeseMeltPercent,
   spiceKitchenCopy,
@@ -19,7 +20,7 @@ export function CheeseSpiceGauge({ viewCount, spiceScore, compact }: Props) {
   if (compact) {
     return (
       <span className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)]" data-testid="cheese-spice-gauge">
-        <span>{viewCount} {viewCount === 1 ? "viewer" : "viewers"}</span>
+        <CookCountFlameLabel count={viewCount} compact />
         <span aria-hidden className="text-[var(--accent-primary)]">🌶️{level}</span>
       </span>
     );
@@ -29,12 +30,10 @@ export function CheeseSpiceGauge({ viewCount, spiceScore, compact }: Props) {
     <div
       className="mt-3 max-w-md rounded-xl border border-[var(--border-subtle)] bg-[var(--surface)] p-3"
       data-testid="cheese-spice-gauge"
-      aria-label={`${viewCount} unique viewers. Kitchen heat: ${copy.chili}.`}
+      aria-label={`Cook count ${viewCount}. Kitchen heat: ${copy.chili}.`}
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-        <span className="font-medium text-[var(--text-primary)]">
-          {viewCount} {viewCount === 1 ? "viewer" : "viewers"}
-        </span>
+      <div className="flex flex-wrap items-end justify-between gap-2 text-sm">
+        <CookCountFlameLabel count={viewCount} />
         <span className="text-xs text-[var(--text-muted)]">Each cook counts once</span>
       </div>
 
@@ -74,9 +73,6 @@ export function CheeseSpiceGauge({ viewCount, spiceScore, compact }: Props) {
             </span>
           ))}
         </div>
-        <p className="mt-2 text-xs text-[var(--text-muted)]">
-          Extra passes and guest buzz warm the kitchen — not added to unique viewers.
-        </p>
       </div>
     </div>
   );
