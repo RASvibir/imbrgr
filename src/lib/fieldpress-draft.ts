@@ -14,7 +14,7 @@ export const FIELDPRESS_RETURN_DEFAULT_VISIBILITY: Visibility = "UNLISTED";
 const listeners = new Set<() => void>();
 
 function notifyDraftListeners(): void {
-  for (const listener of listeners) listeners();
+  for (const listener of listeners) listener();
 }
 
 export function subscribeFieldPressDraftId(onChange: () => void): () => void {
