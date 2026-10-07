@@ -49,9 +49,9 @@ export function ShareLinks({
 
   const rows: { key: string; label: string; value: string }[] = [
     { key: "direct", label: "Direct image link", value: share.directUrl },
-    { key: "md", label: "Markdown", value: share.markdown },
-    { key: "html", label: "HTML embed", value: share.html },
-    { key: "bb", label: "BBCode", value: share.bbcode },
+    { key: "md", label: "Formatted text link", value: share.markdown },
+    { key: "html", label: "Website embed code", value: share.html },
+    { key: "bb", label: "Forum paste code", value: share.bbcode },
   ];
 
   const visLabel =
@@ -59,9 +59,9 @@ export function ShareLinks({
       ? "Anyone can find this"
       : visibility === "UNLISTED"
         ? "Only people with the link"
-        : visibility === "PRIVATE"
+        : visibility === "PRIVATE" || visibility === "HIDDEN"
           ? "Just you"
-          : visibility;
+          : null;
 
   return (
     <section className="rounded-xl border border-[var(--border-subtle)] p-4" data-testid="share-panel">

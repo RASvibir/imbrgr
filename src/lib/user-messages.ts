@@ -43,7 +43,26 @@ export function friendlyError(raw: string | undefined | null): string {
   if (lower.includes("invalid") && lower.includes("prompt")) {
     return "Tell us a bit more about what you want to see (a few words at least).";
   }
-  return msg.length > 120 ? "Something didn't quite work — give it another try." : msg;
+  if (
+    lower.includes("forbidden") ||
+    lower.includes("not found") ||
+    lower.includes("required") ||
+    lower.includes("failed") ||
+    lower.includes("error") ||
+    lower.includes("exception") ||
+    /_[a-z]/.test(lower) ||
+    /\b(4|5)\d{2}\b/.test(lower)
+  ) {
+    return "Something didn't quite work — give it another try.";
+  }
+  const allowedShort = new Set([
+    "title and at least one file required",
+    "email or username taken",
+    "invalid input",
+    "invalid email or password",
+  ]);
+  if (allowedShort.has(lower)) return msg;
+  return msg.length > 80 ? "Something didn't quite work — give it another try." : msg;
 }
 
 export const COPY = {
@@ -73,5 +92,13 @@ export const COPY = {
   libraryAutoSavedChip: "Auto-saved",
   librarySavedToFolder: (name: string) => `Saved to folder “${name}”.`,
   guestDeleteHint:
-    "Save this secret code somewhere safe — you'll need it to remove this guest upload later.",
+    "Save this removal code somewhere safe — you'll need it to delete this guest upload later.",
+  kitchenResting: "The kitchen's resting for now — try again later or sign in for more.",
 } as const;
+
+export const EXPORT_FORMAT_LABELS: Record<"jpeg" | "png" | "webp" | "avif", string> = {
+  jpeg: "Standard photo",
+  png: "Best quality",
+  webp: "Smaller file",
+  avif: "Smallest file",
+};
