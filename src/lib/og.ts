@@ -154,3 +154,51 @@ export function buildPostPageMetadata(
 
   return { ...base, ...defaultShareMetadata() };
 }
+
+export function buildCollectionPageMetadata(
+  collection: {
+    title: string;
+    description: string | null;
+    visibility: string;
+    hiddenByAdmin?: boolean;
+  },
+  pagePath: string,
+  coverMedia?: MediaRow | null,
+): Metadata {
+  if (collection.hiddenByAdmin || collection.visibility === "PRIVATE") {
+    return {
+      title: "imbrgr",
+      robots: { index: false, follow: false },
+      ...defaultShareMetadata(),
+    };
+  }
+  const description =
+    collection.description?.trim().slice(0, 300) || "A collection on imbrgr — images, served hot.";
+  const base: Metadata = {
+    title: collection.title,
+    description,
+    openGraph: {
+      type: "website",
+      url: absolutePageUrl(pagePath),
+      title: collection.title,
+      description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: collection.title,
+      description,
+    },
+  };
+  if (coverMedia && mediaEligibleForOg(coverMedia)) {
+    const imageUrl = absoluteOgMediaUrl(coverMedia.shortId);
+    return {
+      ...base,
+      openGraph: {
+        ...base.openGraph,
+        images: [{ url: imageUrl, width: coverMedia.width ?? 1200, height: coverMedia.height ?? 630, alt: collection.title }],
+      },
+      twitter: { ...base.twitter, images: [imageUrl] },
+    };
+  }
+  return { ...base, ...defaultShareMetadata() };
+}
