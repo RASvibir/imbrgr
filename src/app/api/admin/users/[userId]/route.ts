@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withSuperAdmin } from "@/lib/admin/api";
 import { isProtectedSuperAdmin } from "@/lib/admin/auth";
+import { adminMaySetRole } from "@/lib/admin/role-policy";
 import { logAdminAction } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
 import { collectUserStorageKeys } from "@/lib/media-storage";
@@ -12,7 +13,8 @@ const patchSchema = z.object({
   aiDailyLimitOverride: z.number().int().positive().nullable().optional(),
   banned: z.boolean().optional(),
   suspended: z.boolean().optional(),
-  role: z.enum(["USER", "ADMIN", "SUPERADMIN"]).optional(),
+  /** Demotion only — super admins are provisioned via SUPERADMIN_USERNAMES, not the console. */
+  role: z.literal("USER").optional(),
 });
 
 export async function GET(
@@ -87,8 +89,14 @@ export async function PATCH(
           ? null
           : BigInt(parsed.data.storageQuotaBytesOverride);
     }
-    if (parsed.data.role !== undefined && !isProtectedSuperAdmin(target)) {
-      data.role = parsed.data.role;
+    if (parsed.data.role !== undefined) {
+      if (isProtectedSuperAdmin(target)) {
+        return NextResponse.json({ error: "Protected super admin account" }, { status: 400 });
+      }
+      if (!adminMaySetRole(target, parsed.data.role)) {
+        return NextResponse.json({ error: "Invalid role change" }, { status: 400 });
+      }
+      data.role = "USER";
     }
 
     await prisma.user.update({ where: { id: userId }, data });
