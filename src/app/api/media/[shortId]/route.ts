@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { canViewMedia, isMediaOwner } from "@/lib/media-access";
 import { getActor } from "@/lib/request-identity";
 import { onPostRestrictedAccess, onStandaloneMediaRestricted } from "@/lib/media-access-restrict";
+import { cleanupPostIfNoMedia } from "@/lib/post-cleanup";
 import { deleteMediaStorage } from "@/lib/media-storage";
 import { removeAnonymousStorage, removeUserStorage } from "@/lib/storage-quota";
 import { normalizeVisibility } from "@/lib/visibility";
@@ -131,6 +132,8 @@ export async function DELETE(
   await deleteMediaStorage(media);
   if (media.userId) await removeUserStorage(media.userId, media.byteSize);
   else if (media.voterKey) await removeAnonymousStorage(media.voterKey, media.byteSize);
+  const postId = media.postId;
   await prisma.media.delete({ where: { id: media.id } });
+  await cleanupPostIfNoMedia(postId);
   return NextResponse.json({ ok: true });
 }

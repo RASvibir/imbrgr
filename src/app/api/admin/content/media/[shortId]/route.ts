@@ -4,6 +4,7 @@ import { withSuperAdmin } from "@/lib/admin/api";
 import { logAdminAction } from "@/lib/admin/audit";
 import { prisma } from "@/lib/db";
 import { onStandaloneMediaRestricted } from "@/lib/media-access-restrict";
+import { cleanupPostIfNoMedia } from "@/lib/post-cleanup";
 import { deleteMediaStorage } from "@/lib/media-storage";
 import { removeAnonymousStorage, removeUserStorage } from "@/lib/storage-quota";
 
@@ -29,7 +30,9 @@ export async function PATCH(
       await deleteMediaStorage(media);
       if (media.userId) await removeUserStorage(media.userId, media.byteSize);
       else if (media.voterKey) await removeAnonymousStorage(media.voterKey, media.byteSize);
+      const postId = media.postId;
       await prisma.media.delete({ where: { id: media.id } });
+      await cleanupPostIfNoMedia(postId);
       await logAdminAction({
         actorUserId: actor.id,
         action: "media.delete",

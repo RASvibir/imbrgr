@@ -1,5 +1,6 @@
 import { warmFeedThumbnails } from "@/lib/ensure-media-thumbnails";
 import { prisma } from "@/lib/db";
+import { feedPostHasImageMedia, filterPostsWithVisibleMedia } from "@/lib/post-feed-filter";
 import { postCardSelect } from "@/lib/posts";
 
 export async function fetchHotFeed(params: { cursor?: string; limit?: number }) {
@@ -9,6 +10,7 @@ export async function fetchHotFeed(params: { cursor?: string; limit?: number }) 
     where: {
       visibility: "PUBLIC",
       hiddenByAdmin: false,
+      ...feedPostHasImageMedia,
     },
     orderBy: [{ hotScore: "desc" }, { createdAt: "desc" }],
     skip: offset,
@@ -16,7 +18,7 @@ export async function fetchHotFeed(params: { cursor?: string; limit?: number }) 
     select: postCardSelect,
   });
   const hasMore = posts.length > limit;
-  const items = hasMore ? posts.slice(0, limit) : posts;
+  const items = filterPostsWithVisibleMedia(hasMore ? posts.slice(0, limit) : posts);
   warmFeedThumbnails(items);
   return { items, nextCursor: hasMore ? `o:${offset + limit}` : null };
 }

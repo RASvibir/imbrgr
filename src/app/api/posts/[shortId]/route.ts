@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canDeletePost, deletePostAndMedia } from "@/lib/post-cleanup";
 import { canViewPost, isMediaOwner } from "@/lib/media-access";
+import { getActor } from "@/lib/request-identity";
 import { slugifyTag } from "@/lib/validation";
 import { recordPostView } from "@/lib/post-views";
-import { getActor } from "@/lib/request-identity";
 import { onPostRestrictedAccess } from "@/lib/media-access-restrict";
-import { deleteAllMediaStorage } from "@/lib/media-storage";
-import { removeUserStorage } from "@/lib/storage-quota";
 import { normalizeVisibility } from "@/lib/visibility";
 
 const patchSchema = z.object({
@@ -137,26 +136,23 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ shortId: string }> },
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const actor = await getActor(req);
   const { shortId } = await ctx.params;
   const post = await prisma.post.findUnique({
     where: { shortId },
     include: { media: true },
   });
   if (!post) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (post.userId !== session.user.id) {
+
+  const body = await req.json().catch(() => ({}));
+  const deleteToken = (body as { deleteToken?: string }).deleteToken;
+  if (!canDeletePost(post, post.media, actor, deleteToken)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  await deleteAllMediaStorage(post.media);
-  for (const m of post.media) {
-    if (post.userId) await removeUserStorage(post.userId, m.byteSize);
-  }
-  await prisma.post.delete({ where: { id: post.id } });
+
+  await deletePostAndMedia(post.id);
   return NextResponse.json({ ok: true });
 }
