@@ -21,11 +21,18 @@ export function friendlyError(raw: string | undefined | null): string {
   if (lower.includes("guest ai is temporarily disabled")) {
     return "Image magic is on a short break for guests — try again later or sign in.";
   }
+  if (lower.includes("pollinations_edit") || lower.includes("gemini image edit")) {
+    return "We couldn't apply that change — try different words or try again in a moment.";
+  }
+  if (lower.includes("not configured")) {
+    return "Image magic isn't available here yet — try a quick chip or manual edit.";
+  }
   if (
     lower.includes("generation failed") ||
     lower.includes("pollinations") ||
     lower.includes("gemini") ||
     lower.includes("image_gen") ||
+    lower.includes("image_edit") ||
     /\b(4|5)\d{2}\b/.test(lower)
   ) {
     return "We couldn't finish that image — tweak your description and try again.";
@@ -42,6 +49,7 @@ export function friendlyError(raw: string | undefined | null): string {
 export const COPY = {
   studioTagline: "Describe it, refine it, share it — images, served hot.",
   generateWorking: "Plating your image…",
+  assistWorking: "Cooking up your change…",
   generateCta: "Cook up image",
   enhancePrompt: "Sprinkle extra detail on my description",
   aiAssistantBlurb: "Describe a tweak or tap a chip — preview first, then keep what you like.",

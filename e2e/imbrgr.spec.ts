@@ -56,7 +56,7 @@ test.describe("imbrgr e2e", () => {
   test("anonymous browse home and studio", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("link", { name: "Studio" }).first()).toBeVisible();
-    await expect(page.getByPlaceholder(/Describe the image/i).first()).toBeVisible();
+    await expect(page.getByPlaceholder(/Describe an image, or drop one in to edit/i).first()).toBeVisible();
     await page.goto("/studio");
     await expect(page.getByRole("heading", { name: /Image studio/i })).toBeVisible();
   });
@@ -142,6 +142,18 @@ test.describe("imbrgr e2e", () => {
     await expect(page.getByTestId("ai-edit-preview")).toHaveCount(0, { timeout: 20000 });
     await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible();
     await expect(page.getByText(/couldn't finish that image/i)).toHaveCount(0);
+  });
+
+  test("studio assist: free-text content edit shows preview", async ({ page }) => {
+    await page.goto("/studio");
+    await page.getByPlaceholder(/Describe the image/i).fill("ember meadow test");
+    await clickCookUp(page);
+    await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible({ timeout: 30000 });
+    await page.getByRole("checkbox", { name: /Assist/i }).check();
+    await page.getByTestId("studio-assist-prompt").fill("add fairies");
+    await page.getByRole("button", { name: /Apply change/i }).click();
+    await expect(page.getByTestId("ai-edit-preview")).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/couldn't apply that change/i)).toHaveCount(0);
   });
 
   test("guest uploaded image handoff to studio refine", async ({ page, request }) => {

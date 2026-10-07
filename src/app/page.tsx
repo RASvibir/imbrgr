@@ -21,16 +21,10 @@ export default function HomePage() {
           Upload stacks, vote, comment, and share — ember glow, burger energy.
         </p>
         <StudioHomePrompt />
-        <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[var(--text-muted)]">
+        <p className="mt-4 text-sm text-[var(--text-muted)]">
           <Link href="/hot" className="tap-target inline-flex items-center text-[var(--accent-primary)]">
             See what&apos;s hot
           </Link>
-          <span className="inline-flex flex-wrap items-center gap-1">
-            Posting a stack?{" "}
-            <Link href="/upload" className="tap-target inline-flex items-center text-[var(--accent-primary)]">
-              Multi-image upload
-            </Link>
-          </span>
         </p>
       </section>
 

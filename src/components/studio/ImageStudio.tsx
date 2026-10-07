@@ -45,11 +45,13 @@ const GENERATE_CLIENT_TIMEOUT_MS = 90_000;
 export function ImageStudio({
   defaultTab,
   initialPrompt,
+  initialAssistPrompt,
   initialAsset,
   remixFromShortId,
 }: {
   defaultTab?: string;
   initialPrompt?: string;
+  initialAssistPrompt?: string;
   initialAsset?: StudioInitialAsset | null;
   remixFromShortId?: string;
 }) {
@@ -76,17 +78,15 @@ export function ImageStudio({
   const [quality, setQuality] = useState(85);
   const [maxWidth, setMaxWidth] = useState(1920);
 
-  const [prompt, setPrompt] = useState(() =>
-    initialPrompt ? decodeURIComponent(initialPrompt) : "",
-  );
+  const [prompt, setPrompt] = useState(() => initialPrompt ?? "");
   const [enhance, setEnhance] = useState(true);
   const [style, setStyle] = useState("");
   const [aspect, setAspect] = useState<keyof typeof ASPECT_PRESETS>("1:1");
   const [variations, setVariations] = useState(1);
   const [kitchenOpen, setKitchenOpen] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [aiAssistOn, setAiAssistOn] = useState(false);
-  const [aiEditText, setAiEditText] = useState("");
+  const [aiAssistOn, setAiAssistOn] = useState(() => Boolean(initialAssistPrompt?.trim()));
+  const [aiEditText, setAiEditText] = useState(() => initialAssistPrompt ?? "");
   const [assistErr, setAssistErr] = useState("");
   const [assistProgress, setAssistProgress] = useState("");
   const [aiPreview, setAiPreview] = useState<{
@@ -299,7 +299,7 @@ export function ImageStudio({
     aiAbortRef.current = ac;
     setBusy(true);
     setAssistErr("");
-    setAssistProgress(COPY.generateWorking);
+    setAssistProgress(COPY.assistWorking);
     const beforeSrc = mediaUrl(asset.storageKey, asset.mimeType);
     try {
       const res = await fetch("/api/ai/edit-image", {

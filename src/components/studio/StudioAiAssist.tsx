@@ -55,6 +55,7 @@ export function StudioAiAssist({
             disabled={!hasAsset || busy}
             placeholder="Describe a change…"
             aria-label="Describe a change"
+            data-testid="studio-assist-prompt"
             className="min-h-11 w-full rounded-lg border px-3 py-2 text-base sm:text-sm disabled:opacity-50"
           />
           <div className="chip-scroll">
