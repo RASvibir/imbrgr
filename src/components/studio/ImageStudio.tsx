@@ -430,8 +430,9 @@ export function ImageStudio({
         ) : null}
         {!signedIn ? (
           <p className="mt-2 text-xs text-[var(--text-muted)]">
-            {COPY.guestBanner}{" "}
-            <Link href="/auth/signup" className="tap-target inline-flex items-center text-[var(--accent-primary)]">Create an account</Link>
+            <Link href="/auth/signup" className="tap-target inline-flex items-center text-[var(--accent-primary)]">
+              Create an account
+            </Link>
           </p>
         ) : null}
       </header>
@@ -520,9 +521,6 @@ export function ImageStudio({
             </p>
           ) : (
             <>
-              <p className="text-sm text-[var(--text-muted)]">
-                Step 2: tweak by hand or turn on Assist for quick suggestions. When it looks right, open Share.
-              </p>
               <button
                 type="button"
                 onClick={() => setEditing(true)}
@@ -609,21 +607,18 @@ export function ImageStudio({
                     {COPY.publishCta}
                   </button>
                 ) : (
-                  <div className="space-y-2 text-sm text-[var(--text-muted)]" data-testid="guest-keep-signin">
-                    <p>
-                      You can still share from here. Optional:{" "}
-                      <Link
-                        href={`/auth/signin?callbackUrl=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname + window.location.search : "/studio")}`}
-                        className="text-[var(--accent-primary)]"
-                      >
-                        Sign in to keep it
-                      </Link>{" "}
-                      on your plate after you serve or share.
-                    </p>
-                    <p>
-                      <Link href="/auth/signup" className="tap-target inline-flex items-center text-[var(--accent-primary)]">Create an account</Link> to add to the gallery.
-                    </p>
-                  </div>
+                  <p className="text-sm text-[var(--text-muted)]" data-testid="guest-keep-signin">
+                    <Link
+                      href={`/auth/signin?callbackUrl=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname + window.location.search : "/studio")}`}
+                      className="text-[var(--accent-primary)]"
+                    >
+                      Sign in
+                    </Link>
+                    {" · "}
+                    <Link href="/auth/signup" className="tap-target inline-flex items-center text-[var(--accent-primary)]">
+                      Create an account
+                    </Link>
+                  </p>
                 )}
               </div>
               {deleteToken ? (

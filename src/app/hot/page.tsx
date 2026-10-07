@@ -12,9 +12,6 @@ export default async function HotPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <h1 className="text-3xl font-bold">Hot right now</h1>
-      <p className="mt-1 text-sm text-[var(--text-muted)]">
-        Public dishes ranked by cooks, kitchen heat, and freshness.
-      </p>
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((p) => (
           <PostCard key={p.id} post={p} thumbVariant="sm" />

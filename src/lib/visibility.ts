@@ -1,9 +1,9 @@
 export type Visibility = "PUBLIC" | "UNLISTED" | "PRIVATE";
 
 export const VISIBILITY_OPTIONS: { value: Visibility; label: string; hint: string }[] = [
-  { value: "PUBLIC", label: "Public", hint: "Gallery, search, tags, and your profile" },
+  { value: "PUBLIC", label: "Public", hint: "Everyone" },
   { value: "UNLISTED", label: "Unlisted", hint: "Anyone with the link" },
-  { value: "PRIVATE", label: "Private", hint: "Only you when signed in" },
+  { value: "PRIVATE", label: "Private", hint: "Only you" },
 ];
 
 export function normalizeVisibility(raw: string | null | undefined): Visibility {

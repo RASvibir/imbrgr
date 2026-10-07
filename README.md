@@ -6,6 +6,80 @@ Built by **ChloReform Studios** (Irie Pharm · Victor Birkle). Visual identity: 
 
 > **Disclaimer:** imbrgr is not affiliated with, endorsed by, or connected to Imgur. This project does not use Imgur’s name, logos, trademarks, or visual identity.
 
+## How it works
+
+Plain-language mechanics for operators and contributors. End users see friendly labels in the app, not this section.
+
+### Cook count
+
+- **Cook count** on a post is the number of **unique viewers** (`Post.viewCount`), not page reloads.
+- Each viewer is keyed by **`voterKey`**: signed-in users use a stable user-based key; guests use the **`imbrgr_vid`** cookie (`a:…` prefix).
+- The **post owner** (and anonymous owners via matching `voterKey` on media) **do not** increment cook count when they view their own post.
+- First visit from a key creates a `PostView` row and increments cook count; later visits from the same key update `hitCount` but do **not** increment cook count again.
+- View recording is **rate-limited** per post and voter (see `recordPostView` in `src/lib/post-views.ts`): excess requests within the window are ignored without error.
+
+### Cheese pull and kitchen heat (spice)
+
+- **`spiceScore`** is kitchen-themed engagement heat on a post (separate from the unique cook counter).
+- On each counted view event, spice may increase by **`spiceDeltaForView`**: **+1** for a guest’s first unique cook, **+1** on **repeat** visits from the same key, **+0** on a signed-in user’s **first** unique cook (repeat signed-in visits still add +1).
+- The UI maps spice to **cheese pull** / **kitchen heat** labels and meters (`src/lib/cheese-spice.ts`); levels are derived from score bands, not separate counters.
+- Spice updates run in the same pipeline as views and refresh **`hotScore`** on the post.
+
+### Hot ranking
+
+- The **`/hot`** feed sorts public, non–admin-hidden posts by **`hotScore`** (desc), then `createdAt`.
+- **`hotScore`** is recomputed when views/spice change:
+
+  `engagement = viewCount × 3 + spiceScore × 2 + 1`  
+  `ageHours = max(0.25, hours since createdAt)`  
+  `hotScore = engagement / (ageHours + 2)^1.35`
+
+  (see `src/lib/hot-score.ts`).
+
+- Gallery **“Most viral”** uses a separate Reddit-style **`hotScore`** on votes (`src/lib/ranking.ts`), not the Hot page formula.
+
+### Visibility
+
+| Level | Meaning | Typical surfacing |
+|--------|---------|-------------------|
+| **PUBLIC** | Listed for everyone | Home/Hot feeds (if not hidden), search, tags, public profiles |
+| **UNLISTED** | Link-only | Direct `/p` / `/i` URLs; not promoted in public feeds/search |
+| **PRIVATE** | Owner-only | Hidden from others; file route returns 404 to non-owners |
+| **Admin-hidden** (`hiddenByAdmin`) | Moderation hold | Treated like hidden from the public; owners may still see their post depending on route |
+
+Guest uploads default to **unlisted**; private posts require a signed-in owner.
+
+### Thumbnails
+
+- WebP **sm/md** thumbs are generated with **sharp** (`src/lib/thumbnails.ts`) and stored via **`putObject`** (local disk or **Vercel Blob** when `STORAGE_DRIVER=blob`).
+- Feeds call **`warmFeedThumbnails`** after the response (`after()` from `next/server`) to generate missing thumbs for a capped number of cards—best-effort, deduped per media id.
+- **Privacy:** thumbs are served only through **`/api/media/file/*`** with the same access checks as originals; going private or admin-hidden **purges** thumb blobs and clears thumb columns; deletes remove **storageKey** and both thumb keys.
+- **Cache:** private/hidden media uses `Cache-Control: private, no-store`; other gated gallery media avoids long `immutable` public cache (see `src/lib/serve-media-file.ts`).
+
+### Remix, collections, guests, reports
+
+- **Remix** creates a new post linked to `remixedFromPostId` from a **public** source post; studio can open with `?remixFrom=`.
+- **Collections** group posts with their own visibility; collection pages filter member posts by access rules.
+- **Guests** upload with `voterKey` and optional **delete tokens**; on sign-in, **`POST /api/auth/claim-guest`** reassigns guest posts/media to the new user when the cookie matches.
+- **Reports** (`POST /api/reports`) accept targets POST, MEDIA, COLLECTION, USER with resolved canonical ids; admins triage in the console.
+
+### AI pipeline (studio)
+
+1. **Prompt enhance** (optional checkbox): cache lookup → **Ollama** → **Groq** → **Gemini** for complex prompts (`src/lib/ai/prompt-enhance.ts`); skipped for very short prompts.
+2. **Image generation:** **Pollinations** Flux (`gen.pollinations.ai`); optional **`POLLINATIONS_API_KEY`**; mock path when **`AI_MOCK=true`** (E2E).
+3. **Blocked prompts:** `src/lib/prompt-safety.ts` rejects disallowed patterns before generate/edit.
+4. **Daily allowance:** per-user count in `AiGenerationUsage` (limit **`AI_DAILY_LIMIT`** or per-user override); guests use **`AiAnonymousUsage`** keyed by IP hash with **`ANON_AI_DAILY_LIMIT`** / admin site setting.
+5. **Assist:** natural-language image edits (Gemini image route) and quick chips; preview before keep.
+6. Hourly caps also apply via **`UPLOAD_RATE_LIMIT_PER_HOUR`** and **`AI_RATE_LIMIT_PER_HOUR`**.
+
+### Admin console
+
+- Super-admins (`SUPERADMIN` role + **`SUPERADMIN_USERNAMES`**) get **`/admin`**: dashboard stats, user/post/media moderation, reports, site settings (e.g. guest AI limit), thumbnail backfill batches, audit log.
+
+### Environment variables (names only)
+
+See the table below for descriptions. Never commit values. Common names: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, `STORAGE_DRIVER`, `BLOB_READ_WRITE_TOKEN`, `NEXT_PUBLIC_SITE_URL`, `USER_STORAGE_QUOTA_BYTES`, `ANON_STORAGE_QUOTA_BYTES`, `AI_DAILY_LIMIT`, `ANON_AI_DAILY_LIMIT`, `POLLINATIONS_API_KEY`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_IMAGE_MODEL`, `UPLOAD_RATE_LIMIT_PER_HOUR`, `AI_RATE_LIMIT_PER_HOUR`, `SUPERADMIN_USERNAMES`, `AI_MOCK`, `AI_ENHANCE_TIMEOUT_MS`.
+
 ## Features
 
 - Multi-file upload (drag-and-drop, file picker, clipboard paste, URL fetch) — JPG, PNG, GIF, WebP, MP4, WebM with size limits

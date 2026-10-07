@@ -93,7 +93,7 @@ export function StudioAiAssist({
               type="button"
               disabled={!hasAsset || busy}
               onClick={() => onSuggest("alt")}
-              className="min-h-10 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs disabled:opacity-50"
+              className="tap-target min-h-11 rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-xs disabled:opacity-50"
             >
               Suggest alt text
             </button>
@@ -101,7 +101,7 @@ export function StudioAiAssist({
               type="button"
               disabled={!hasAsset || busy}
               onClick={() => onSuggest("tags")}
-              className="min-h-10 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs disabled:opacity-50"
+              className="tap-target min-h-11 rounded-lg border border-[var(--border-subtle)] px-3 py-2 text-xs disabled:opacity-50"
             >
               Suggest tags
             </button>
