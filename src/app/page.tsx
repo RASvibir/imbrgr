@@ -15,14 +15,14 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
       <section
-        className="mb-10 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-5 sm:p-8"
+        className="mb-10 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-5 sm:p-8 lg:p-10"
         data-testid="home-hero"
       >
-        <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start sm:gap-8">
-          <div className="shrink-0 pt-1 sm:pt-2">
+        <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start sm:gap-8 lg:gap-12">
+          <div className="shrink-0 pt-1 sm:pt-2 lg:pt-4">
             <EmberBurgerHero />
           </div>
-          <div className="min-w-0 w-full flex-1 text-center sm:text-left">
+          <div className="min-w-0 w-full max-w-3xl flex-1 text-center sm:text-left">
             <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent-amber)] sm:text-sm">
               Images, served hot
             </p>

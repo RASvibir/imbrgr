@@ -41,9 +41,13 @@ export function StudioHomePrompt() {
         const form = new FormData();
         form.set("file", file);
         const res = await fetch("/api/studio/import", { method: "POST", body: form });
-        const data = await res.json();
+        const data = (await res.json().catch(() => ({}))) as { error?: string; shortId?: string };
         if (!res.ok) {
           setErr(friendlyError(data.error ?? "Upload failed"));
+          return;
+        }
+        if (!data.shortId) {
+          setErr(friendlyError("Upload failed"));
           return;
         }
         const params = new URLSearchParams({ tab: "refine", media: data.shortId });
@@ -82,7 +86,7 @@ export function StudioHomePrompt() {
 
   return (
     <div
-      className="mt-6 max-w-xl"
+      className="w-full max-w-xl lg:max-w-2xl"
       data-testid="home-studio-prompt"
       onDragEnter={(e) => {
         e.preventDefault();

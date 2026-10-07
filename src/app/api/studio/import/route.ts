@@ -11,7 +11,12 @@ export async function POST(req: Request) {
   const actor = await getActor(req);
   const uploadBlock = await assertUserMayUpload(actor.userId);
   if (uploadBlock) return NextResponse.json({ error: uploadBlock }, { status: 403 });
-  await consumeRateLimit(`upload:${actor.userId ?? actor.ipHash}`, uploadRateLimitPerHour(), 60 * 60 * 1000);
+  try {
+    await consumeRateLimit(`upload:${actor.userId ?? actor.ipHash}`, uploadRateLimitPerHour(), 60 * 60 * 1000);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Too many uploads";
+    return NextResponse.json({ error: msg }, { status: 429 });
+  }
 
   const form = await req.formData();
   const file = form.get("file");

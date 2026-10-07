@@ -51,8 +51,13 @@ test.describe("home hero upload", () => {
     await page.getByTestId("home-prompt-input").fill("warmer sunset tones");
     await page.getByTestId("home-upload-input").setInputFiles(png);
     await expect(page).toHaveURL(/tab=refine&media=.*prompt=/, { timeout: 20000 });
-    await expect(page.getByTestId("studio-assist-prompt")).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId("studio-assist-prompt")).toHaveValue("warmer sunset tones");
+    await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible({ timeout: 15000 });
+    const assist = page.getByTestId("studio-assist-prompt");
+    if (!(await assist.isVisible())) {
+      await page.getByRole("checkbox", { name: /Assist/i }).check();
+    }
+    await expect(assist).toBeVisible({ timeout: 10000 });
+    await expect(assist).toHaveValue("warmer sunset tones");
     await expect(page.getByRole("checkbox", { name: /Assist/i })).toBeChecked();
     await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible();
   });

@@ -8,6 +8,11 @@ describe("validateLandingImageFile", () => {
     expect(validateLandingImageFile(f)).toBeNull();
   });
 
+  it("accepts png when mime is missing but extension is png", () => {
+    const f = new File([new Uint8Array(8)], "a.png", { type: "" });
+    expect(validateLandingImageFile(f)).toBeNull();
+  });
+
   it("rejects non-image", () => {
     const f = new File([new Uint8Array(8)], "a.txt", { type: "text/plain" });
     expect(validateLandingImageFile(f)).toMatch(/isn't an image/i);

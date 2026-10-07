@@ -27,6 +27,8 @@ async function main() {
     update: { role: "SUPERADMIN", banned: false, suspended: false },
   });
 
+  await prisma.apiRateLimit.deleteMany({});
+
   await prisma.user.upsert({
     where: { username: "e2euser" },
     create: {

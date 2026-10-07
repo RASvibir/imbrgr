@@ -35,7 +35,13 @@ for (const vp of MOBILE_VIEWPORTS) {
         await page.screenshot({ path: `${artifactsDir}/mobile-studio-create-390.png`, fullPage: true });
       }
       await page.locator("summary").filter({ hasText: "Bring your own image" }).click();
-      await page.locator('input[type="file"]').setInputFiles(png);
+      await Promise.all([
+        page.waitForResponse(
+          (r) => r.url().includes("/api/studio/import") && r.status() === 200,
+          { timeout: 30000 },
+        ),
+        page.locator('input[type="file"]').setInputFiles(png),
+      ]);
       await expect(page.locator('main img[src*="/api/media/file/"]').first()).toBeVisible({ timeout: 30000 });
       await page.getByRole("navigation", { name: "Studio steps" }).getByRole("button", { name: "Refine" }).click();
       await page.getByRole("checkbox", { name: /Assist/i }).check();

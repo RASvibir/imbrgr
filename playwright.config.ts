@@ -20,6 +20,8 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     env: {
       AI_MOCK: "true",
+      UPLOAD_RATE_LIMIT_PER_HOUR: "10000",
+      AI_RATE_LIMIT_PER_HOUR: "10000",
       AUTH_SECRET: "e2e-test-secret",
       DATABASE_URL: process.env.DATABASE_URL ?? "postgresql://imbrgr:imbrgr@localhost:5432/imbrgr?schema=public",
       DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED ?? "postgresql://imbrgr:imbrgr@localhost:5432/imbrgr?schema=public",
