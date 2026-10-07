@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { UseInFieldPressDraftLink } from "@/components/fieldpress/UseInFieldPressDraftLink";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaFilePath } from "@/lib/urls";
@@ -15,6 +16,10 @@ type Props = {
   onError?: (message: string) => void;
   onRevertOriginal?: () => void;
   canRevert: boolean;
+  fieldPressDraftId?: string | null;
+  fieldPressImageDirectUrl?: string | null;
+  fieldPressVisibility?: string | null;
+  fieldPressTitle?: string | null;
 };
 
 export function StudioImageMenu({
@@ -27,6 +32,10 @@ export function StudioImageMenu({
   onError,
   onRevertOriginal,
   canRevert,
+  fieldPressDraftId,
+  fieldPressImageDirectUrl,
+  fieldPressVisibility,
+  fieldPressTitle,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [folderMode, setFolderMode] = useState(false);
@@ -167,6 +176,19 @@ export function StudioImageMenu({
                   {COPY.libraryDownload}
                 </button>
               </li>
+              {fieldPressDraftId && fieldPressImageDirectUrl ? (
+                <li role="none">
+                  <UseInFieldPressDraftLink
+                    draftId={fieldPressDraftId}
+                    imageDirectUrl={fieldPressImageDirectUrl}
+                    visibility={fieldPressVisibility}
+                    title={fieldPressTitle}
+                    role="menuitem"
+                    className={`${btnSecondary} w-full text-sm`}
+                    onNavigate={close}
+                  />
+                </li>
+              ) : null}
               {canRevert ? (
                 <li role="none">
                   <button
