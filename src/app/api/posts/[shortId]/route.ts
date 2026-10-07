@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { canViewPost, isMediaOwner } from "@/lib/media-access";
 import { slugifyTag } from "@/lib/validation";
+import { recordPostView } from "@/lib/post-views";
 import { getActor } from "@/lib/request-identity";
 import { deleteObject } from "@/lib/storage";
 import { removeUserStorage } from "@/lib/storage-quota";
@@ -44,12 +45,11 @@ export async function GET(
   if (!post || !canViewPost(post, actor)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  await prisma.post.update({
-    where: { id: post.id },
-    data: { viewCount: { increment: 1 } },
-  });
+  const views = await recordPostView(post, actor);
   return NextResponse.json({
     ...post,
+    viewCount: views.viewCount,
+    spiceScore: views.spiceScore ?? post.spiceScore ?? 0,
     media: post.media.map((m) => ({
       ...m,
       canRefine: m.mimeType.startsWith("image/") && isMediaOwner(m, actor),

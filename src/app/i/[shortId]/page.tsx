@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
 import { prisma } from "@/lib/db";
 import { canViewMedia, isMediaOwner } from "@/lib/media-access";
+import { recordPostView } from "@/lib/post-views";
 import { buildImagePageMetadata } from "@/lib/og";
 import { getServerActor } from "@/lib/request-identity";
 import { imagePageUrl, mediaUrl } from "@/lib/urls";
@@ -35,6 +37,17 @@ export default async function ImageDirectPage({
     include: { post: { select: { shortId: true, title: true, visibility: true, userId: true } } },
   });
   if (!media || !canViewMedia(media, actor)) notFound();
+  let postEngagement: { viewCount: number; spiceScore: number } | null = null;
+  if (media.postId) {
+    const postRow = await prisma.post.findUnique({
+      where: { id: media.postId },
+      include: { media: { select: { userId: true, voterKey: true, visibility: true } } },
+    });
+    if (postRow) {
+      const views = await recordPostView(postRow, actor);
+      postEngagement = { viewCount: views.viewCount, spiceScore: views.spiceScore };
+    }
+  }
   const src = mediaUrl(media.storageKey, media.mimeType);
   const canRefine = media.mimeType.startsWith("image/") && isMediaOwner(media, actor);
   return (
@@ -52,6 +65,9 @@ export default async function ImageDirectPage({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src} alt={media.altText ?? ""} className="w-full rounded-xl" />
       )}
+      {postEngagement ? (
+        <CheeseSpiceGauge viewCount={postEngagement.viewCount} spiceScore={postEngagement.spiceScore} />
+      ) : null}
       {canRefine ? (
         <div className="mt-4">
           <Link
