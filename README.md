@@ -47,7 +47,7 @@ Plain-language mechanics for operators and contributors. End users see friendly 
 | **PRIVATE** | Owner-only | Hidden from others; file route returns 404 to non-owners |
 | **Admin-hidden** (`hiddenByAdmin`) | Moderation hold | Treated like hidden from the public; owners may still see their post depending on route |
 
-Uploads and studio creations default to **public** on the gallery (Home / Hot). Signed-in users can choose **unlisted** or **private** before or after upload; their **default post visibility** in settings applies when they do not pick one. **Guests** are always **public** (server-enforced); private and unlisted controls are hidden until they sign in.
+Uploads and studio creations default to **public** on the gallery (Home / Hot). Signed-in users can choose **unlisted** or **private** before or after upload; their **default post visibility** in settings applies when they do not pick one (migration `20261007200000_default_post_visibility_public` sets existing `UNLISTED` defaults to **PUBLIC**; users who chose **PRIVATE** are unchanged). **Guests** are always **public** (server-enforced); private and unlisted controls are hidden until they sign in.
 
 ### Thumbnails
 
