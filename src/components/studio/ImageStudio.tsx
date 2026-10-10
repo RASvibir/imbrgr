@@ -16,7 +16,7 @@ import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { normalizeStudioAsset } from "@/lib/studio-asset";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
-import { COPY, friendlyError } from "@/lib/user-messages";
+import { COPY, EXPORT_FORMAT_LABELS, friendlyError } from "@/lib/user-messages";
 import { mediaUrl } from "@/lib/urls";
 import { StudioMobileActionBar } from "@/components/studio/StudioMobileActionBar";
 import { StudioAiAssist } from "@/components/studio/StudioAiAssist";
@@ -372,7 +372,7 @@ export function ImageStudio({
       });
       const data = await res.json();
       if (!res.ok) {
-        setAssistErr(data.error ?? "Edit failed");
+        setAssistErr(friendlyError(data.error ?? "Edit failed"));
         return;
       }
       const after = normalizeStudioAsset({
@@ -548,8 +548,8 @@ export function ImageStudio({
         ) : null}
         {!kitchenOpen ? (
           <p className="mt-2 text-xs text-[var(--text-muted)]">
-            The kitchen&apos;s resting — try again later or{" "}
-            <Link href="/auth/signin" className="text-[var(--accent-primary)]">sign in</Link>.
+            {COPY.kitchenResting}{" "}
+            <Link href="/auth/signin" className="text-[var(--accent-primary)]">Sign in</Link>
           </p>
         ) : null}
         {!signedIn ? (
@@ -715,19 +715,18 @@ export function ImageStudio({
                 />
               ) : null}
               <details className="rounded-lg border border-[var(--border-subtle)] p-3 text-sm">
-                <summary className="cursor-pointer text-[var(--text-muted)]">Export format</summary>
+                <summary className="cursor-pointer text-[var(--text-muted)]">Save as another file type</summary>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <label>
-                    Format
+                    File type
                     <select value={format} onChange={(e) => setFormat(e.target.value as typeof format)} className="mt-1 w-full rounded border px-2 py-2">
-                      <option value="jpeg">JPEG</option>
-                      <option value="png">PNG</option>
-                      <option value="webp">WebP</option>
-                      <option value="avif">AVIF</option>
+                      {(Object.keys(EXPORT_FORMAT_LABELS) as (keyof typeof EXPORT_FORMAT_LABELS)[]).map((key) => (
+                        <option key={key} value={key}>{EXPORT_FORMAT_LABELS[key]}</option>
+                      ))}
                     </select>
                   </label>
                   <label>
-                    Quality ({quality})
+                    Detail ({quality})
                     <input type="range" min={40} max={100} value={quality} onChange={(e) => setQuality(+e.target.value)} className="mt-2 w-full" />
                   </label>
                   <label className="sm:col-span-2">

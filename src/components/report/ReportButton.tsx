@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { friendlyError } from "@/lib/user-messages";
 import { MobileBottomSheet } from "@/components/layout/MobileBottomSheet";
 
 type Target = {
@@ -27,7 +28,7 @@ export function ReportButton({ target }: { target: Target }) {
       setOpen(false);
     } else {
       const data = await res.json();
-      setMsg(data.error ?? "Could not send report");
+      setMsg(friendlyError(data.error ?? "Could not send report"));
     }
   };
 

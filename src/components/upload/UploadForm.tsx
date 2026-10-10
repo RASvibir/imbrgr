@@ -118,8 +118,8 @@ export function UploadForm() {
         onDrop={onDrop}
         className="rounded-2xl border-2 border-dashed border-[var(--border-strong)] bg-[var(--surface-raised)] p-8 text-center"
       >
-        <p className="text-[var(--text-secondary)]">Drag & drop, paste, or pick files (images + short video)</p>
-        <p className="mt-1 text-xs text-[var(--text-muted)]">Images ~20 MB · Video ~100 MB / 60 s max</p>
+        <p className="text-[var(--text-secondary)]">Drag & drop, paste, or pick photos and short clips</p>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">Large files may take a moment — there are size limits per upload.</p>
         <button
           type="button"
           className="mt-4 rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"

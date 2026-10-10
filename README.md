@@ -10,6 +10,11 @@ Built by **ChloReform Studios** (Irie Pharm · Victor Birkle). Visual identity: 
 
 Plain-language mechanics for operators and contributors. End users see friendly labels in the app, not this section.
 
+### User-facing copy
+
+- The live site avoids provider names, model IDs, env var names, storage keys, and other operator jargon. Those details live in this README and in `/admin` (super-admin only).
+- `src/lib/user-messages.ts` (`COPY`, `friendlyError`) and `src/lib/consumer-copy-denylist.ts` guard consumer UI; Playwright scans key routes in `e2e/consumer-copy.spec.ts`.
+
 ### Cook count
 
 - **Cook count** on a post is the number of **unique viewers** (`Post.viewCount`), not page reloads.
