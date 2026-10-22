@@ -35,9 +35,8 @@ function toKind(file: File): AssetKind | null {
 
 async function readDurationSec(file: File, kind: AssetKind): Promise<number> {
   if (kind === "image" || kind === "gif") return 2.5;
-  if (kind === "audio") return 6;
   return await new Promise<number>((resolve) => {
-    const el = document.createElement("video");
+    const el = document.createElement(kind === "audio" ? "audio" : "video");
     const blobUrl = URL.createObjectURL(file);
     const done = (value: number) => {
       el.removeAttribute("src");
@@ -67,6 +66,7 @@ export function MediaCreationSuite() {
   const [canvasHeight, setCanvasHeight] = useState(720);
   const [transitionSec, setTransitionSec] = useState(0.3);
   const [ecoFilter, setEcoFilter] = useState(false);
+  const [videoAudio, setVideoAudio] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -90,7 +90,6 @@ export function MediaCreationSuite() {
   );
 
   const visualAssets = useMemo(() => assets.filter((a) => a.kind !== "audio"), [assets]);
-  const audioAssets = useMemo(() => assets.filter((a) => a.kind === "audio"), [assets]);
   const selected = assets.find((a) => a.id === selectedId) ?? null;
 
   const rects = useMemo(
@@ -200,6 +199,7 @@ export function MediaCreationSuite() {
         canvasHeight,
         transitionSec,
         ecoFilter,
+        videoAudio,
         signal: controller.signal,
       });
       if (!result) {
@@ -210,11 +210,7 @@ export function MediaCreationSuite() {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(result.blob);
       });
-      const notes = [...result.warnings];
-      if (audioAssets.length > 0) {
-        notes.push("Audio tracks are imported for preview only and are not yet baked into browser exports.");
-      }
-      setStatus(["Export complete.", ...notes].join(" "));
+      setStatus(["Export complete.", ...result.warnings].join(" "));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed.");
     } finally {
@@ -329,6 +325,10 @@ export function MediaCreationSuite() {
         <label className="inline-flex items-center gap-2 text-sm">
           <input type="checkbox" checked={ecoFilter} onChange={(e) => setEcoFilter(e.target.checked)} />
           Eco preview filter (pacNcap-style)
+        </label>
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={videoAudio} onChange={(e) => setVideoAudio(e.target.checked)} />
+          Include video audio
         </label>
       </div>
 

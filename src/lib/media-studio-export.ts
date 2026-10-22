@@ -24,6 +24,7 @@ export type ExportOptions = {
   canvasHeight: number;
   transitionSec: number;
   ecoFilter: boolean;
+  videoAudio: boolean;
   signal: AbortSignal;
 };
 
@@ -87,7 +88,14 @@ function gifFrameAt(track: GifTrack, elapsedSec: number): ImageBitmap {
 
 export function pickRecorderMime(): string | null {
   if (typeof MediaRecorder === "undefined") return null;
-  const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"];
+  const candidates = [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+    "video/mp4",
+  ];
   return candidates.find((m) => MediaRecorder.isTypeSupported(m)) ?? null;
 }
 
@@ -166,6 +174,76 @@ async function loadVisuals(visual: ExportAsset[]): Promise<LoadedVisuals> {
   return { videos, images, gifs, warnings, dispose };
 }
 
+type AudioMix = {
+  stream: MediaStream;
+  start: () => void;
+  dispose: () => void;
+  warnings: string[];
+};
+
+async function buildAudioMix(
+  audioCtx: AudioContext,
+  assets: ExportAsset[],
+  loaded: LoadedVisuals,
+  videoAudio: boolean,
+): Promise<AudioMix | null> {
+  const dest = audioCtx.createMediaStreamDestination();
+  const warnings: string[] = [];
+  const clips: { buffer: AudioBuffer; asset: ExportAsset }[] = [];
+
+  for (const asset of assets.filter((a) => a.kind === "audio")) {
+    try {
+      const data = await (await fetch(asset.url)).arrayBuffer();
+      clips.push({ buffer: await audioCtx.decodeAudioData(data), asset });
+    } catch {
+      warnings.push("An audio clip could not be decoded and was left out of the export.");
+    }
+  }
+
+  const videoNodes: MediaElementAudioSourceNode[] = [];
+  if (videoAudio) {
+    loaded.videos.forEach((video) => {
+      try {
+        video.muted = false;
+        const node = audioCtx.createMediaElementSource(video);
+        node.connect(dest);
+        videoNodes.push(node);
+      } catch {
+        warnings.push("Audio from a video clip could not be captured.");
+      }
+    });
+  }
+
+  if (clips.length === 0 && videoNodes.length === 0) return warnings.length ? { stream: dest.stream, start: () => undefined, dispose: () => undefined, warnings } : null;
+
+  const sources: AudioBufferSourceNode[] = [];
+  return {
+    stream: dest.stream,
+    warnings,
+    start: () => {
+      const at = audioCtx.currentTime + 0.05;
+      for (const { buffer, asset } of clips) {
+        const src = audioCtx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(dest);
+        const offset = Math.min(asset.startSec, Math.max(0, buffer.duration - 0.01));
+        src.start(at, offset, Math.max(0.05, asset.endSec - asset.startSec));
+        sources.push(src);
+      }
+    },
+    dispose: () => {
+      sources.forEach((src) => {
+        try {
+          src.stop();
+        } catch {
+          // already stopped
+        }
+      });
+      videoNodes.forEach((node) => node.disconnect());
+    },
+  };
+}
+
 function drawVisuals(
   ctx: CanvasRenderingContext2D,
   visual: ExportAsset[],
@@ -221,11 +299,19 @@ export async function exportMedia(opts: ExportOptions): Promise<ExportResult | n
     columns: opts.columns,
   });
 
+  const audioCtx = typeof AudioContext !== "undefined" ? new AudioContext() : null;
+  void audioCtx?.resume();
+
   const pluginManager = new VideoPluginManager({ performanceMode: opts.ecoFilter ? "active" : "eco" });
   if (opts.ecoFilter) await pluginManager.registerPlugin(ecoRenderPlugin);
 
   const loaded = await loadVisuals(visual);
-  const recorder = new MediaRecorder(canvas.captureStream(24), { mimeType: mime });
+  const mix = audioCtx ? await buildAudioMix(audioCtx, opts.assets, loaded, opts.videoAudio) : null;
+  const stream = new MediaStream([
+    ...canvas.captureStream(24).getVideoTracks(),
+    ...(mix?.stream.getAudioTracks() ?? []),
+  ]);
+  const recorder = new MediaRecorder(stream, { mimeType: mime });
   const chunks: BlobPart[] = [];
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) chunks.push(event.data);
@@ -233,20 +319,26 @@ export async function exportMedia(opts: ExportOptions): Promise<ExportResult | n
 
   const finished = new Promise<ExportResult | null>((resolve) => {
     recorder.onstop = () => {
+      mix?.dispose();
       loaded.dispose();
+      void audioCtx?.close();
       void pluginManager.unloadPlugin(ecoRenderPlugin.metadata.id);
-      const warnings = loaded.warnings.map(
-        () => "Animated GIF export needs a Chromium-based browser; GIFs were exported as a still frame.",
-      );
+      const warnings = [
+        ...loaded.warnings.map(
+          () => "Animated GIF export needs a Chromium-based browser; GIFs were exported as a still frame.",
+        ),
+        ...(mix?.warnings ?? []),
+      ];
       resolve(
         opts.signal.aborted ? null : { blob: new Blob(chunks, { type: mime.split(";")[0] }), mime, warnings },
       );
     };
   });
 
-  const totalDuration = Math.max(...visual.map((a) => a.endSec - a.startSec), 2);
+  const totalDuration = Math.max(...opts.assets.map((a) => a.endSec - a.startSec), 2);
   const started = performance.now();
   recorder.start();
+  mix?.start();
 
   const drawFrame = async () => {
     const elapsedSec = (performance.now() - started) / 1000;
