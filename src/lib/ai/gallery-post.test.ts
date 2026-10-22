@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveAiGalleryVisibility, titleFromAiPrompt } from "@/lib/ai/gallery-post";
+import { resolveAiGalleryVisibility, resolveAiGenerationVisibility, titleFromAiPrompt } from "@/lib/ai/gallery-post";
 
 describe("gallery post helpers", () => {
   it("defaults to public gallery visibility", () => {
@@ -12,6 +12,25 @@ describe("gallery post helpers", () => {
     expect(resolveAiGalleryVisibility("PRIVATE", "user-1")).toBe("PRIVATE");
     expect(resolveAiGalleryVisibility("PRIVATE", null)).toBe("PUBLIC");
     expect(resolveAiGalleryVisibility("UNLISTED", null)).toBe("PUBLIC");
+  });
+
+
+
+  it("forces mature AI output off public gallery", () => {
+    expect(
+      resolveAiGenerationVisibility({
+        requested: "PUBLIC",
+        userId: "user-1",
+        matureRequested: true,
+      }),
+    ).toBe("UNLISTED");
+    expect(
+      resolveAiGenerationVisibility({
+        requested: "PRIVATE",
+        userId: "user-1",
+        matureRequested: true,
+      }),
+    ).toBe("PRIVATE");
   });
 
   it("builds a post title from the prompt", () => {
