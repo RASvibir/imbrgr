@@ -153,6 +153,7 @@ export function ImageStudio({
 
   useEffect(() => {
     if (initialAsset?.shortId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loads share state for the opened asset; state is set from the response
       void refreshShare(initialAsset.shortId);
     }
   }, [initialAsset?.shortId, refreshShare]);
@@ -446,6 +447,7 @@ export function ImageStudio({
           }
         });
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guest preference lives in browser storage, which is only readable on the client
       setKeepOriginal(readGuestKeepOriginal());
     }
   }, [signedIn]);

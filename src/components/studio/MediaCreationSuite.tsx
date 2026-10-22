@@ -957,7 +957,7 @@ export function MediaCreationSuite() {
                   !exporting && (
                     <div className="text-center rounded-xl border border-dashed border-[var(--border-subtle)] p-6">
                       <p className="text-xs text-[var(--text-muted)]">
-                        No video rendered yet. Click "Render Video" to compile your multi-track timeline and pacNcap plugins.
+                        No video rendered yet. Click &quot;Render Video&quot; to compile your multi-track timeline and pacNcap plugins.
                       </p>
                       <button
                         type="button"
@@ -989,6 +989,7 @@ export function MediaCreationSuite() {
             onTimeUpdate={setCurrentTimeSec}
             onTogglePlay={() => setIsPlaying((p) => !p)}
             pluginManager={pluginManager}
+            pluginStateKey={JSON.stringify([[...enabledPluginIds], [...pluginParams]])}
           />
         </div>
       </div>

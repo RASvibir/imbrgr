@@ -44,7 +44,6 @@ export function MyImagesPanel({
   const [renameValue, setRenameValue] = useState("");
 
   const load = useCallback(async () => {
-    setErr("");
     const q = folderShortId ? `?folder=${encodeURIComponent(folderShortId)}` : "";
     const res = await fetch(`/api/library${q}`);
     const data = await res.json();
@@ -54,9 +53,11 @@ export function MyImagesPanel({
     }
     setFolders(data.folders ?? []);
     setSaves(data.saves ?? []);
+    setErr("");
   }, [folderShortId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount/folder change; state is set from the response
     void load();
   }, [load]);
 

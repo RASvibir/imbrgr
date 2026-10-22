@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { formatTimecode, computeMotionTransform } from "@/lib/video-timeline/timeline-ops";
 import type { VideoPluginManager } from "@/lib/video-plugins/plugin-manager";
 import type { AudioClip, TextOverlay, VisualClip } from "@/lib/video-timeline/timeline-types";
@@ -17,6 +17,8 @@ type Props = {
   onTimeUpdate: (timeSec: number) => void;
   onTogglePlay: () => void;
   pluginManager: VideoPluginManager;
+  /** Changes whenever plugin enablement/params change so a paused frame re-renders. */
+  pluginStateKey?: string;
 };
 
 export function VideoPreviewPlayer({
@@ -31,12 +33,19 @@ export function VideoPreviewPlayer({
   onTimeUpdate,
   onTogglePlay,
   pluginManager,
+  pluginStateKey,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const loadedImagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const loadedVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
-  const lastTimeRef = useRef<number>(performance.now());
+  const lastTimeRef = useRef<number>(0);
+  const renderFrameRef = useRef<(time: number) => Promise<void>>(async () => {});
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  const currentTimeRef = useRef(currentTimeSec);
+  const latestTimeRef = useRef(0);
+  const busyRef = useRef(false);
+  const dirtyRef = useRef(false);
 
   const canvasWidth = aspectRatio === "9:16" ? 720 : aspectRatio === "1:1" ? 1080 : 1280;
   const canvasHeight = aspectRatio === "9:16" ? 1280 : aspectRatio === "1:1" ? 1080 : 720;
@@ -196,16 +205,41 @@ export function VideoPreviewPlayer({
     ctx.drawImage(source, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, dw, dh);
   };
 
-  // Playback Loop
+  // Keep refs pointed at the latest closures so the rAF loop never renders stale clips/overlays.
   useEffect(() => {
-    if (!isPlaying) {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      void renderFrame(currentTimeSec);
+    renderFrameRef.current = renderFrame;
+    onTimeUpdateRef.current = onTimeUpdate;
+    currentTimeRef.current = currentTimeSec;
+  });
+
+  // Serialize async frame renders (plugins are async); a newer request replaces a queued one.
+  const scheduleRender = useCallback((time: number) => {
+    latestTimeRef.current = time;
+    if (busyRef.current) {
+      dirtyRef.current = true;
       return;
     }
+    busyRef.current = true;
+    function run(t: number) {
+      void renderFrameRef.current(t).finally(() => {
+        if (dirtyRef.current) {
+          dirtyRef.current = false;
+          run(latestTimeRef.current);
+        } else {
+          busyRef.current = false;
+        }
+      });
+    }
+    run(time);
+  }, []);
+
+  // Playback Loop
+  useEffect(() => {
+    if (!isPlaying) return;
 
     lastTimeRef.current = performance.now();
-    let currentT = currentTimeSec;
+    let currentT = currentTimeRef.current;
+    let frameId = 0;
 
     const loop = (now: number) => {
       const deltaSec = (now - lastTimeRef.current) / 1000;
@@ -213,27 +247,27 @@ export function VideoPreviewPlayer({
 
       currentT += deltaSec;
       if (currentT >= totalDurationSec) {
-        currentT = 0; // Loop or stop
+        currentT = 0; // Loop
       }
 
-      onTimeUpdate(Number(currentT.toFixed(2)));
-      void renderFrame(currentT);
+      onTimeUpdateRef.current(Number(currentT.toFixed(2)));
+      scheduleRender(currentT);
 
-      animationFrameRef.current = requestAnimationFrame(loop);
+      frameId = requestAnimationFrame(loop);
+      animationFrameRef.current = frameId;
     };
 
-    animationFrameRef.current = requestAnimationFrame(loop);
-    return () => {
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-    };
-  }, [isPlaying, totalDurationSec]);
+    frameId = requestAnimationFrame(loop);
+    animationFrameRef.current = frameId;
+    return () => cancelAnimationFrame(frameId);
+  }, [isPlaying, totalDurationSec, scheduleRender]);
 
-  // Re-render when time, clips, overlays or plugins change
+  // Re-render a paused frame when time, clips, overlays, aspect or plugins change
   useEffect(() => {
     if (!isPlaying) {
-      void renderFrame(currentTimeSec);
+      scheduleRender(currentTimeSec);
     }
-  }, [currentTimeSec, visualClips, textOverlays, aspectRatio]);
+  }, [currentTimeSec, visualClips, textOverlays, aspectRatio, pluginStateKey, isPlaying, scheduleRender]);
 
   return (
     <div className="flex flex-col items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-3 shadow-sm">
