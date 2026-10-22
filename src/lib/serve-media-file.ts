@@ -2,7 +2,8 @@ import { canViewMedia, canViewPost } from "@/lib/media-access";
 import { contentTypeForKey } from "@/lib/media-types";
 import { prisma } from "@/lib/db";
 import type { Actor } from "@/lib/request-identity";
-import { readLocalObject, readObject, storageDriver } from "@/lib/storage";
+import { parseRange } from "@/lib/http-range";
+import { statObject, storageDriver } from "@/lib/storage";
 
 type MediaRow = {
   visibility: string;
@@ -63,8 +64,8 @@ export async function serveMediaFile(
     return Response.json({ error: "Not found" }, { status: 404 });
   }
 
-  const data = (await readObject(storageKey)) ?? (await readLocalObject(storageKey));
-  if (!data) {
+  const object = await statObject(storageKey);
+  if (!object) {
     if (storageDriver() === "blob") {
       console.error(`[imbrgr/media] blob read failed for key=${storageKey}`);
     }
@@ -72,13 +73,32 @@ export async function serveMediaFile(
   }
 
   const mimeHint = new URL(req.url).searchParams.get("mime") ?? undefined;
-  const type = contentTypeForKey(storageKey, mimeHint);
+  const headers: Record<string, string> = {
+    "Content-Type": contentTypeForKey(storageKey, mimeHint),
+    "Cache-Control": mediaFileCacheControl(media, isProfileAsset),
+    "X-Content-Type-Options": "nosniff",
+    "Accept-Ranges": "bytes",
+  };
 
-  return new Response(new Uint8Array(data), {
-    headers: {
-      "Content-Type": type,
-      "Cache-Control": mediaFileCacheControl(media, isProfileAsset),
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  const range = parseRange(req.headers.get("range"), object.size);
+  if (range === "unsatisfiable") {
+    return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${object.size}` } });
+  }
+
+  const body = await object.open(range);
+  if (!body) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (range) {
+    return new Response(body, {
+      status: 206,
+      headers: {
+        ...headers,
+        "Content-Range": `bytes ${range.start}-${range.end}/${object.size}`,
+        "Content-Length": String(range.end - range.start + 1),
+      },
+    });
+  }
+  return new Response(body, { status: 200, headers: { ...headers, "Content-Length": String(object.size) } });
 }
