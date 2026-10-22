@@ -10,7 +10,7 @@ import { FIELDPRESS_URL } from "@/lib/fieldpress";
 const PRIMARY = [
   { href: "/", label: "Gallery" },
   { href: "/hot", label: "Hot" },
-  { href: "/studio", label: "Studio", accent: true },
+  { href: "/create", label: "Create", accent: true },
   { href: "/search", label: "Search" },
 ] as const;
 
@@ -19,7 +19,12 @@ export function MobileBottomNav() {
   const { data: session } = useSession();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    // The image studio lives under the Create hub, so keep "Create" highlighted there.
+    if (href === "/create") return pathname.startsWith("/create") || pathname.startsWith("/studio");
+    return pathname.startsWith(href);
+  };
 
   return (
     <>
