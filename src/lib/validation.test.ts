@@ -20,3 +20,13 @@ describe("validateUploadMime", () => {
     expect(validateUploadMime("application/pdf")).toBe(false);
   });
 });
+
+describe("commentInputSchema", () => {
+  it("validates comment body length and optional parentId", async () => {
+    const { commentInputSchema } = await import("./validation");
+    expect(commentInputSchema.safeParse({ body: "Delicious smashburger!" }).success).toBe(true);
+    expect(commentInputSchema.safeParse({ body: "Nice reply", parentId: "c123" }).success).toBe(true);
+    expect(commentInputSchema.safeParse({ body: "" }).success).toBe(false);
+    expect(commentInputSchema.safeParse({ body: "a".repeat(5001) }).success).toBe(false);
+  });
+});

@@ -43,6 +43,11 @@ export async function POST(req: Request) {
     });
 
     const parentId = media.parentMediaId ?? media.id;
+    const parentMedia = media.parentMediaId
+      ? await prisma.media.findUnique({ where: { id: media.parentMediaId }, select: { mature: true } })
+      : null;
+    const isMature = Boolean(media.mature || parentMedia?.mature);
+
     const created = await processAndStoreUpload({
       buffer: converted.buffer,
       mime: converted.mime,
@@ -51,6 +56,7 @@ export async function POST(req: Request) {
       parentMediaId: parentId,
       visibility: normalizeVisibility(media.visibility),
       losslessPng: parsed.data.format === "png",
+      mature: isMature,
     });
 
     return NextResponse.json({

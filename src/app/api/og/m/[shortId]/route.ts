@@ -18,7 +18,7 @@ export async function GET(
     include: { post: { select: { userId: true, visibility: true } } },
   });
 
-  if (!media || !media.mimeType.startsWith("image/")) {
+  if (!media || media.mature || !media.mimeType.startsWith("image/")) {
     return new Response("Not found", { status: 404 });
   }
 

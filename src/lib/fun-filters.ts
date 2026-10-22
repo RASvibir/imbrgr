@@ -215,6 +215,69 @@ function sesameStorm(img: ImageData, t: number): void {
   }
 }
 
+/** Thermal Spice-O-Meter: infrared heat map tracking spice levels. */
+function thermalSpice(img: ImageData): void {
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const lum = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    if (lum < 0.25) {
+      const t = lum / 0.25;
+      r = lerp(20, 60, t);
+      g = lerp(10, 20, t);
+      b = lerp(90, 180, t);
+    } else if (lum < 0.55) {
+      const t = (lum - 0.25) / 0.3;
+      r = lerp(60, 235, t);
+      g = lerp(20, 45, t);
+      b = lerp(180, 20, t);
+    } else if (lum < 0.85) {
+      const t = (lum - 0.55) / 0.3;
+      r = lerp(235, 255, t);
+      g = lerp(45, 195, t);
+      b = lerp(20, 10, t);
+    } else {
+      const t = (lum - 0.85) / 0.15;
+      r = lerp(255, 255, t);
+      g = lerp(195, 255, t);
+      b = lerp(10, 255, t);
+    }
+    d[i] = r;
+    d[i + 1] = g;
+    d[i + 2] = b;
+  }
+}
+
+/** Retro Comic Pop-Art: bold ink edges and colorful halftone dots. */
+function retroComic(img: ImageData): void {
+  const { width: w, height: h, data: d } = img;
+  const dotSpacing = 6;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const lum = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) / 255;
+
+      const cx = (Math.floor(x / dotSpacing) + 0.5) * dotSpacing;
+      const cy = (Math.floor(y / dotSpacing) + 0.5) * dotSpacing;
+      const dist = Math.hypot(x - cx, y - cy);
+      const maxRadius = dotSpacing * 0.45;
+      const radius = maxRadius * (1 - lum * 0.75);
+
+      if (dist < radius) {
+        d[i] = d[i] > 110 ? 255 : 30;
+        d[i + 1] = d[i + 1] > 110 ? 220 : 20;
+        d[i + 2] = d[i + 2] > 110 ? 200 : 40;
+      } else {
+        d[i] = Math.min(255, d[i] * 1.25 + 35);
+        d[i + 1] = Math.min(255, d[i + 1] * 1.2 + 30);
+        d[i + 2] = Math.min(255, d[i + 2] * 1.1 + 25);
+      }
+    }
+  }
+}
+
 export const FUN_FILTERS: readonly FunFilterDef[] = [
   {
     id: "ketchup-mustard",
@@ -263,6 +326,22 @@ export const FUN_FILTERS: readonly FunFilterDef[] = [
     description: "Green phosphor night-vision with scanlines.",
     animated: false,
     apply: (img) => pickleVision(img),
+  },
+  {
+    id: "thermal-spice",
+    label: "Thermal Spice-O-Meter",
+    emoji: "🌶️",
+    description: "Infrared heat-vision tracking spice levels from mild to nuclear.",
+    animated: false,
+    apply: (img) => thermalSpice(img),
+  },
+  {
+    id: "retro-comic",
+    label: "Retro Comic",
+    emoji: "💥",
+    description: "Pop-art halftone dots with bold graphic print styling.",
+    animated: false,
+    apply: (img) => retroComic(img),
   },
   {
     id: "jelly-wobble",

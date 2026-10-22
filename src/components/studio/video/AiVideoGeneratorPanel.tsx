@@ -11,7 +11,7 @@ import type { VisualClip } from "@/lib/video-timeline/timeline-types";
 
 type Props = {
   onAddClip: (clip: VisualClip) => void;
-  availableAssets: { id: string; name: string; url: string; kind: "image" | "video" | "gif" }[];
+  availableAssets: { id: string; name: string; url: string; kind: "image" | "video" | "gif"; mature?: boolean }[];
 };
 
 export function AiVideoGeneratorPanel({ onAddClip, availableAssets }: Props) {
@@ -23,12 +23,14 @@ export function AiVideoGeneratorPanel({ onAddClip, availableAssets }: Props) {
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [selectedAssetId, setSelectedAssetId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
+  const [mature, setMature] = useState(false);
   const [error, setError] = useState("");
   const [generatedPreview, setGeneratedPreview] = useState<{
     url: string;
     motion: CameraMotion;
     durationSec: number;
     prompt: string;
+    mature?: boolean;
   } | null>(null);
 
   const handleGenerateTextToVideo = async () => {
@@ -48,6 +50,8 @@ export function AiVideoGeneratorPanel({ onAddClip, availableAssets }: Props) {
           motion: selectedMotion,
           durationSec,
           aspectRatio,
+          safe: !mature,
+          mature,
         }),
       });
       const data = await res.json();
@@ -59,6 +63,7 @@ export function AiVideoGeneratorPanel({ onAddClip, availableAssets }: Props) {
         motion: data.video.motion,
         durationSec: data.video.durationSec,
         prompt,
+        mature: Boolean(data.video.mature),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Video generation failed");
@@ -104,6 +109,7 @@ export function AiVideoGeneratorPanel({ onAddClip, availableAssets }: Props) {
       motion: generatedPreview.motion,
       transition: "dissolve",
       transitionDurationSec: 0.5,
+      mature: generatedPreview.mature,
     };
     onAddClip(newClip);
     setGeneratedPreview(null);
@@ -226,6 +232,18 @@ export function AiVideoGeneratorPanel({ onAddClip, availableAssets }: Props) {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={mature}
+                onChange={(e) => setMature(e.target.checked)}
+                className="rounded border-[var(--border-subtle)]"
+              />
+              <span>18+ Mature Video</span>
+            </label>
           </div>
 
           <button

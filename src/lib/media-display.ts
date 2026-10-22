@@ -8,6 +8,7 @@ export type MediaThumbFields = {
   thumbSmKey?: string | null;
   thumbMdKey?: string | null;
   placeholderCss?: string | null;
+  mature?: boolean;
 };
 
 export function pickMediaSrc(

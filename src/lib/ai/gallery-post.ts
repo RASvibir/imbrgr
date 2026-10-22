@@ -35,6 +35,7 @@ export async function ensureGalleryPostForMedia(params: {
   title?: string;
   aiGenerated?: boolean;
   aiPrompt?: string;
+  mature?: boolean;
 }) {
   const media = await prisma.media.findUnique({ where: { id: params.mediaId } });
   if (!media) throw new Error("Media not found");
@@ -45,7 +46,10 @@ export async function ensureGalleryPostForMedia(params: {
     });
     await prisma.media.update({
       where: { id: media.id },
-      data: { visibility: params.visibility },
+      data: {
+        visibility: params.visibility,
+        ...(params.mature !== undefined ? { mature: params.mature } : {}),
+      },
     });
     const post = await prisma.post.findUnique({ where: { id: media.postId } });
     if (!post) throw new Error("Post not found");
@@ -68,6 +72,7 @@ export async function ensureGalleryPostForMedia(params: {
     data: {
       postId: post.id,
       visibility: params.visibility,
+      ...(params.mature !== undefined ? { mature: params.mature } : {}),
     },
   });
 

@@ -75,6 +75,11 @@ export async function POST(
     }
 
     const parentId = media.parentMediaId ?? media.id;
+    const parentMedia = media.parentMediaId
+      ? await prisma.media.findUnique({ where: { id: media.parentMediaId }, select: { mature: true } })
+      : null;
+    const isMature = Boolean(media.mature || parentMedia?.mature);
+
     const created = await processAndStoreUpload({
       buffer: buf,
       mime: file.type || "image/jpeg",
@@ -85,6 +90,7 @@ export async function POST(
       sortOrder: media.sortOrder,
       visibility: normalizeVisibility(media.visibility),
       aiEdited: true,
+      mature: isMature,
     });
 
     if (media.postId) {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { generateAiVideo } from "@/lib/ai/video-provider";
+import { generateAiVideo, buildCinematicVideoPrompt } from "@/lib/ai/video-provider";
 import {
   assertCanGenerateAiForAnonymous,
   assertCanGenerateAiForUser,
@@ -8,6 +8,7 @@ import {
   recordAnonymousAiSuccess,
 } from "@/lib/ai/usage";
 import { aiRateLimitPerHour } from "@/lib/config";
+import { prisma } from "@/lib/db";
 import { getActor } from "@/lib/request-identity";
 import { assertUserMayUseAi } from "@/lib/user-guards";
 import { consumeRateLimit } from "@/lib/rate-limit";
@@ -24,6 +25,8 @@ const schema = z.object({
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
   style: z.string().max(40).optional(),
   seed: z.number().int().min(0).optional(),
+  safe: z.boolean().optional(),
+  mature: z.boolean().optional(),
 });
 
 export async function POST(req: Request) {
@@ -35,8 +38,32 @@ export async function POST(req: Request) {
   }
 
   const { isPromptBlocked, blockedPromptMessage } = await import("@/lib/prompt-safety");
-  if (isPromptBlocked(parsed.data.prompt)) {
+  const fullPrompt = buildCinematicVideoPrompt(parsed.data.prompt, parsed.data.style);
+  if (isPromptBlocked(parsed.data.prompt) || isPromptBlocked(fullPrompt)) {
     return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
+  }
+
+  // Check if source image is an internal media marked mature
+  let sourceIsMature = false;
+  if (parsed.data.sourceImageUrl) {
+    const match = parsed.data.sourceImageUrl.match(/(?:\/m\/|\/media\/|\/file\/|^)([a-zA-Z0-9_-]{4,20})/);
+    if (match) {
+      const sourceMedia = await prisma.media.findFirst({
+        where: { shortId: match[1] },
+        select: { mature: true },
+      });
+      if (sourceMedia?.mature) {
+        sourceIsMature = true;
+      }
+    }
+  }
+
+  const matureRequested = parsed.data.safe === false || parsed.data.mature === true || sourceIsMature;
+  if (matureRequested && !actor.userId) {
+    return NextResponse.json(
+      { error: "Sign in required: mature AI videos are only available to signed-in users." },
+      { status: 403 },
+    );
   }
 
   const rateKey = `ai-video:${actor.userId ?? actor.ipHash}`;
@@ -57,7 +84,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const video = await generateAiVideo(parsed.data);
+    const video = await generateAiVideo({
+      ...parsed.data,
+      safe: !matureRequested,
+      mature: matureRequested,
+    });
 
     if (actor.userId) {
       await recordAiGenerationSuccess(actor.userId, 1);
@@ -65,7 +96,7 @@ export async function POST(req: Request) {
       await recordAnonymousAiSuccess(actor.ipHash, 1);
     }
 
-    return NextResponse.json({ success: true, video });
+    return NextResponse.json({ success: true, video: { ...video, mature: matureRequested } });
   } catch (err) {
     console.error("[imbrgr/ai-video] generate error", err);
     return NextResponse.json(

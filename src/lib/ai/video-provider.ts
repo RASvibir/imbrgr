@@ -27,6 +27,8 @@ export type VideoGenParams = {
   aspectRatio?: "16:9" | "9:16" | "1:1";
   style?: string;
   seed?: number;
+  safe?: boolean;
+  mature?: boolean;
 };
 
 export type VideoGenResult = {
@@ -39,6 +41,7 @@ export type VideoGenResult = {
   height: number;
   provider: string;
   seed: number;
+  mature?: boolean;
 };
 
 export const VIDEO_STYLES = [
@@ -88,6 +91,8 @@ export async function generateAiVideo(params: VideoGenParams): Promise<VideoGenR
   const motion = params.motion ?? "zoom-in";
   const { width, height } = resolveVideoDimensions(params.aspectRatio ?? "16:9");
 
+  const isMature = params.mature === true || params.safe === false;
+
   // In test or mock mode, generate synthetic response
   if (aiMockEnabled()) {
     return {
@@ -99,6 +104,7 @@ export async function generateAiVideo(params: VideoGenParams): Promise<VideoGenR
       height,
       provider: "imbrgr-ai-motion-mock",
       seed,
+      mature: isMature,
     };
   }
 
@@ -106,7 +112,8 @@ export async function generateAiVideo(params: VideoGenParams): Promise<VideoGenR
   let previewUrl = params.sourceImageUrl;
   if (!previewUrl) {
     const fullPrompt = buildCinematicVideoPrompt(params.prompt, params.style);
-    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=${width}&height=${height}&seed=${seed}&nologo=true`;
+    const safeParam = isMature ? "&safe=false" : "&safe=true";
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}?width=${width}&height=${height}&seed=${seed}&nologo=true${safeParam}`;
     try {
       const res = await fetchWithTimeout(pollinationsUrl, { timeoutMs: 25_000 });
       if (res.ok) {
@@ -129,5 +136,6 @@ export async function generateAiVideo(params: VideoGenParams): Promise<VideoGenR
     height,
     provider: "imbrgr-motion-synthesizer",
     seed,
+    mature: isMature,
   };
 }

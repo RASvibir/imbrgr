@@ -30,3 +30,15 @@ export async function assertUserMayUseAi(userId: string | null): Promise<string 
   }
   return null;
 }
+
+export async function assertUserMayComment(userId: string | null): Promise<string | null> {
+  if (!userId) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { banned: true, suspended: true },
+  });
+  if (!user) return "Account not found.";
+  if (user.banned) return "This account is banned.";
+  if (user.suspended) return "This account is suspended.";
+  return null;
+}

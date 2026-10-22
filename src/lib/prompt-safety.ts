@@ -1,6 +1,7 @@
 const BLOCKED = [
-  /\b(nude|naked|nsfw|porn|xxx|sexual|erotic|hentai)\b/i,
-  /\b(child|minor|underage|pedo)\b/i,
+  /\b(nude|naked|nsfw|porn|porno|pornography|xxx|sexual|erotic|hentai|ecchi)\b/i,
+  /\b(child\s+(porn|sexual|sex|abuse|erotica)|underage\s+(sex|porn|nude|sexual|erotic)|pedo|pedophil\w*|csam)\b/i,
+  /\b(cp|jailbait)\b/i,
 ];
 
 export function isPromptBlocked(prompt: string): boolean {
@@ -11,3 +12,4 @@ export function isPromptBlocked(prompt: string): boolean {
 
 export const blockedPromptMessage =
   "That description isn't a fit for the kitchen — try a different dish idea.";
+

@@ -102,6 +102,7 @@ export function MediaCreationSuite() {
   const [postTitle, setPostTitle] = useState("AI Video Creation");
   const [postVisibility, setPostVisibility] = useState<"PUBLIC" | "UNLISTED" | "PRIVATE">("PUBLIC");
   const [postTags, setPostTags] = useState("video, ai, creative");
+  const [postMature, setPostMature] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishedShortId, setPublishedShortId] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState<string | null>(null);
@@ -494,10 +495,13 @@ export function MediaCreationSuite() {
       const file = new File([exportedBlob], "imbrgr-video.webm", {
         type: exportedBlob.type || "video/webm",
       });
+      const isMature = postMature || visualClips.some((c) => c.mature);
+      const effectiveVisibility = isMature && postVisibility === "PUBLIC" ? "UNLISTED" : postVisibility;
       formData.append("files", file);
       formData.append("title", postTitle || "AI Video Creation");
       formData.append("tags", postTags);
-      formData.append("visibility", postVisibility);
+      formData.append("visibility", effectiveVisibility);
+      formData.append("mature", String(isMature));
       formData.append("aiGenerated", "true");
       formData.append("aiPrompt", visualClips.map((c) => c.name).join(", "));
 
@@ -858,6 +862,18 @@ export function MediaCreationSuite() {
                             <option value="PRIVATE">Private</option>
                           </select>
                         </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
+                          <input
+                            type="checkbox"
+                            checked={postMature || visualClips.some((c) => c.mature)}
+                            onChange={(e) => setPostMature(e.target.checked)}
+                            className="rounded border-[var(--border-subtle)]"
+                          />
+                          <span>🔞 18+ Mature Video (Clamps to Unlisted/Private)</span>
+                        </label>
                       </div>
 
                       <button

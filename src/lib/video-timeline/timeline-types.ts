@@ -32,6 +32,7 @@ export type VisualClip = {
   motion?: CameraMotion;
   transition?: TransitionType;
   transitionDurationSec?: number;
+  mature?: boolean;
 };
 
 export type AudioClip = {

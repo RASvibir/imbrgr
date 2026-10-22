@@ -19,6 +19,7 @@ type PostCardData = {
     thumbSmKey?: string | null;
     thumbMdKey?: string | null;
     placeholderCss?: string | null;
+    mature?: boolean;
   }[];
   user: { username: string } | null;
 };
@@ -75,6 +76,12 @@ export function PostCard({
           </span>
         ) : null}
 
+        {thumb?.mature ? (
+          <span className="absolute left-2 bottom-2 z-10 rounded bg-red-600/80 px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+            🔞 18+
+          </span>
+        ) : null}
+
         {/* Quick Action Overlay (Share & Download) */}
         <div className="absolute right-2 top-2 z-20 flex items-center gap-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
           <button
@@ -101,7 +108,7 @@ export function PostCard({
 
         {thumb ? (
           thumb.mimeType.startsWith("video/") && src ? (
-            <video src={src} className="h-full w-full object-cover" muted playsInline />
+            <video src={src} className={`h-full w-full object-cover ${thumb.mature ? "blur-md" : ""}`} muted playsInline />
           ) : (
             <PostMediaImage media={thumb} variant={thumbVariant} className="transition group-hover:scale-[1.02]" />
           )

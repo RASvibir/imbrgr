@@ -111,7 +111,7 @@ export async function POST(req: Request) {
         aiGenerated,
         aiPrompt: aiPrompt || undefined,
         altText: i === 0 ? altText : undefined,
-        mature: i === 0 ? mature : false,
+        mature,
         visibility,
       });
     }

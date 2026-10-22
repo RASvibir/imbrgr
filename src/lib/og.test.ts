@@ -38,6 +38,22 @@ describe("og metadata", () => {
     expect(ok).toBe(false);
   });
 
+  it("blocks mature media from OG unfurls to protect crawler previews", () => {
+    const ok = mediaEligibleForOg({
+      shortId: "mature123",
+      mimeType: "image/jpeg",
+      altText: null,
+      width: 1200,
+      height: 630,
+      visibility: "PUBLIC",
+      userId: "u1",
+      voterKey: null,
+      mature: true,
+      post: { userId: "u1", visibility: "PUBLIC" },
+    });
+    expect(ok).toBe(false);
+  });
+
   it("buildPostPageMetadata uses OG image route for public posts", () => {
     const meta = buildPostPageMetadata(
       {

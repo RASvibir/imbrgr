@@ -31,11 +31,12 @@ type Media = {
 
 type Comment = {
   id: string;
+  userId?: string | null;
   body: string;
   score: number;
   parentId: string | null;
   createdAt: string;
-  user: { username: string } | null;
+  user: { id?: string; username: string } | null;
 };
 
 type Post = {
@@ -69,6 +70,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
   const [msg, setMsg] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [ownerSettings, setOwnerSettings] = useState<ImageSettingsValues | null>(null);
+  const [revealedMediaIds, setRevealedMediaIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (sessionStatus === "loading") return;
@@ -139,6 +141,17 @@ export function PostDetail({ shortId }: { shortId: string }) {
     });
     const data = await res.json();
     setComments((list) => list.map((c) => (c.id === id ? { ...c, score: data.score } : c)));
+  };
+
+  const deleteComment = async (id: string) => {
+    const res = await fetch(`/api/comments/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setComments((list) => list.filter((c) => c.id !== id && c.parentId !== id));
+      setMsg("Comment deleted");
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setMsg(data.error || "Could not delete comment");
+    }
   };
 
   const saveOwnerSettings = async () => {
@@ -275,7 +288,25 @@ export function PostDetail({ shortId }: { shortId: string }) {
                 <span className="absolute left-2 top-2 z-10 rounded bg-black/60 px-2 py-0.5 text-xs text-white">Edited here</span>
               ) : null}
               {m.mimeType.startsWith("video/") ? (
-                <video src={src} controls className="w-full" />
+                m.mature && !revealedMediaIds.has(m.shortId) ? (
+                  <div className="relative aspect-video w-full overflow-hidden bg-black flex flex-col items-center justify-center p-4 text-center">
+                    <video src={src} className="absolute inset-0 h-full w-full object-cover blur-2xl opacity-40" />
+                    <div className="relative z-10 flex flex-col items-center">
+                      <span className="text-3xl">🔞</span>
+                      <span className="mt-2 text-sm font-bold uppercase tracking-wider text-white">18+ Mature Video</span>
+                      <p className="mt-1 text-xs text-zinc-300">This video has been marked as containing mature content.</p>
+                      <button
+                        type="button"
+                        onClick={() => setRevealedMediaIds((prev) => new Set(prev).add(m.shortId))}
+                        className="mt-3 rounded-full border border-white/40 bg-white/20 px-4 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition hover:bg-white/30"
+                      >
+                        Click to View Video
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <video src={src} controls className="w-full" />
+                )
               ) : (
                 <PostMediaImage media={m} variant="full" className="w-full" alt={m.altText ?? ""} />
               )}
@@ -401,13 +432,23 @@ export function PostDetail({ shortId }: { shortId: string }) {
             <li key={c.id} className="border-b border-[var(--border-subtle)] pb-4">
               <CommentItem
                 comment={c}
+                currentUserId={session?.user?.id}
+                postUserId={post?.userId}
                 onVote={voteComment}
                 onReply={() => setReplyTo(c.id)}
+                onDelete={deleteComment}
               />
               <ul className="ml-6 mt-3 space-y-3 border-l border-[var(--border-subtle)] pl-4">
                 {children(c.id).map((r) => (
                   <li key={r.id}>
-                    <CommentItem comment={r} onVote={voteComment} onReply={() => setReplyTo(r.id)} />
+                    <CommentItem
+                      comment={r}
+                      currentUserId={session?.user?.id}
+                      postUserId={post?.userId}
+                      onVote={voteComment}
+                      onReply={() => setReplyTo(r.id)}
+                      onDelete={deleteComment}
+                    />
                   </li>
                 ))}
               </ul>
@@ -423,23 +464,48 @@ export function PostDetail({ shortId }: { shortId: string }) {
 
 function CommentItem({
   comment,
+  currentUserId,
+  postUserId,
   onVote,
   onReply,
+  onDelete,
 }: {
   comment: Comment;
+  currentUserId?: string | null;
+  postUserId?: string | null;
   onVote: (id: string, v: number) => void;
   onReply: () => void;
+  onDelete: (id: string) => void;
 }) {
+  const canDelete = Boolean(
+    currentUserId &&
+      (comment.userId === currentUserId ||
+        comment.user?.id === currentUserId ||
+        postUserId === currentUserId),
+  );
+
   return (
     <div>
-      <p className="text-sm font-medium">
-        {comment.user ? `@${comment.user.username}` : "anonymous"} · score {comment.score}
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">
+          {comment.user ? `@${comment.user.username}` : "anonymous"} · score {comment.score}
+        </p>
+        <ReportButton target={{ type: "COMMENT", id: comment.id, label: "comment" }} />
+      </div>
       <p className="mt-1 text-[var(--text-secondary)]">{comment.body}</p>
-      <div className="mt-2 flex gap-2 text-xs">
+      <div className="mt-2 flex items-center gap-2.5 text-xs">
         <button type="button" onClick={() => onVote(comment.id, 1)}>▲</button>
         <button type="button" onClick={() => onVote(comment.id, -1)}>▼</button>
-        <button type="button" onClick={onReply}>Reply</button>
+        <button type="button" onClick={onReply} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">Reply</button>
+        {canDelete ? (
+          <button
+            type="button"
+            onClick={() => onDelete(comment.id)}
+            className="text-[var(--danger)] hover:underline"
+          >
+            Delete
+          </button>
+        ) : null}
       </div>
     </div>
   );
