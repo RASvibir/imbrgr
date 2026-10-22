@@ -104,3 +104,16 @@ export async function createGalleryPostForAiMedia(params: {
 
   return post;
 }
+
+
+export function resolveAiGenerationVisibility(params: {
+  requested: string | undefined;
+  userId: string | null;
+  userDefault?: string | null;
+  matureRequested: boolean;
+}): Visibility {
+  const base = resolveAiGalleryVisibility(params.requested, params.userId, params.userDefault);
+  if (!params.matureRequested) return base;
+  if (base === "PRIVATE") return "PRIVATE";
+  return "UNLISTED";
+}

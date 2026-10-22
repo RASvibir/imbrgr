@@ -14,7 +14,7 @@ import {
 import { aiRateLimitPerHour } from "@/lib/config";
 import {
   createGalleryPostForAiMedia,
-  resolveAiGalleryVisibility,
+  resolveAiGenerationVisibility,
   titleFromAiPrompt,
 } from "@/lib/ai/gallery-post";
 import { prisma } from "@/lib/db";
@@ -35,6 +35,7 @@ const schema = z.object({
   seed: z.number().int().min(0).optional(),
   style: z.string().max(40).optional(),
   safe: z.boolean().optional(),
+  mature: z.boolean().optional(),
   variations: z.number().int().min(1).max(4).optional(),
   visibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]).optional(),
   keepOriginal: z.boolean().optional(),
@@ -84,11 +85,19 @@ export async function POST(req: Request) {
       });
       userDefault = user?.defaultPostVisibility ?? null;
     }
-    const galleryVisibility = resolveAiGalleryVisibility(
-      parsed.data.visibility,
-      actor.userId,
+    const matureRequested = parsed.data.safe === false || parsed.data.mature === true;
+    if (matureRequested && !actor.userId) {
+      return NextResponse.json(
+        { error: "Sign in required: mature AI images are only available to signed-in users." },
+        { status: 403 },
+      );
+    }
+    const galleryVisibility = resolveAiGenerationVisibility({
+      requested: parsed.data.visibility,
+      userId: actor.userId,
       userDefault,
-    );
+      matureRequested,
+    });
     const keepOriginal = parseStudioKeepOriginal(parsed.data.keepOriginal);
 
     const results: {
@@ -124,6 +133,7 @@ export async function POST(req: Request) {
         aiPrompt: fullPrompt,
         losslessPng: true,
         visibility: galleryVisibility,
+        mature: matureRequested,
       });
 
       results.push({
@@ -154,7 +164,12 @@ export async function POST(req: Request) {
       deleteToken: primary.deleteToken,
       postShortId: post.shortId,
       galleryVisibility,
-      variations: results.map(({ mediaId: _id, ...rest }) => rest),
+      variations: results.map((item) => ({
+        mediaShortId: item.mediaShortId,
+        storageKey: item.storageKey,
+        seed: item.seed,
+        deleteToken: item.deleteToken,
+      })),
     });
   } catch (e) {
     const raw = e instanceof Error ? e.message : "Generation failed";

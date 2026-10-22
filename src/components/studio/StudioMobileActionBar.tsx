@@ -2,7 +2,7 @@
 
 import { COPY } from "@/lib/user-messages";
 
-type Tab = "create" | "refine" | "share";
+type Tab = "create" | "refine" | "media" | "share";
 
 type Props = {
   tab: Tab;

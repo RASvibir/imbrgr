@@ -24,6 +24,7 @@ import { StudioPromptHero } from "@/components/studio/StudioPromptHero";
 import { StudioImageMenu } from "@/components/studio/StudioImageMenu";
 import { StudioVersionStrip } from "@/components/studio/StudioVersionStrip";
 import { KeepOriginalToggle } from "@/components/studio/KeepOriginalToggle";
+import { MediaCreationSuite } from "@/components/studio/MediaCreationSuite";
 import { readGuestKeepOriginal, writeGuestKeepOriginal } from "@/lib/studio-keep-original";
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
 import {
@@ -41,17 +42,19 @@ type StudioAsset = {
   height?: number | null;
 };
 
-type Tab = "create" | "refine" | "share";
+type Tab = "create" | "refine" | "media" | "share";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "create", label: "Create" },
   { id: "refine", label: "Refine" },
+  { id: "media", label: "Media lab" },
   { id: "share", label: "Share" },
 ];
 
 function parseStudioTab(raw: string | null | undefined): Tab {
   if (raw === "share" || raw === "links") return "share";
   if (raw === "refine" || raw === "edit" || raw === "convert") return "refine";
+  if (raw === "media" || raw === "video" || raw === "collage") return "media";
   if (raw === "generate" || raw === "create") return "create";
   return "create";
 }
@@ -747,6 +750,11 @@ export function ImageStudio({
             </>
           )}
         </section>
+      ) : null}
+
+
+      {tab === "media" ? (
+        <MediaCreationSuite />
       ) : null}
 
       {tab === "share" ? (
