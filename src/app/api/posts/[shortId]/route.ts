@@ -130,6 +130,16 @@ export async function PATCH(
         data: { altText: m.altText, mature: m.mature },
       });
     }
+    if (parsed.data.media.some((m) => m.mature === true)) {
+      await prisma.post.updateMany({
+        where: { id: post.id, visibility: "PUBLIC" },
+        data: { visibility: "UNLISTED" },
+      });
+      await prisma.media.updateMany({
+        where: { postId: post.id, visibility: "PUBLIC" },
+        data: { visibility: "UNLISTED" },
+      });
+    }
   }
 
   const updated = await prisma.post.findUnique({

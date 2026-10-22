@@ -99,6 +99,24 @@ export async function PATCH(
     },
   });
 
+  if (parsed.data.mature === true) {
+    if (media.postId) {
+      await prisma.post.updateMany({
+        where: { id: media.postId, visibility: "PUBLIC" },
+        data: { visibility: "UNLISTED" },
+      });
+      await prisma.media.updateMany({
+        where: { postId: media.postId, visibility: "PUBLIC" },
+        data: { visibility: "UNLISTED" },
+      });
+    } else {
+      await prisma.media.updateMany({
+        where: { id: media.id, visibility: "PUBLIC" },
+        data: { visibility: "UNLISTED" },
+      });
+    }
+  }
+
   if (media.postId && parsed.data.visibility) {
     await prisma.post.update({
       where: { id: media.postId },
