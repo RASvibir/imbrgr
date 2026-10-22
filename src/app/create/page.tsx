@@ -25,6 +25,8 @@ const CARDS: CreateCard[] = [
     id: "video",
     title: "Video",
     description: "Turn your images and clips into a short video with pan, zoom, and transitions.",
+    href: "/studio?tab=video",
+    cta: "Open video studio",
   },
   {
     id: "fun",

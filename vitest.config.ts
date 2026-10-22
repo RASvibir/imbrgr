@@ -6,6 +6,9 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.ts"],
     exclude: ["src/**/*.integration.test.ts"],
+    env: {
+      DATABASE_URL: process.env.DATABASE_URL || "postgresql://imbrgr:imbrgr@localhost:5432/imbrgr",
+    },
   },
   resolve: {
     alias: {

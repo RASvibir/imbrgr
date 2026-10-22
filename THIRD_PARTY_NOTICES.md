@@ -7,6 +7,11 @@ This project includes adapted plugin-manager and eco-render concepts in:
 - `src/lib/video-plugins/plugin-types.ts`
 - `src/lib/video-plugins/plugin-manager.ts`
 - `src/lib/video-plugins/eco-render-plugin.ts`
+- `src/lib/video-plugins/vhs-retro-plugin.ts`
+- `src/lib/video-plugins/cyberpunk-neon-plugin.ts`
+- `src/lib/video-plugins/film-grain-plugin.ts`
+- `src/lib/video-plugins/glitch-plugin.ts`
+- `src/lib/video-plugins/noir-plugin.ts`
 
 Source: <https://github.com/RASvibir/pacNcap>
 

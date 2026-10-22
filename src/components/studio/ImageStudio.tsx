@@ -47,7 +47,7 @@ type Tab = "create" | "refine" | "media" | "share";
 const TABS: { id: Tab; label: string }[] = [
   { id: "create", label: "Create" },
   { id: "refine", label: "Refine" },
-  { id: "media", label: "Media lab" },
+  { id: "media", label: "Video studio" },
   { id: "share", label: "Share" },
 ];
 
