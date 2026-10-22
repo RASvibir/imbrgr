@@ -34,24 +34,10 @@ function toKind(file: File): AssetKind | null {
   return null;
 }
 
-async function readDurationSec(file: File, kind: AssetKind): Promise<number> {
+async function readDurationSec(_file: File, kind: AssetKind): Promise<number> {
   if (kind === "image" || kind === "gif") return 2.5;
   if (kind === "audio") return 6;
-  return await new Promise<number>((resolve) => {
-    const el = document.createElement("video");
-    el.preload = "metadata";
-    el.muted = true;
-    el.src = URL.createObjectURL(file);
-    el.onloadedmetadata = () => {
-      const d = Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 6;
-      URL.revokeObjectURL(el.src);
-      resolve(Math.min(d, 120));
-    };
-    el.onerror = () => {
-      URL.revokeObjectURL(el.src);
-      resolve(6);
-    };
-  });
+  return 6;
 }
 
 export function MediaCreationSuite() {
