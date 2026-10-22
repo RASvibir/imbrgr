@@ -1,7 +1,16 @@
-import { del as blobDel, get as blobGet, put as blobPut } from "@vercel/blob";
+import {
+  BlobNotFoundError,
+  del as blobDel,
+  get as blobGet,
+  head as blobHead,
+  put as blobPut,
+} from "@vercel/blob";
+import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { Readable } from "node:stream";
+import { sliceByteStream, type ByteRange } from "@/lib/http-range";
 import { mediaFilePath } from "@/lib/urls";
 
 export type StorageDriver = "local" | "blob";
@@ -83,6 +92,63 @@ export async function readLocalObject(key: string): Promise<Buffer | null> {
   } catch {
     return null;
   }
+}
+
+/** A stored file whose size is known up front and whose bytes can be streamed (optionally a sub-range). */
+export type StoredObject = {
+  size: number;
+  open(range: ByteRange | null): Promise<ReadableStream<Uint8Array> | null>;
+};
+
+async function statLocalObject(key: string): Promise<StoredObject | null> {
+  const filePath = path.join(localRoot, key);
+  try {
+    const st = await fs.stat(filePath);
+    if (!st.isFile()) return null;
+    return {
+      size: st.size,
+      async open(range) {
+        const stream = createReadStream(filePath, range ? { start: range.start, end: range.end } : undefined);
+        return Readable.toWeb(stream) as unknown as ReadableStream<Uint8Array>;
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function statBlobObject(key: string): Promise<StoredObject | null> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    console.error("[imbrgr/storage] BLOB_READ_WRITE_TOKEN missing while STORAGE_DRIVER=blob");
+    return null;
+  }
+  try {
+    const info = await blobHead(key, { token });
+    return {
+      size: info.size,
+      async open(range) {
+        const res = await fetch(info.url, range ? { headers: { Range: `bytes=${range.start}-${range.end}` } } : undefined);
+        if (!res.body || (res.status !== 200 && res.status !== 206)) return null;
+        // If the upstream ignored the Range header and sent the whole file, cut the range ourselves.
+        if (range && res.status === 200) return sliceByteStream(res.body, range.start, range.end);
+        return res.body;
+      },
+    };
+  } catch (e) {
+    if (e instanceof BlobNotFoundError) return null;
+    console.error("[imbrgr/storage] blob head failed", key, e);
+    return null;
+  }
+}
+
+/** Look up a stored file without reading it. With the blob driver, falls back to local disk like readObject. */
+export async function statObject(key: string): Promise<StoredObject | null> {
+  if (driver() === "blob") {
+    const fromBlob = await statBlobObject(key);
+    if (fromBlob) return fromBlob;
+  }
+  return statLocalObject(key);
 }
 
 /** Best-effort byte size for quota adjustments when replacing profile assets. */
