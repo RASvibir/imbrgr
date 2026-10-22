@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { computeFrameRects, normalizeClipRange, type MediaStudioLayout } from "@/lib/media-studio-layout";
-import { VideoPluginManager } from "@/lib/video-plugins/plugin-manager";
-import { ecoRenderPlugin } from "@/lib/video-plugins/eco-render-plugin";
+import { exportMedia } from "@/lib/media-studio-export";
 
 type AssetKind = "image" | "gif" | "video" | "audio";
 
@@ -55,33 +54,6 @@ async function readDurationSec(file: File, kind: AssetKind): Promise<number> {
   });
 }
 
-function pickRecorderMime(): string | null {
-  const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"];
-  return candidates.find((m) => MediaRecorder.isTypeSupported(m)) ?? null;
-}
-
-function drawCover(
-  ctx: CanvasRenderingContext2D,
-  source: CanvasImageSource,
-  sw: number,
-  sh: number,
-  rect: { x: number; y: number; width: number; height: number },
-  fit: "contain" | "cover",
-) {
-  if (!sw || !sh) return;
-  if (fit === "contain") {
-    const ratio = Math.min(rect.width / sw, rect.height / sh);
-    const w = Math.max(1, Math.floor(sw * ratio));
-    const h = Math.max(1, Math.floor(sh * ratio));
-    ctx.drawImage(source, rect.x + Math.floor((rect.width - w) / 2), rect.y + Math.floor((rect.height - h) / 2), w, h);
-    return;
-  }
-  const ratio = Math.max(rect.width / sw, rect.height / sh);
-  const cw = rect.width / ratio;
-  const ch = rect.height / ratio;
-  ctx.drawImage(source, (sw - cw) / 2, (sh - ch) / 2, cw, ch, rect.x, rect.y, rect.width, rect.height);
-}
-
 export function MediaCreationSuite() {
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -99,7 +71,23 @@ export function MediaCreationSuite() {
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
   const [exportUrl, setExportUrl] = useState<string | null>(null);
-  const cancelRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
+  const assetsRef = useRef<MediaAsset[]>([]);
+  const exportUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    assetsRef.current = assets;
+    exportUrlRef.current = exportUrl;
+  }, [assets, exportUrl]);
+
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      assetsRef.current.forEach((a) => URL.revokeObjectURL(a.url));
+      if (exportUrlRef.current) URL.revokeObjectURL(exportUrlRef.current);
+    },
+    [],
+  );
 
   const visualAssets = useMemo(() => assets.filter((a) => a.kind !== "audio"), [assets]);
   const audioAssets = useMemo(() => assets.filter((a) => a.kind === "audio"), [assets]);
@@ -196,128 +184,43 @@ export function MediaCreationSuite() {
       setError("Add at least one image, GIF, or video before exporting.");
       return;
     }
-    if (typeof MediaRecorder === "undefined") {
-      setError("This browser cannot export video from the editor. Try a Chromium-based browser.");
-      return;
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(320, canvasWidth);
-    canvas.height = Math.max(240, canvasHeight);
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) {
-      setError("Canvas export is not available in this browser.");
-      return;
-    }
-
-    const pluginManager = new VideoPluginManager({ performanceMode: ecoFilter ? "active" : "eco" });
-    if (ecoFilter) await pluginManager.registerPlugin(ecoRenderPlugin);
-
-    const mime = pickRecorderMime();
-    if (!mime) {
-      setError("This browser cannot record video from the editor. Try a Chromium-based browser.");
-      return;
-    }
-    const stream = canvas.captureStream(24);
-    const recorder = new MediaRecorder(stream, { mimeType: mime });
-    const chunks: BlobPart[] = [];
-    recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunks.push(event.data);
-    };
-
-    const videos = new Map<string, HTMLVideoElement>();
-    const images = new Map<string, HTMLImageElement>();
-
-    for (const asset of visualAssets) {
-      if (asset.kind === "video") {
-        const v = document.createElement("video");
-        v.muted = true;
-        v.playsInline = true;
-        v.src = asset.url;
-        await new Promise<void>((resolve) => {
-          v.onloadedmetadata = () => resolve();
-          v.onerror = () => resolve();
-        });
-        v.loop = true;
-        v.currentTime = asset.startSec;
-        void v.play().catch(() => undefined);
-        videos.set(asset.id, v);
-      } else {
-        const img = new Image();
-        img.src = asset.url;
-        await new Promise<void>((resolve) => {
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-        });
-        images.set(asset.id, img);
-      }
-    }
-
-    cancelRef.current = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
     setExporting(true);
-    recorder.start();
-    const totalDuration = Math.max(...visualAssets.map((a) => a.endSec - a.startSec), 2);
-    const started = performance.now();
-
-    const drawFrame = async () => {
-      const elapsedSec = (performance.now() - started) / 1000;
-      if (cancelRef.current || elapsedSec > totalDuration) {
-        recorder.stop();
-        setExporting(false);
-        setStatus(cancelRef.current ? "Export canceled." : "Export complete.");
+    try {
+      const result = await exportMedia({
+        assets: assets.map(({ id, url, kind, startSec, endSec }) => ({ id, url, kind, startSec, endSec })),
+        layout,
+        rows,
+        columns,
+        spacing,
+        bgColor,
+        fit,
+        canvasWidth,
+        canvasHeight,
+        transitionSec,
+        ecoFilter,
+        signal: controller.signal,
+      });
+      if (!result) {
+        setStatus("Export canceled.");
         return;
       }
-
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      for (let i = 0; i < visualAssets.length; i++) {
-        const asset = visualAssets[i];
-        const rect = rects[i];
-        if (!rect) continue;
-        const alpha = layout === "overlay" ? Math.max(0.2, 1 - (i * transitionSec) / 3) : 1;
-        ctx.globalAlpha = alpha;
-
-        if (asset.kind === "video") {
-          const video = videos.get(asset.id);
-          if (video) {
-            if (video.currentTime < asset.startSec || video.currentTime > asset.endSec) {
-              video.currentTime = asset.startSec;
-            }
-            drawCover(ctx, video, video.videoWidth, video.videoHeight, rect, fit);
-          }
-        } else {
-          const img = images.get(asset.id);
-          if (img) drawCover(ctx, img, img.width, img.height, rect, fit);
-        }
-      }
-      ctx.globalAlpha = 1;
-
-      if (ecoFilter) {
-        const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const out = await pluginManager.processFrame(frame);
-        ctx.putImageData(out, 0, 0);
-      }
-
-      requestAnimationFrame(() => {
-        void drawFrame();
-      });
-    };
-
-    void drawFrame();
-
-    recorder.onstop = () => {
-      videos.forEach((v) => v.pause());
-      const blob = new Blob(chunks, { type: mime.split(";")[0] });
       setExportUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
-        return URL.createObjectURL(blob);
+        return URL.createObjectURL(result.blob);
       });
-      if (audioAssets.length > 0) {
-        setStatus("Export complete. Audio tracks are imported for preview only and are not yet baked into browser exports.");
-      }
-      void pluginManager.unloadPlugin("imbrgr_eco_render");
-    };
+      setStatus(
+        audioAssets.length > 0
+          ? "Export complete. Audio tracks are imported for preview only and are not yet baked into browser exports."
+          : "Export complete.",
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Export failed.");
+    } finally {
+      setExporting(false);
+      if (abortRef.current === controller) abortRef.current = null;
+    }
   };
 
   return (
@@ -465,7 +368,7 @@ export function MediaCreationSuite() {
           Export GIF (fallback notice)
         </button>
         {exporting ? (
-          <button type="button" className={btnSecondary} onClick={() => { cancelRef.current = true; }}>
+          <button type="button" className={btnSecondary} onClick={() => abortRef.current?.abort()}>
             Cancel export
           </button>
         ) : null}
