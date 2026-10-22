@@ -13,7 +13,7 @@ import {
 } from "@/lib/storage-quota";
 import { hashDeleteToken, newDeleteToken } from "@/lib/anon-delete";
 import { resolveRootMediaId } from "@/lib/media-root";
-import { normalizeVisibility, type Visibility } from "@/lib/visibility";
+import { clampMatureVisibility, inheritMature, normalizeVisibility, type Visibility } from "@/lib/visibility";
 import { MAX_VIDEO_DURATION_SEC, VIDEO_MIME, validateUploadMime } from "@/lib/validation";
 import { probeVideoDurationSec } from "@/lib/video-duration";
 import { generateImageThumbnails } from "@/lib/thumbnails";
@@ -90,14 +90,18 @@ export async function processAndStoreUpload(params: {
 
   const anonToken = !userId && voterKey ? newDeleteToken() : null;
   const rootFromParent = await resolveRootMediaId(params.parentMediaId);
+  const parentMature = params.parentMediaId
+    ? (await prisma.media.findUnique({ where: { id: params.parentMediaId }, select: { mature: true } }))?.mature
+    : undefined;
+  const mature = inheritMature(params.mature, parentMature);
   const media = await prisma.media.create({
     data: {
       shortId: newShortId(),
       userId,
       voterKey: userId ? null : voterKey,
-      visibility: normalizeVisibility(params.visibility ?? "PUBLIC"),
+      visibility: clampMatureVisibility(normalizeVisibility(params.visibility ?? "PUBLIC"), mature),
       altText: params.altText,
-      mature: params.mature ?? false,
+      mature,
       deleteTokenHash: anonToken ? hashDeleteToken(anonToken) : null,
       postId: params.postId,
       parentMediaId: params.parentMediaId,

@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { newShortId } from "@/lib/ids";
 import { resolveGalleryPostVisibility } from "@/lib/gallery-visibility";
+import { clampMatureVisibility } from "@/lib/visibility";
 import { postInputSchema, slugifyTag } from "@/lib/validation";
 
 const schema = postInputSchema.extend({
@@ -33,10 +34,9 @@ export async function POST(req: Request) {
     where: { id: session.user.id },
     select: { defaultPostVisibility: true },
   });
-  const visibility = resolveGalleryPostVisibility(
-    parsed.data.visibility,
-    session.user.id,
-    user?.defaultPostVisibility,
+  const visibility = clampMatureVisibility(
+    resolveGalleryPostVisibility(parsed.data.visibility, session.user.id, user?.defaultPostVisibility),
+    media.some((m) => m.mature),
   );
 
   const aiRow = media.find((m) => m.aiGenerated);

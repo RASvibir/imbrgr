@@ -9,7 +9,7 @@ import { getActor } from "@/lib/request-identity";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { assertUserMayUpload } from "@/lib/user-guards";
 import { resolveGalleryPostVisibility } from "@/lib/gallery-visibility";
-import type { Visibility } from "@/lib/visibility";
+import { clampMatureVisibility, type Visibility } from "@/lib/visibility";
 import {
   maxBytesForMime,
   parseTags,
@@ -72,10 +72,9 @@ export async function POST(req: Request) {
     });
     userDefault = user?.defaultPostVisibility ?? null;
   }
-  const visibility: Visibility = resolveGalleryPostVisibility(
-    parsed.data.visibility,
-    session?.user?.id ?? null,
-    userDefault,
+  const visibility: Visibility = clampMatureVisibility(
+    resolveGalleryPostVisibility(parsed.data.visibility, session?.user?.id ?? null, userDefault),
+    mature,
   );
 
   try {

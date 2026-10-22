@@ -19,3 +19,14 @@ export function effectiveMediaVisibility(
   if (post) return normalizeVisibility(post.visibility);
   return normalizeVisibility(media.visibility);
 }
+
+/** Mature content may be shared by link but never listed publicly. */
+export function clampMatureVisibility(visibility: Visibility, mature: boolean): Visibility {
+  if (mature && visibility === "PUBLIC") return "UNLISTED";
+  return visibility;
+}
+
+/** Mature is sticky across versions: a derived media row stays mature if its parent is. */
+export function inheritMature(explicit: boolean | undefined, parentMature: boolean | undefined): boolean {
+  return Boolean(explicit) || Boolean(parentMature);
+}
