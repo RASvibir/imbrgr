@@ -120,7 +120,4 @@ export function resolveAiGenerationVisibility(params: {
   return "UNLISTED";
 }
 
-export function clampMatureVisibility(visibility: Visibility, mature: boolean): Visibility {
-  if (mature && visibility === "PUBLIC") return "UNLISTED";
-  return visibility;
-}
+export { clampMatureVisibility } from "@/lib/visibility";
