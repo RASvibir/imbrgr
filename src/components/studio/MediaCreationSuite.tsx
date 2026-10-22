@@ -210,7 +210,7 @@ export function MediaCreationSuite() {
       return;
     }
 
-    const pluginManager = new VideoPluginManager({ performanceMode: ecoFilter ? "eco" : "active" });
+    const pluginManager = new VideoPluginManager({ performanceMode: ecoFilter ? "active" : "eco" });
     if (ecoFilter) await pluginManager.registerPlugin(ecoRenderPlugin);
 
     const mime = pickRecorderMime();
