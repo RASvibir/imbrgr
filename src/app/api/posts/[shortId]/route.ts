@@ -9,6 +9,7 @@ import { getActor } from "@/lib/request-identity";
 import { slugifyTag } from "@/lib/validation";
 import { recordPostView } from "@/lib/post-views";
 import { onPostRestrictedAccess } from "@/lib/media-access-restrict";
+import { clampMatureVisibility } from "@/lib/ai/gallery-post";
 import { normalizeVisibility } from "@/lib/visibility";
 
 const patchSchema = z.object({
@@ -81,8 +82,10 @@ export async function PATCH(
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
 
+  const patchedMature = new Map((parsed.data.media ?? []).map((m) => [m.shortId, m.mature]));
+  const postHasMature = post.media.some((m) => patchedMature.get(m.shortId) ?? m.mature);
   const visibility = parsed.data.visibility
-    ? normalizeVisibility(parsed.data.visibility)
+    ? clampMatureVisibility(normalizeVisibility(parsed.data.visibility), postHasMature)
     : undefined;
 
   await prisma.post.update({

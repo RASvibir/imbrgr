@@ -80,6 +80,7 @@ export async function createGalleryPostForAiMedia(params: {
   visibility: Visibility;
   title: string;
   aiPrompt: string;
+  mature?: boolean;
 }) {
   if (params.mediaIds.length === 0) throw new Error("No media to publish");
 
@@ -99,6 +100,7 @@ export async function createGalleryPostForAiMedia(params: {
     data: {
       postId: post.id,
       visibility: params.visibility,
+      mature: params.mature ?? false,
     },
   });
 
@@ -116,4 +118,9 @@ export function resolveAiGenerationVisibility(params: {
   if (!params.matureRequested) return base;
   if (base === "PRIVATE") return "PRIVATE";
   return "UNLISTED";
+}
+
+export function clampMatureVisibility(visibility: Visibility, mature: boolean): Visibility {
+  if (mature && visibility === "PUBLIC") return "UNLISTED";
+  return visibility;
 }

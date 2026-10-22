@@ -11,6 +11,7 @@ import { onPostRestrictedAccess, onStandaloneMediaRestricted } from "@/lib/media
 import { cleanupPostIfNoMedia } from "@/lib/post-cleanup";
 import { deleteMediaStorage } from "@/lib/media-storage";
 import { removeAnonymousStorage, removeUserStorage } from "@/lib/storage-quota";
+import { clampMatureVisibility } from "@/lib/ai/gallery-post";
 import { resolveGalleryPostVisibility } from "@/lib/gallery-visibility";
 import { normalizeVisibility } from "@/lib/visibility";
 
@@ -78,10 +79,9 @@ export async function PATCH(
   if (!parsed.success) return NextResponse.json({ error: "Invalid settings" }, { status: 400 });
 
   if (parsed.data.visibility) {
-    parsed.data.visibility = resolveGalleryPostVisibility(
-      parsed.data.visibility,
-      actor.userId,
-    );
+    const resolved = resolveGalleryPostVisibility(parsed.data.visibility, actor.userId);
+    const anyMature = parsed.data.mature ?? (media.mature || (media.post ? await prisma.media.count({ where: { postId: media.post.id, mature: true } }) > 0 : false));
+    parsed.data.visibility = clampMatureVisibility(resolved, Boolean(anyMature));
   }
 
   if (!media.postId && parsed.data.visibility) {
