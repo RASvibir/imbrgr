@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { PostMediaImage } from "@/components/media/PostMediaImage";
 import { mediaUrl } from "@/lib/urls";
 
@@ -27,12 +30,43 @@ export function PostCard({
   post: PostCardData;
   thumbVariant?: "sm" | "md";
 }) {
+  const [copied, setCopied] = useState(false);
   const thumb = post.media[0];
   const src = thumb && thumb.mimeType.startsWith("video/") ? mediaUrl(thumb.storageKey, thumb.mimeType) : null;
+
+  const handleQuickShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}/p/${post.shortId}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: post.title, url });
+        return;
+      } catch {
+        /* dismissed */
+      }
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleQuickDownload = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!thumb) return;
+    const downloadSrc = mediaUrl(thumb.storageKey, thumb.mimeType);
+    const a = document.createElement("a");
+    a.href = downloadSrc;
+    const ext = thumb.mimeType.split("/")[1] || (thumb.mimeType.startsWith("video/") ? "webm" : "jpg");
+    a.download = `imbrgr-${post.shortId}.${ext}`;
+    a.click();
+  };
+
   return (
     <Link
       href={`/p/${post.shortId}`}
-      className="group overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition hover:border-[var(--accent-primary)] hover:shadow-[var(--shadow-ember)]"
+      className="group relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition hover:border-[var(--accent-primary)] hover:shadow-[var(--shadow-ember)]"
     >
       <div className="relative aspect-video bg-[var(--surface-sunken)]">
         {post.aiGenerated ? (
@@ -40,6 +74,31 @@ export function PostCard({
             AI
           </span>
         ) : null}
+
+        {/* Quick Action Overlay (Share & Download) */}
+        <div className="absolute right-2 top-2 z-20 flex items-center gap-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+          <button
+            type="button"
+            onClick={handleQuickShare}
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition hover:bg-[var(--accent-primary)] hover:text-[var(--on-accent)]"
+            title={copied ? "Copied link!" : "Share post"}
+            aria-label="Share post"
+          >
+            {copied ? "✓" : "🔗"}
+          </button>
+          {thumb ? (
+            <button
+              type="button"
+              onClick={handleQuickDownload}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition hover:bg-[var(--accent-primary)] hover:text-[var(--on-accent)]"
+              title="Download media"
+              aria-label="Download media"
+            >
+              💾
+            </button>
+          ) : null}
+        </div>
+
         {thumb ? (
           thumb.mimeType.startsWith("video/") && src ? (
             <video src={src} className="h-full w-full object-cover" muted playsInline />

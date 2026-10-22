@@ -24,6 +24,16 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
         <Link href="/create" className={`${headerNavLinkAccentClass} inline-flex`}>
           Create
         </Link>
+        <Link
+          href="/studio?tab=video"
+          className={`${headerNavLinkClass} inline-flex items-center gap-1 text-xs`}
+          title="AI Video Studio (pacNcap Engine)"
+        >
+          <span>Video Studio</span>
+          <span className="rounded-full bg-[var(--accent-primary)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent-primary)]">
+            ⚡
+          </span>
+        </Link>
       </div>
       <Link href="/tags" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
         Tags
@@ -43,6 +53,9 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
               Admin
             </Link>
           ) : null}
+          <Link href="/library" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
+            Library
+          </Link>
           <Link href="/settings" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
             Settings
           </Link>

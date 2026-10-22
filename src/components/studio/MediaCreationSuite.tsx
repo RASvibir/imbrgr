@@ -104,6 +104,8 @@ export function MediaCreationSuite() {
   const [postTags, setPostTags] = useState("video, ai, creative");
   const [publishing, setPublishing] = useState(false);
   const [publishedShortId, setPublishedShortId] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState<string | null>(null);
+  const [shareToast, setShareToast] = useState("");
 
   // pacNcap Plugin Manager
   const pluginManager = useMemo(() => {
@@ -673,30 +675,40 @@ export function MediaCreationSuite() {
                             </span>
                           </div>
                           <p className="mt-1 truncate font-medium text-[11px]">{asset.name}</p>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newClip: VisualClip = {
-                                id: `clip-${asset.id}-${Date.now()}`,
-                                trackId: "visual-1",
-                                assetId: asset.id,
-                                url: asset.url,
-                                name: asset.name,
-                                kind: asset.kind as "image" | "video" | "gif",
-                                startSec: 0,
-                                endSec: asset.durationSec,
-                                sourceStartSec: 0,
-                                sourceDurationSec: asset.durationSec,
-                                motion: asset.kind === "image" ? "zoom-in" : undefined,
-                                transition: "fade",
-                                transitionDurationSec: 0.5,
-                              };
-                              handleAddVisualClip(newClip);
-                            }}
-                            className={`${btnSecondary} mt-2 w-full py-1 text-[11px]`}
-                          >
-                            + Insert on Timeline
-                          </button>
+                          <div className="mt-2 flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newClip: VisualClip = {
+                                  id: `clip-${asset.id}-${Date.now()}`,
+                                  trackId: "visual-1",
+                                  assetId: asset.id,
+                                  url: asset.url,
+                                  name: asset.name,
+                                  kind: asset.kind as "image" | "video" | "gif",
+                                  startSec: 0,
+                                  endSec: asset.durationSec,
+                                  sourceStartSec: 0,
+                                  sourceDurationSec: asset.durationSec,
+                                  motion: asset.kind === "image" ? "zoom-in" : undefined,
+                                  transition: "fade",
+                                  transitionDurationSec: 0.5,
+                                };
+                                handleAddVisualClip(newClip);
+                              }}
+                              className={`${btnSecondary} flex-1 py-1 text-[11px]`}
+                            >
+                              + Insert
+                            </button>
+                            <a
+                              href={asset.url}
+                              download={asset.name}
+                              className="inline-flex items-center justify-center rounded-lg border border-[var(--border-strong)] bg-[var(--surface-base)] px-2.5 py-1 text-[11px] hover:border-[var(--accent-primary)] hover:text-[var(--accent-primary)]"
+                              title="Download asset"
+                            >
+                              💾
+                            </a>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -729,7 +741,7 @@ export function MediaCreationSuite() {
             {activeToolboxTab === "export" && (
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--accent-primary)]">
-                  🚀 Export & One-Click Gallery Publishing
+                  🚀 Export, Download & Share
                 </h3>
 
                 {exporting ? (
@@ -755,17 +767,62 @@ export function MediaCreationSuite() {
                 ) : null}
 
                 {exportUrl ? (
-                  <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-3">
+                  <div className="space-y-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-3.5">
                     <video src={exportUrl} controls className="max-h-48 w-full rounded-lg bg-black" />
-                    <div className="flex gap-2">
+                    
+                    {/* Primary Action Buttons: Download & Native Share Video File */}
+                    <div className="flex flex-wrap gap-2">
                       <a
                         href={exportUrl}
-                        download="imbrgr-video.webm"
-                        className={`${btnSecondary} flex-1 text-center py-1.5 text-xs font-semibold`}
+                        download={`imbrgr-${(postTitle || "video").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.webm`}
+                        className={`${btnPrimary} flex-1 text-center py-2 text-xs font-semibold`}
                       >
-                        💾 Download WebM
+                        💾 Download WebM {exportedBlob ? `(${(exportedBlob.size / 1024 / 1024).toFixed(1)} MB)` : ""}
                       </a>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!exportedBlob) return;
+                          try {
+                            const file = new File([exportedBlob], "imbrgr-video.webm", {
+                              type: exportedBlob.type || "video/webm",
+                            });
+                            if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })) {
+                              await navigator.share({
+                                title: postTitle || "imbrgr AI Video",
+                                text: "Check out this video made on imbrgr!",
+                                files: [file],
+                              });
+                              setShareToast("Shared video successfully!");
+                              setTimeout(() => setShareToast(""), 3500);
+                              return;
+                            }
+                          } catch {
+                            /* user dismissed share dialog */
+                          }
+                          // Fallback to clipboard if file sharing is not supported by device
+                          if (publishedShortId) {
+                            const pageUrl = `${window.location.origin}/p/${publishedShortId}`;
+                            await navigator.clipboard.writeText(pageUrl);
+                            setShareCopied("published-link");
+                            setShareToast("Post link copied to clipboard!");
+                            setTimeout(() => { setShareCopied(null); setShareToast(""); }, 3500);
+                          } else {
+                            setShareToast("Video ready! Click 'Download WebM' or publish below to get a public link.");
+                            setTimeout(() => setShareToast(""), 4000);
+                          }
+                        }}
+                        className={`${btnSecondary} flex-1 py-2 text-xs font-semibold`}
+                      >
+                        🔗 Share Video File
+                      </button>
                     </div>
+
+                    {shareToast ? (
+                      <p className="rounded-lg bg-[var(--accent-primary)]/10 p-2 text-center text-xs font-semibold text-[var(--accent-primary)]" role="status">
+                        {shareToast}
+                      </p>
+                    ) : null}
 
                     {/* Gallery Publishing Form */}
                     <div className="border-t border-[var(--border-subtle)] pt-3 space-y-2">
@@ -776,7 +833,7 @@ export function MediaCreationSuite() {
                           type="text"
                           value={postTitle}
                           onChange={(e) => setPostTitle(e.target.value)}
-                          className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+                          className="mt-0.5 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1 text-xs"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -786,15 +843,15 @@ export function MediaCreationSuite() {
                             type="text"
                             value={postTags}
                             onChange={(e) => setPostTags(e.target.value)}
-                            className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+                            className="mt-0.5 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1 text-xs"
                           />
                         </div>
                         <div>
                           <label className="text-[11px] text-[var(--text-muted)]">Visibility</label>
                           <select
                             value={postVisibility}
-                            onChange={(e) => setPostVisibility(e.target.value as any)}
-                            className="mt-0.5 w-full rounded border px-2 py-1 text-xs"
+                            onChange={(e) => setPostVisibility(e.target.value as "PUBLIC" | "UNLISTED" | "PRIVATE")}
+                            className="mt-0.5 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1 text-xs"
                           >
                             <option value="PUBLIC">Public</option>
                             <option value="UNLISTED">Unlisted</option>
@@ -813,14 +870,85 @@ export function MediaCreationSuite() {
                       </button>
 
                       {publishedShortId ? (
-                        <div className="rounded-lg bg-[var(--surface-base)] p-2 text-center text-xs">
-                          🎉 Published!{" "}
-                          <Link
-                            href={`/p/${publishedShortId}`}
-                            className="text-[var(--accent-primary)] font-bold underline"
-                          >
-                            View Post /p/{publishedShortId} →
-                          </Link>
+                        <div className="space-y-2.5 rounded-xl border border-[var(--border-strong)] bg-[var(--surface-base)] p-3 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-[var(--accent-primary)]">🎉 Published to Gallery!</span>
+                            <span className="rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[10px] text-[var(--text-muted)]">
+                              {postVisibility}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const url = `${window.location.origin}/p/${publishedShortId}`;
+                                await navigator.clipboard.writeText(url);
+                                setShareCopied("post-link");
+                                setShareToast("Post URL copied!");
+                                setTimeout(() => { setShareCopied(null); setShareToast(""); }, 3000);
+                              }}
+                              className={`${btnSecondary} flex-1 py-1.5 text-xs font-semibold`}
+                            >
+                              {shareCopied === "post-link" ? "✓ Copied!" : "📋 Copy Link"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const url = `${window.location.origin}/p/${publishedShortId}`;
+                                if (navigator.share) {
+                                  try {
+                                    await navigator.share({
+                                      title: postTitle || "imbrgr AI Video",
+                                      url,
+                                    });
+                                  } catch {
+                                    /* dismissed */
+                                  }
+                                } else {
+                                  await navigator.clipboard.writeText(url);
+                                  setShareCopied("post-link");
+                                  setShareToast("Link copied to clipboard!");
+                                  setTimeout(() => { setShareCopied(null); setShareToast(""); }, 3000);
+                                }
+                              }}
+                              className={`${btnSecondary} flex-1 py-1.5 text-xs font-semibold`}
+                            >
+                              🚀 Share Post
+                            </button>
+
+                            <Link
+                              href={`/p/${publishedShortId}`}
+                              className={`${btnPrimary} flex-1 text-center py-1.5 text-xs font-semibold`}
+                            >
+                              👁️ View Post →
+                            </Link>
+                          </div>
+
+                          <details className="mt-2 text-[11px] text-[var(--text-muted)]">
+                            <summary className="cursor-pointer font-medium hover:text-[var(--text-primary)]">
+                              Embed Codes & Direct Links
+                            </summary>
+                            <div className="mt-2 space-y-1.5">
+                              <div>
+                                <span className="block text-[10px]">HTML5 Video Embed:</span>
+                                <input
+                                  readOnly
+                                  value={`<video src="${typeof window !== "undefined" ? window.location.origin : ""}/p/${publishedShortId}" controls width="640"></video>`}
+                                  className="w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2 py-1 text-[10px]"
+                                />
+                              </div>
+                              <div>
+                                <span className="block text-[10px]">Markdown:</span>
+                                <input
+                                  readOnly
+                                  value={`[Watch ${postTitle || "Video"} on imbrgr](${typeof window !== "undefined" ? window.location.origin : ""}/p/${publishedShortId})`}
+                                  className="w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2 py-1 text-[10px]"
+                                />
+                              </div>
+                            </div>
+                          </details>
                         </div>
                       ) : null}
                     </div>

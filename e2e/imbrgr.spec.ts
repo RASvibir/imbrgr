@@ -42,7 +42,7 @@ test.describe("imbrgr e2e", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Main" });
-    const linkNames = ["Gallery", "Hot", "Studio", "Tags", "Search", "Sign in"];
+    const linkNames = ["Gallery", "Hot", "Create", "Tags", "Search", "Sign in"];
     const boxes = await Promise.all(
       linkNames.map((name) =>
         nav.getByRole("link", { name, exact: true }).boundingBox(),
@@ -55,7 +55,7 @@ test.describe("imbrgr e2e", () => {
 
   test("anonymous browse home and studio", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("link", { name: "Studio" }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Create" }).first()).toBeVisible();
     await expect(page.getByPlaceholder(/Describe an image, or drop one in to edit/i).first()).toBeVisible();
     await page.goto("/studio");
     await expect(page.getByRole("heading", { name: /Image studio/i })).toBeVisible();

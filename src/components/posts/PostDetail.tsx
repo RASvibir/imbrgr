@@ -235,6 +235,30 @@ export function PostDetail({ shortId }: { shortId: string }) {
           <button type="button" onClick={favorite} className="tap-target rounded-lg border px-3 py-1 text-sm" aria-label="Favorite">
             ★ Favorite
           </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (typeof navigator !== "undefined" && navigator.share) {
+                try {
+                  await navigator.share({
+                    title: post.title,
+                    url: window.location.href,
+                  });
+                  return;
+                } catch {
+                  /* dismissed */
+                }
+              }
+              await navigator.clipboard.writeText(window.location.href);
+              setMsg("Post link copied to clipboard!");
+              document.getElementById("share-links-section")?.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="tap-target flex items-center gap-1 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-raised)] px-3 py-1 text-sm font-semibold text-[var(--accent-primary)] hover:border-[var(--accent-primary)]"
+            aria-label="Share post"
+          >
+            <span>🔗</span>
+            <span>Share</span>
+          </button>
         </div>
       </div>
 
@@ -243,8 +267,10 @@ export function PostDetail({ shortId }: { shortId: string }) {
       <div className="space-y-4">
         {post.media.map((m) => {
           const src = mediaUrl(m.storageKey, m.mimeType);
+          const ext = m.mimeType.split("/")[1] || (m.mimeType.startsWith("video/") ? "webm" : "png");
+          const downloadName = `imbrgr-${post.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "media"}-${m.shortId}.${ext}`;
           return (
-            <div key={m.shortId} className="relative overflow-hidden rounded-xl border">
+            <div key={m.shortId} className="relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)]">
               {m.aiEdited ? (
                 <span className="absolute left-2 top-2 z-10 rounded bg-black/60 px-2 py-0.5 text-xs text-white">Edited here</span>
               ) : null}
@@ -253,16 +279,52 @@ export function PostDetail({ shortId }: { shortId: string }) {
               ) : (
                 <PostMediaImage media={m} variant="full" className="w-full" alt={m.altText ?? ""} />
               )}
-              {m.canRefine ? (
-                <div className="border-t border-[var(--border-subtle)] p-3">
-                  <Link
-                    href={`/studio?tab=refine&media=${m.shortId}`}
-                    className="inline-flex rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
+              {/* Media Action Toolbar: Download, Share & Refine for All Viewers */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={src}
+                    download={downloadName}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--accent-primary)]"
                   >
-                    Refine in studio
-                  </Link>
+                    <span>💾</span>
+                    <span>Download original</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const fullUrl = `${window.location.origin}${src}`;
+                      await navigator.clipboard.writeText(fullUrl);
+                      setMsg("Direct media link copied!");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  >
+                    <span>🔗</span>
+                    <span>Copy link</span>
+                  </button>
                 </div>
-              ) : null}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {!m.mimeType.startsWith("video/") ? (
+                    <Link
+                      href={`/studio?tab=video&media=${m.shortId}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-primary)] hover:border-[var(--accent-primary)]"
+                      title="Animate in AI Video Studio"
+                    >
+                      <span>🎬</span>
+                      <span>Animate in Video Studio</span>
+                    </Link>
+                  ) : null}
+                  {m.canRefine ? (
+                    <Link
+                      href={`/studio?tab=refine&media=${m.shortId}`}
+                      className="inline-flex rounded-lg bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)]"
+                    >
+                      Refine in studio
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
             </div>
           );
         })}
@@ -285,7 +347,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
       ) : null}
 
       {publicShare ? (
-        <>
+        <div id="share-links-section">
           <ShareLinks title="Share & embed" share={publicShare} />
           {session?.user?.id === post.userId ? (
             <FieldPressInvite
@@ -294,7 +356,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
               title={post.title}
             />
           ) : null}
-        </>
+        </div>
       ) : null}
 
       {session?.user?.id === post.userId && ownerSettings ? (

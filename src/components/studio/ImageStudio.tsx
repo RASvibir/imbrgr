@@ -603,6 +603,48 @@ export function ImageStudio({
             fieldPressVisibility={mediaVisibility}
             fieldPressTitle={settings.title}
           />
+          {/* Quick Action Toolbar for Download, Share & Video Bridge */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = preview;
+                a.download = `imbrgr-${asset.shortId}.${asset.mimeType.split("/")[1] || "png"}`;
+                a.click();
+                setMsg("Downloading image…");
+              }}
+              className={`${btnSecondary} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}
+            >
+              <span>💾</span>
+              <span>Download Image</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab("share")}
+              className={`${btnSecondary} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}
+            >
+              <span>🔗</span>
+              <span>Share Links</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab("media")}
+              className={`${btnPrimary} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold shadow-[var(--shadow-ember)]`}
+              title="Animate this image in AI Video Studio"
+            >
+              <span>🎬</span>
+              <span>Animate in Video Studio ⚡</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className={`${btnSecondary} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}
+            >
+              <span>✏️</span>
+              <span>Spot Eraser</span>
+            </button>
+          </div>
           <StudioVersionStrip
             mediaShortId={asset.shortId}
             refreshKey={versionRefreshKey}
@@ -773,6 +815,15 @@ export function ImageStudio({
                 <button type="button" onClick={saveMediaSettings} className={btnSecondary}>
                   Save details
                 </button>
+                {preview ? (
+                  <a
+                    href={preview}
+                    download={`imbrgr-${asset.shortId}.${asset.mimeType.split("/")[1] || "png"}`}
+                    className={`${btnSecondary} inline-flex items-center gap-1.5`}
+                  >
+                    💾 Download Image
+                  </a>
+                ) : null}
                 {signedIn ? (
                   <button
                     type="button"

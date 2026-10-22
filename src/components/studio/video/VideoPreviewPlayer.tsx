@@ -311,6 +311,23 @@ export function VideoPreviewPlayer({
         >
           +0.5s ⏩
         </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const dataUrl = canvas.toDataURL("image/png");
+            const a = document.createElement("a");
+            a.href = dataUrl;
+            a.download = `imbrgr-snapshot-${currentTimeSec.toFixed(1)}s.png`;
+            a.click();
+          }}
+          className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--accent-primary)]"
+          title="Download snapshot of current frame"
+        >
+          📸 Snapshot
+        </button>
       </div>
     </div>
   );

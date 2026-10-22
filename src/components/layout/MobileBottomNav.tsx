@@ -67,13 +67,43 @@ export function MobileBottomNav() {
       <MobileBottomSheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
         <ul className="space-y-1 text-base" data-testid="mobile-nav-menu">
           <li>
+            <Link
+              href="/studio?tab=video"
+              className="tap-target flex items-center justify-between rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+            >
+              <span>🎬 AI Video Studio</span>
+              <span className="rounded-full bg-[var(--accent-primary)]/20 px-2 py-0.5 text-[10px] font-bold text-[var(--accent-primary)]">
+                pacNcap
+              </span>
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/studio"
+              className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+            >
+              ✨ AI Image Studio
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/library"
+              className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+            >
+              📁 My Library
+            </Link>
+          </li>
+          <li>
             <Link href="/tags" className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]" onClick={() => setMoreOpen(false)}>
-              Tags
+              🏷️ Tags
             </Link>
           </li>
           <li>
             <Link href="/upload" className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]" onClick={() => setMoreOpen(false)}>
-              Multi-image upload
+              📤 Multi-image upload
             </Link>
           </li>
           <li>

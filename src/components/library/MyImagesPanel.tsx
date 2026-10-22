@@ -229,11 +229,48 @@ export function MyImagesPanel({
                   <Link
                     key={s.shortId}
                     href={`/studio?tab=refine&media=${s.media.shortId}`}
-                    className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] hover:border-[var(--accent-primary)]/40"
+                    className="group/lib relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] hover:border-[var(--accent-primary)]/40"
                     data-testid={`library-save-${s.shortId}`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={s.media.previewUrl} alt="" className="aspect-square w-full object-cover" />
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={s.media.previewUrl} alt="" className="aspect-square w-full object-cover" />
+                      
+                      {/* Quick Action Overlay (Download & Copy Link) */}
+                      <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5 opacity-0 transition-opacity duration-150 group-hover/lib:opacity-100 focus-within:opacity-100">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const a = document.createElement("a");
+                            a.href = s.media.previewUrl;
+                            const ext = s.media.mimeType.split("/")[1] || "png";
+                            a.download = `imbrgr-${s.media.shortId}.${ext}`;
+                            a.click();
+                          }}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition hover:bg-[var(--accent-primary)] hover:text-[var(--on-accent)]"
+                          title="Download image"
+                          aria-label="Download image"
+                        >
+                          💾
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const url = `${window.location.origin}/studio?tab=refine&media=${s.media.shortId}`;
+                            await navigator.clipboard.writeText(url);
+                          }}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition hover:bg-[var(--accent-primary)] hover:text-[var(--on-accent)]"
+                          title="Copy link"
+                          aria-label="Copy link"
+                        >
+                          🔗
+                        </button>
+                      </div>
+                    </div>
                     {caption || s.autoSaved ? (
                       <div className="flex min-w-0 items-center gap-2 px-2 py-1.5">
                         {caption ? (
