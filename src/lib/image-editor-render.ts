@@ -1,3 +1,5 @@
+import { applyFunFilter, isFunFilter } from "@/lib/fun-filters";
+
 export type SpotFix = { nx: number; ny: number };
 
 export type ImageEditState = {
@@ -55,6 +57,10 @@ export const SLIDER_DEFAULTS: Record<SliderKey, number> = {
 
 /** Pixel filters applied after draw (export + live preview). */
 export function applyPixelFilter(imageData: ImageData, filter: string): void {
+  if (isFunFilter(filter)) {
+    applyFunFilter(imageData, filter);
+    return;
+  }
   const d = imageData.data;
   for (let i = 0; i < d.length; i += 4) {
     if (filter === "mono") {
@@ -263,7 +269,7 @@ export async function renderEditedImageCanvas(
   );
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-  let pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
   if (state.filter !== "none") {
     applyPixelFilter(pixels, state.filter);
   }

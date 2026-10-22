@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
+import { FUN_FILTERS } from "@/lib/fun-filters";
 import {
   AUTO_ENHANCE_EDIT,
   DEFAULT_IMAGE_EDIT_STATE,
@@ -40,6 +41,7 @@ const FILTERS = [
   { id: "ember", label: "Ember" },
   { id: "mono", label: "Mono" },
   { id: "vivid", label: "Vivid" },
+  ...FUN_FILTERS.map((f) => ({ id: f.id, label: `${f.emoji} ${f.label}` })),
 ];
 
 const SLIDERS: { key: SliderKey; label: string; min: number; max: number }[] = [
@@ -84,24 +86,31 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   const editStateRef = useRef<ImageEditState>(DEFAULT_IMAGE_EDIT_STATE);
   const previewGen = useRef(0);
   const historyRef = useRef(history);
-  historyRef.current = history;
   const histIdxRef = useRef(histIdx);
-  histIdxRef.current = histIdx;
   const toolRef = useRef<EditorTool>(tool);
-  toolRef.current = tool;
 
-  useEffect(() => {
+  // Reset editor state when a new source image arrives (adjust state during render, not in an effect).
+  const [prevImageSrc, setPrevImageSrc] = useState(imageSrc);
+  if (prevImageSrc !== imageSrc) {
+    setPrevImageSrc(imageSrc);
     setWorkingSrc(imageSrc);
     setHistory(initialEditorHistory());
     setHistIdx(0);
     setSliderDraft(null);
     setTool("move");
-  }, [imageSrc]);
+  }
 
   const committed = history[histIdx]?.edit ?? DEFAULT_IMAGE_EDIT_STATE;
   const editState: ImageEditState = { ...committed, ...sliderDraft };
-  editStateRef.current = editState;
   const editStateKey = JSON.stringify(editState);
+
+  // Mirror latest render values into refs for event handlers (refs must not be written during render).
+  useEffect(() => {
+    historyRef.current = history;
+    histIdxRef.current = histIdx;
+    toolRef.current = tool;
+    editStateRef.current = editState;
+  });
 
   const pushHistory = useCallback((nextEdit: ImageEditState, drawDataUrl: string | null) => {
     setSliderDraft(null);
