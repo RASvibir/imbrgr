@@ -27,15 +27,63 @@ export type ExportOptions = {
   signal: AbortSignal;
 };
 
-export type ExportResult = { blob: Blob; mime: string };
+export type ExportResult = { blob: Blob; mime: string; warnings: string[] };
 
 type Rect = { x: number; y: number; width: number; height: number };
+
+type GifTrack = { frames: ImageBitmap[]; starts: number[]; totalSec: number };
 
 type LoadedVisuals = {
   videos: Map<string, HTMLVideoElement>;
   images: Map<string, HTMLImageElement>;
+  gifs: Map<string, GifTrack>;
+  warnings: string[];
   dispose: () => void;
 };
+
+const MAX_GIF_FRAMES = 300;
+
+async function decodeGif(url: string): Promise<GifTrack | null> {
+  const Decoder = (globalThis as { ImageDecoder?: new (init: { data: ArrayBuffer; type: string }) => ImageDecoderLike }).ImageDecoder;
+  if (!Decoder) return null;
+  try {
+    const data = await (await fetch(url)).arrayBuffer();
+    const decoder = new Decoder({ data, type: "image/gif" });
+    await decoder.tracks.ready;
+    const count = Math.min(decoder.tracks.selectedTrack?.frameCount ?? 0, MAX_GIF_FRAMES);
+    if (count < 2) return null;
+    const frames: ImageBitmap[] = [];
+    const starts: number[] = [];
+    let t = 0;
+    for (let i = 0; i < count; i++) {
+      const { image } = await decoder.decode({ frameIndex: i });
+      starts.push(t);
+      t += Math.max(0.02, (image.duration ?? 100000) / 1_000_000);
+      frames.push(await createImageBitmap(image));
+      image.close();
+    }
+    decoder.close();
+    return { frames, starts, totalSec: t };
+  } catch {
+    return null;
+  }
+}
+
+type ImageDecoderLike = {
+  tracks: { ready: Promise<unknown>; selectedTrack?: { frameCount: number } | null };
+  decode: (opts: { frameIndex: number }) => Promise<{ image: VideoFrame }>;
+  close: () => void;
+};
+
+function gifFrameAt(track: GifTrack, elapsedSec: number): ImageBitmap {
+  const t = elapsedSec % track.totalSec;
+  let idx = 0;
+  for (let i = 0; i < track.starts.length; i++) {
+    if (track.starts[i] <= t) idx = i;
+    else break;
+  }
+  return track.frames[idx];
+}
 
 export function pickRecorderMime(): string | null {
   if (typeof MediaRecorder === "undefined") return null;
@@ -68,8 +116,20 @@ export function drawCover(
 async function loadVisuals(visual: ExportAsset[]): Promise<LoadedVisuals> {
   const videos = new Map<string, HTMLVideoElement>();
   const images = new Map<string, HTMLImageElement>();
+  const gifs = new Map<string, GifTrack>();
+  const warnings: string[] = [];
 
   for (const asset of visual) {
+    if (asset.kind === "gif") {
+      const track = await decodeGif(asset.url);
+      if (track) {
+        gifs.set(asset.id, track);
+        continue;
+      }
+      if (!warnings.includes("GIF")) {
+        warnings.push("GIF");
+      }
+    }
     if (asset.kind === "video") {
       const v = document.createElement("video");
       v.muted = true;
@@ -100,9 +160,10 @@ async function loadVisuals(visual: ExportAsset[]): Promise<LoadedVisuals> {
       v.removeAttribute("src");
       v.load();
     });
+    gifs.forEach((g) => g.frames.forEach((f) => f.close()));
   };
 
-  return { videos, images, dispose };
+  return { videos, images, gifs, warnings, dispose };
 }
 
 function drawVisuals(
@@ -111,6 +172,7 @@ function drawVisuals(
   rects: Rect[],
   loaded: LoadedVisuals,
   opts: ExportOptions,
+  elapsedSec: number,
 ) {
   for (let i = 0; i < visual.length; i++) {
     const asset = visual[i];
@@ -125,6 +187,9 @@ function drawVisuals(
         video.currentTime = asset.startSec;
       }
       drawCover(ctx, video, video.videoWidth, video.videoHeight, rect, opts.fit);
+    } else if (asset.kind === "gif" && loaded.gifs.has(asset.id)) {
+      const frame = gifFrameAt(loaded.gifs.get(asset.id)!, elapsedSec);
+      drawCover(ctx, frame, frame.width, frame.height, rect, opts.fit);
     } else {
       const img = loaded.images.get(asset.id);
       if (img) drawCover(ctx, img, img.width, img.height, rect, opts.fit);
@@ -170,7 +235,12 @@ export async function exportMedia(opts: ExportOptions): Promise<ExportResult | n
     recorder.onstop = () => {
       loaded.dispose();
       void pluginManager.unloadPlugin(ecoRenderPlugin.metadata.id);
-      resolve(opts.signal.aborted ? null : { blob: new Blob(chunks, { type: mime.split(";")[0] }), mime });
+      const warnings = loaded.warnings.map(
+        () => "Animated GIF export needs a Chromium-based browser; GIFs were exported as a still frame.",
+      );
+      resolve(
+        opts.signal.aborted ? null : { blob: new Blob(chunks, { type: mime.split(";")[0] }), mime, warnings },
+      );
     };
   });
 
@@ -187,7 +257,7 @@ export async function exportMedia(opts: ExportOptions): Promise<ExportResult | n
 
     ctx.fillStyle = opts.bgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawVisuals(ctx, visual, rects, loaded, opts);
+    drawVisuals(ctx, visual, rects, loaded, opts, elapsedSec);
 
     if (opts.ecoFilter) {
       const frame = ctx.getImageData(0, 0, canvas.width, canvas.height);

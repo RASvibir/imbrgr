@@ -210,11 +210,11 @@ export function MediaCreationSuite() {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(result.blob);
       });
-      setStatus(
-        audioAssets.length > 0
-          ? "Export complete. Audio tracks are imported for preview only and are not yet baked into browser exports."
-          : "Export complete.",
-      );
+      const notes = [...result.warnings];
+      if (audioAssets.length > 0) {
+        notes.push("Audio tracks are imported for preview only and are not yet baked into browser exports.");
+      }
+      setStatus(["Export complete.", ...notes].join(" "));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Export failed.");
     } finally {
@@ -239,7 +239,7 @@ export function MediaCreationSuite() {
         </label>
         <div className="rounded-lg border p-4 text-sm text-[var(--text-muted)]">
           <p>Privacy first: files stay local in your browser while editing.</p>
-          <p className="mt-1">GIF export is browser-limited here, so WebM export is the reliable fallback.</p>
+          <p className="mt-1">Exports as WebM. Animated GIFs are preserved in Chromium-based browsers.</p>
         </div>
       </div>
 
