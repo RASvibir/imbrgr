@@ -34,10 +34,52 @@ function toKind(file: File): AssetKind | null {
   return null;
 }
 
-async function readDurationSec(_file: File, kind: AssetKind): Promise<number> {
+async function readDurationSec(file: File, kind: AssetKind): Promise<number> {
   if (kind === "image" || kind === "gif") return 2.5;
   if (kind === "audio") return 6;
-  return 6;
+  return await new Promise<number>((resolve) => {
+    const el = document.createElement("video");
+    const blobUrl = URL.createObjectURL(file);
+    const done = (value: number) => {
+      el.removeAttribute("src");
+      el.load();
+      URL.revokeObjectURL(blobUrl);
+      resolve(value);
+    };
+    el.preload = "metadata";
+    el.muted = true;
+    el.onloadedmetadata = () =>
+      done(Number.isFinite(el.duration) && el.duration > 0 ? Math.min(el.duration, 120) : 6);
+    el.onerror = () => done(6);
+    el.src = blobUrl;
+  });
+}
+
+function pickRecorderMime(): string | null {
+  const candidates = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"];
+  return candidates.find((m) => MediaRecorder.isTypeSupported(m)) ?? null;
+}
+
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  source: CanvasImageSource,
+  sw: number,
+  sh: number,
+  rect: { x: number; y: number; width: number; height: number },
+  fit: "contain" | "cover",
+) {
+  if (!sw || !sh) return;
+  if (fit === "contain") {
+    const ratio = Math.min(rect.width / sw, rect.height / sh);
+    const w = Math.max(1, Math.floor(sw * ratio));
+    const h = Math.max(1, Math.floor(sh * ratio));
+    ctx.drawImage(source, rect.x + Math.floor((rect.width - w) / 2), rect.y + Math.floor((rect.height - h) / 2), w, h);
+    return;
+  }
+  const ratio = Math.max(rect.width / sw, rect.height / sh);
+  const cw = rect.width / ratio;
+  const ch = rect.height / ratio;
+  ctx.drawImage(source, (sw - cw) / 2, (sh - ch) / 2, cw, ch, rect.x, rect.y, rect.width, rect.height);
 }
 
 export function MediaCreationSuite() {
@@ -168,11 +210,16 @@ export function MediaCreationSuite() {
       return;
     }
 
-    const pluginManager = new VideoPluginManager({ performanceMode: ecoFilter ? "active" : "eco" });
+    const pluginManager = new VideoPluginManager({ performanceMode: ecoFilter ? "eco" : "active" });
     if (ecoFilter) await pluginManager.registerPlugin(ecoRenderPlugin);
 
+    const mime = pickRecorderMime();
+    if (!mime) {
+      setError("This browser cannot record video from the editor. Try a Chromium-based browser.");
+      return;
+    }
     const stream = canvas.captureStream(24);
-    const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
+    const recorder = new MediaRecorder(stream, { mimeType: mime });
     const chunks: BlobPart[] = [];
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.push(event.data);
@@ -191,6 +238,9 @@ export function MediaCreationSuite() {
           v.onloadedmetadata = () => resolve();
           v.onerror = () => resolve();
         });
+        v.loop = true;
+        v.currentTime = asset.startSec;
+        void v.play().catch(() => undefined);
         videos.set(asset.id, v);
       } else {
         const img = new Image();
@@ -225,35 +275,20 @@ export function MediaCreationSuite() {
         const asset = visualAssets[i];
         const rect = rects[i];
         if (!rect) continue;
-        const localDuration = Math.max(0.05, asset.endSec - asset.startSec);
-        const t = asset.startSec + (elapsedSec % localDuration);
         const alpha = layout === "overlay" ? Math.max(0.2, 1 - (i * transitionSec) / 3) : 1;
         ctx.globalAlpha = alpha;
 
         if (asset.kind === "video") {
           const video = videos.get(asset.id);
           if (video) {
-            try {
-              if (Math.abs(video.currentTime - t) > 0.1) video.currentTime = t;
-            } catch {
-              // ignored
+            if (video.currentTime < asset.startSec || video.currentTime > asset.endSec) {
+              video.currentTime = asset.startSec;
             }
-            ctx.drawImage(video, rect.x, rect.y, rect.width, rect.height);
+            drawCover(ctx, video, video.videoWidth, video.videoHeight, rect, fit);
           }
         } else {
           const img = images.get(asset.id);
-          if (img) {
-            if (fit === "contain") {
-              const ratio = Math.min(rect.width / img.width, rect.height / img.height);
-              const drawW = Math.max(1, Math.floor(img.width * ratio));
-              const drawH = Math.max(1, Math.floor(img.height * ratio));
-              const x = rect.x + Math.floor((rect.width - drawW) / 2);
-              const y = rect.y + Math.floor((rect.height - drawH) / 2);
-              ctx.drawImage(img, x, y, drawW, drawH);
-            } else {
-              ctx.drawImage(img, rect.x, rect.y, rect.width, rect.height);
-            }
-          }
+          if (img) drawCover(ctx, img, img.width, img.height, rect, fit);
         }
       }
       ctx.globalAlpha = 1;
@@ -272,9 +307,12 @@ export function MediaCreationSuite() {
     void drawFrame();
 
     recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: "video/webm" });
-      if (exportUrl) URL.revokeObjectURL(exportUrl);
-      setExportUrl(URL.createObjectURL(blob));
+      videos.forEach((v) => v.pause());
+      const blob = new Blob(chunks, { type: mime.split(";")[0] });
+      setExportUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
       if (audioAssets.length > 0) {
         setStatus("Export complete. Audio tracks are imported for preview only and are not yet baked into browser exports.");
       }
