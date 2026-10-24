@@ -193,5 +193,38 @@ describe("photo-filters library", () => {
       expect(img.data[5]).toBe(220);
       expect(img.data[6]).toBe(230);
     });
+
+    it("applyBloomGlow brightens areas around high-luminance highlights and leaves below-threshold intact", () => {
+      // 1. Below threshold: image should remain unchanged
+      const darkImg = makeTestImage(20, 20);
+      darkImg.data.fill(100);
+      for (let i = 3; i < darkImg.data.length; i += 4) darkImg.data[i] = 255;
+      const darkBefore = new Uint8ClampedArray(darkImg.data);
+
+      applyBloomGlow(darkImg, 185, 3, 0.5);
+      expect(Array.from(darkImg.data)).toEqual(Array.from(darkBefore));
+
+      // 2. High-luminance highlight in center of dark image causes adjacent pixels to brighten
+      const spotImg = makeTestImage(21, 21);
+      spotImg.data.fill(0);
+      for (let i = 3; i < spotImg.data.length; i += 4) spotImg.data[i] = 255;
+
+      // Put a bright 255 spot at center (10, 10)
+      const centerIdx = (10 * 21 + 10) * 4;
+      spotImg.data[centerIdx] = 255;
+      spotImg.data[centerIdx + 1] = 255;
+      spotImg.data[centerIdx + 2] = 255;
+
+      // An adjacent pixel (10, 11) is initially 0
+      const neighborIdx = (10 * 21 + 11) * 4;
+      expect(spotImg.data[neighborIdx]).toBe(0);
+
+      applyBloomGlow(spotImg, 185, 3, 0.8);
+
+      // Neighbor pixel should now have glow > 0
+      expect(spotImg.data[neighborIdx]).toBeGreaterThan(0);
+      // Center pixel should still be bright
+      expect(spotImg.data[centerIdx]).toBe(255);
+    });
   });
 });

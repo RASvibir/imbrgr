@@ -93,10 +93,6 @@ export function FiltersToolClient() {
   const isDraggingSplitRef = useRef<boolean>(false);
   const splitContainerRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    console.log("FiltersToolClient mounted successfully");
-  }, []);
-
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const showToast = useCallback((msg: string) => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
