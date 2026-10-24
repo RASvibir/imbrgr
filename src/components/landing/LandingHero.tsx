@@ -223,7 +223,7 @@ export function LandingHero() {
               data-testid="hero-mobile-upload"
             >
               <div className="flex items-center gap-3">
-                <span className="text-3xl">🍔</span>
+                <EmberBurgerHero compact className="shrink-0" />
                 <div>
                   <h3 className="text-sm font-semibold text-[var(--text-primary)]">
                     Pick a photo to start

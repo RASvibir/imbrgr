@@ -83,25 +83,29 @@ export function PostCard({
         ) : null}
 
         {/* Quick Action Overlay (Share & Download) */}
-        <div className="absolute right-2 top-2 z-20 flex items-center gap-1.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+        <div className="absolute right-0 top-0 z-20 flex items-center gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
           <button
             type="button"
             onClick={handleQuickShare}
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition hover:bg-[var(--accent-primary)] hover:text-[var(--on-accent)]"
+            className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
             title={copied ? "Copied link!" : "Share post"}
             aria-label="Share post"
           >
-            {copied ? "✓" : "🔗"}
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--ring)]">
+              {copied ? "✓" : "🔗"}
+            </span>
           </button>
           {thumb ? (
             <button
               type="button"
               onClick={handleQuickDownload}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition hover:bg-[var(--accent-primary)] hover:text-[var(--on-accent)]"
+              className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
               title="Download media"
               aria-label="Download media"
             >
-              💾
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--ring)]">
+                💾
+              </span>
             </button>
           ) : null}
         </div>
