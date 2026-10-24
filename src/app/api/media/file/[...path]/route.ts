@@ -7,6 +7,6 @@ export async function GET(
 ) {
   const { path: segments } = await ctx.params;
   const key = segments.map((s) => decodeURIComponent(s)).join("/");
-  const actor = await getActor(req);
+  const actor = await getActor(req, { persist: false });
   return serveMediaFile(req, key, actor);
 }

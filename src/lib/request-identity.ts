@@ -19,8 +19,8 @@ export type Actor = {
   ipHash: string;
 };
 
-export async function getActor(req: Request): Promise<Actor> {
-  const { userId, voterKey } = await getVoterKey();
+export async function getActor(req: Request, options: { persist?: boolean } = {}): Promise<Actor> {
+  const { userId, voterKey } = await getVoterKey(options);
   const ip = getClientIp(req);
   return { userId, voterKey, ipHash: hashIp(ip) };
 }
