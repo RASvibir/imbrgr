@@ -169,6 +169,12 @@ npm run ar:assets
 
 This copies the MediaPipe WASM runtime into `public/mediapipe/wasm/` and downloads `face_landmarker.task` into `public/mediapipe/models/`. These binaries are git-ignored.
 
+**Production builds must run `ar:assets`** before `next build` (e.g. `npm run ar:assets && npm run build`) so that `/mediapipe/` static assets are included in the deployment artifact. Otherwise, the AR tool will 404 on local asset routes.
+
+> **Offline & CI Caveat**: Downloading `face_landmarker.task` requires outbound HTTPS network access to `storage.googleapis.com` at build/sync time. In offline or air-gapped CI pipelines, the model file must be pre-cached or supplied via pipeline cache to prevent build failures.
+
+For deployment options, CDN hosting alternatives, and Content Security Policy (CSP) requirements, see [docs/ar-deployment.md](docs/ar-deployment.md).
+
 ### Private images & Vercel Blob
 
 On Vercel set **`STORAGE_DRIVER=blob`** and **`BLOB_READ_WRITE_TOKEN`** (required for uploads and for `/api/media/file/*` streaming). Without them, production defaults to local disk and files 404.
