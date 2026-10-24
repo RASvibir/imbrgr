@@ -21,8 +21,14 @@ export function MobileBottomNav() {
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
-    // The image studio lives under the Create hub, so keep "Create" highlighted there.
-    if (href === "/create") return pathname.startsWith("/create") || pathname.startsWith("/studio");
+    // The image studio and tools live under the Create hub, so keep "Create" highlighted there.
+    if (href === "/create") {
+      return (
+        pathname.startsWith("/create") ||
+        pathname.startsWith("/studio") ||
+        pathname.startsWith("/tools")
+      );
+    }
     return pathname.startsWith(href);
   };
 
@@ -66,6 +72,70 @@ export function MobileBottomNav() {
 
       <MobileBottomSheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
         <ul className="space-y-1 text-base" data-testid="mobile-nav-menu">
+          <li>
+            <Link
+              href="/tools"
+              className="tap-target flex items-center justify-between rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+              data-testid="mobile-nav-tools"
+            >
+              <span>🧰 Creative Tools Lab</span>
+              <span className="rounded-full bg-[var(--accent-primary)]/20 px-2 py-0.5 text-[10px] font-bold text-[var(--accent-primary)]">
+                All Tools
+              </span>
+            </Link>
+          </li>
+          <li className="px-3 pt-2 pb-1 text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+            Quick Tools
+          </li>
+          <li className="grid grid-cols-2 gap-1.5 px-3 pb-2">
+            <Link
+              href="/tools/meme"
+              className="tap-target flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-2 text-xs font-semibold hover:border-[var(--accent-primary)]"
+              onClick={() => setMoreOpen(false)}
+            >
+              <span>🐸</span>
+              <span>Meme Maker</span>
+            </Link>
+            <Link
+              href="/tools/gif"
+              className="tap-target flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-2 text-xs font-semibold hover:border-[var(--accent-primary)]"
+              onClick={() => setMoreOpen(false)}
+            >
+              <span>🎞️</span>
+              <span>GIF Maker</span>
+            </Link>
+            <Link
+              href="/tools/collage"
+              className="tap-target flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-2 text-xs font-semibold hover:border-[var(--accent-primary)]"
+              onClick={() => setMoreOpen(false)}
+            >
+              <span>🖼️</span>
+              <span>Collage</span>
+            </Link>
+            <Link
+              href="/tools/filters"
+              className="tap-target flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-2 text-xs font-semibold hover:border-[var(--accent-primary)]"
+              onClick={() => setMoreOpen(false)}
+            >
+              <span>🎨</span>
+              <span>Filters</span>
+            </Link>
+            <Link
+              href="/tools/ar"
+              className="tap-target col-span-2 flex items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-2 text-xs font-semibold hover:border-[var(--accent-primary)]"
+              onClick={() => setMoreOpen(false)}
+            >
+              <div className="flex items-center gap-1.5">
+                <span>👁️</span>
+                <span>AR Camera</span>
+              </div>
+              <span className="rounded bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-bold text-amber-500">
+                BETA
+              </span>
+            </Link>
+          </li>
+          <li className="my-1 border-t border-[var(--border-subtle)]" />
           <li>
             <Link
               href="/studio?tab=video"

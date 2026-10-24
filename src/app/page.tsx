@@ -1,68 +1,64 @@
-"use client";
-
-import Link from "next/link";
-import { useState } from "react";
-import { EmberBurgerHero } from "@/components/brand/EmberBurgerHero";
-import { Feed } from "@/components/posts/Feed";
+import type { Metadata } from "next";
+import { LandingHero } from "@/components/landing/LandingHero";
+import { OutcomeTiles } from "@/components/landing/OutcomeTiles";
+import { ThreeStepStrip } from "@/components/landing/ThreeStepStrip";
+import { GalleryProof } from "@/components/landing/GalleryProof";
+import { MobileActionBar } from "@/components/landing/MobileActionBar";
 import { StudioHomePrompt } from "@/components/studio/StudioHomePrompt";
-import { btnGhost } from "@/lib/ui/button-classes";
 
-type Sort = "viral" | "newest" | "top";
+export const metadata: Metadata = {
+  title: "Make something fun in 10 seconds — imbrgr",
+  description:
+    "Drop any image to see instant memes, looping GIFs, photo collages, and flame-grilled filters cooked locally on your device in seconds.",
+};
 
 export default function HomePage() {
-  const [sort, setSort] = useState<Sort>("viral");
-
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
-      <section
-        className="mb-10 overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-5 sm:p-8 lg:p-10"
-        data-testid="home-hero"
-      >
-        <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start sm:gap-8 lg:gap-12">
-          <div className="shrink-0 pt-1 sm:pt-2 lg:pt-4">
-            <EmberBurgerHero />
-          </div>
-          <div className="min-w-0 w-full max-w-3xl flex-1 text-center sm:text-left">
-            <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent-amber)] sm:text-sm">
-              Images, served hot
-            </p>
-            <h1 className="mt-2 text-2xl font-bold leading-tight sm:text-4xl">
-              Cook, share, and scroll the gallery
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">
-              Describe an image, upload one to edit, or browse what everyone&apos;s posting.
-            </p>
-            <div className="mt-5 sm:mt-6">
+    <div
+      className="min-h-screen bg-[var(--surface-base)] text-[var(--text-primary)] transition-colors"
+      data-testid="landing-preview-page"
+    >
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 pb-28 sm:pb-16 space-y-16 sm:space-y-24">
+        {/* 1. Hero with Dropzone & Instant Result Rail */}
+        <LandingHero />
+
+        {/* 2. Three-Step Workflow Strip */}
+        <ThreeStepStrip />
+
+        {/* 3. Outcome-driven Tiles */}
+        <OutcomeTiles />
+
+        {/* 4. AI Prompt Kitchen Section */}
+        <section
+          className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-6 sm:p-10 shadow-sm"
+          aria-label="Generate with AI"
+        >
+          <div className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-6">
+            <div className="max-w-md text-center lg:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10 px-3 py-1 text-xs font-semibold text-[var(--accent-primary)]">
+                <span>✨</span>
+                <span>AI Prompt Kitchen</span>
+              </div>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl text-[var(--text-primary)]">
+                Cook, remix, or edit with AI
+              </h2>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                Describe any image to generate it with AI, or upload a photo to enhance and refine in the studio.
+              </p>
+            </div>
+
+            <div className="w-full max-w-xl">
               <StudioHomePrompt />
             </div>
-            <p className="mt-4">
-              <Link href="/hot" className={`${btnGhost} text-[var(--accent-primary)]`}>
-                See what&apos;s hot
-              </Link>
-            </p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <div className="mb-6 flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-sm font-medium text-[var(--text-muted)]">Gallery</span>
-        {(["viral", "newest", "top"] as Sort[]).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setSort(s)}
-            className={`tap-target min-h-11 rounded-full px-4 text-sm font-medium capitalize ${
-              sort === s
-                ? "bg-[var(--accent-primary)] text-[var(--on-accent)] shadow-[var(--shadow-ember)]"
-                : "border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-            }`}
-          >
-            {s === "viral" ? "Most viral" : s}
-          </button>
-        ))}
-      </div>
+        {/* 5. Gallery Proof with Sort Tabs */}
+        <GalleryProof />
+      </main>
 
-      <Feed key={sort} sort={sort} />
+      {/* 6. Mobile Sticky Bottom Action Bar */}
+      <MobileActionBar />
     </div>
   );
 }

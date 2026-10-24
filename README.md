@@ -159,6 +159,16 @@ STORAGE_DRIVER=local AI_MOCK=true npm run test:e2e
 npm run test:e2e:artifacts   # optional screenshots → /opt/cursor/artifacts
 ```
 
+### AR Camera Assets
+
+The AR Camera (`/tools/ar`) uses `@mediapipe/tasks-vision` for client-side face landmarking. Run:
+
+```bash
+npm run ar:assets
+```
+
+This copies the MediaPipe WASM runtime into `public/mediapipe/wasm/` and downloads `face_landmarker.task` into `public/mediapipe/models/`. These binaries are git-ignored.
+
 ### Private images & Vercel Blob
 
 On Vercel set **`STORAGE_DRIVER=blob`** and **`BLOB_READ_WRITE_TOKEN`** (required for uploads and for `/api/media/file/*` streaming). Without them, production defaults to local disk and files 404.

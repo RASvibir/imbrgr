@@ -16,6 +16,8 @@ import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { normalizeStudioAsset } from "@/lib/studio-asset";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
+import { useToolHandoff } from "@/lib/landing/use-tool-handoff";
+import { LoadedFromDropChip, HandoffExpiredNote } from "@/components/landing/HandoffNotice";
 import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaUrl } from "@/lib/urls";
 import { StudioMobileActionBar } from "@/components/studio/StudioMobileActionBar";
@@ -211,6 +213,19 @@ export function ImageStudio({
     await setActiveAsset(next);
     selectTab("refine", next.shortId);
   };
+
+  // Handoff integration from landing
+  const isVideoStudio = tab === "media";
+  const { isLoadedFromDrop, fileName, isExpired, clearHandoff, dismissExpired } = useToolHandoff({
+    enabled: !isVideoStudio,
+    onFileLoaded: async (file) => {
+      await importFile(file);
+    },
+    onClear: () => {
+      setAsset(null);
+      selectTab("create");
+    },
+  });
 
   const importFromUrl = async () => {
     setErr("");
@@ -566,6 +581,17 @@ export function ImageStudio({
         ) : null}
         <FieldPressDraftStudioChrome />
       </header>
+
+      {(isLoadedFromDrop || isExpired) && (
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          {isLoadedFromDrop && (
+            <LoadedFromDropChip fileName={fileName} onClear={clearHandoff} />
+          )}
+          {isExpired && (
+            <HandoffExpiredNote onDismiss={dismissExpired} />
+          )}
+        </div>
+      )}
 
       <nav className="flex gap-1 overflow-x-auto border-b border-[var(--border-subtle)] pb-1" aria-label="Studio steps">
         {TABS.map((t) => (

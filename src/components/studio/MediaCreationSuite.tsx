@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
+import { useToolHandoff } from "@/lib/landing/use-tool-handoff";
+import { LoadedFromDropChip, HandoffExpiredNote } from "@/components/landing/HandoffNotice";
 import {
   computeFrameRects,
   normalizeClipRange,
@@ -141,7 +143,7 @@ export function MediaCreationSuite() {
   }, [importedAssets]);
 
   // Handle file imports
-  const onFiles = async (files: FileList | null) => {
+  const onFiles = async (files: FileList | null | File[]) => {
     if (!files || files.length === 0) return;
     setError("");
     const next: ImportedAsset[] = [];
@@ -201,6 +203,24 @@ export function MediaCreationSuite() {
       setStatus(`Imported ${next.length} media file${next.length > 1 ? "s" : ""}.`);
     }
   };
+
+  // Handoff integration from landing
+  const handleLoadMediaFile = useCallback(async (file: File) => {
+    await onFiles([file]);
+  }, []);
+
+  const handleClearMedia = useCallback(() => {
+    setImportedAssets([]);
+    setVisualClips([]);
+    setAudioClips([]);
+    setTextOverlays([]);
+    setSelectedClipId(null);
+  }, []);
+
+  const { isLoadedFromDrop, fileName, isExpired, clearHandoff, dismissExpired } = useToolHandoff({
+    onFileLoaded: handleLoadMediaFile,
+    onClear: handleClearMedia,
+  });
 
   // Timeline operations
   const handleAddVisualClip = (clip: VisualClip) => {
@@ -539,7 +559,14 @@ export function MediaCreationSuite() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isLoadedFromDrop && (
+            <LoadedFromDropChip fileName={fileName} onClear={clearHandoff} />
+          )}
+          {isExpired && (
+            <HandoffExpiredNote onDismiss={dismissExpired} />
+          )}
+
           {/* Performance Mode Badge */}
           <button
             type="button"

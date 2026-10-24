@@ -42,7 +42,7 @@ test.describe("imbrgr e2e", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Main" });
-    const linkNames = ["Gallery", "Hot", "Create", "Tags", "Search", "Sign in"];
+    const linkNames = ["Gallery", "Hot", "Create", "Tools", "Tags", "Search", "Sign in"];
     const boxes = await Promise.all(
       linkNames.map((name) =>
         nav.getByRole("link", { name, exact: true }).boundingBox(),

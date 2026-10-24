@@ -24,6 +24,9 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
         <Link href="/create" className={`${headerNavLinkAccentClass} inline-flex`}>
           Create
         </Link>
+        <Link href="/tools" className={`${headerNavLinkClass} inline-flex`}>
+          Tools
+        </Link>
         <Link
           href="/studio?tab=video"
           className={`${headerNavLinkClass} inline-flex items-center gap-1 text-xs`}
