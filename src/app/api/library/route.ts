@@ -6,7 +6,7 @@ import { getActor } from "@/lib/request-identity";
 import { mediaUrl } from "@/lib/urls";
 
 export async function GET(req: Request) {
-  const actor = await getActor(req);
+  const actor = await getActor(req, { persist: false });
   const { searchParams } = new URL(req.url);
   const folderShortId = searchParams.get("folder");
 

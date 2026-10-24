@@ -14,7 +14,7 @@ export async function GET() {
       remaining: s.remaining.toString(),
     });
   }
-  const { voterKey } = await getVoterKey();
+  const { voterKey } = await getVoterKey({ persist: false });
   const s = await getAnonymousStorage(voterKey);
   return NextResponse.json({
     type: "anonymous",

@@ -33,7 +33,7 @@ export async function GET(
     target.search = url.search;
     return NextResponse.redirect(target, 301);
   }
-  const actor = await getActor(req);
+  const actor = await getActor(req, { persist: false });
   const media = await prisma.media.findUnique({
     where: { shortId },
     include: { post: { select: { title: true, userId: true, visibility: true, shortId: true } } },
