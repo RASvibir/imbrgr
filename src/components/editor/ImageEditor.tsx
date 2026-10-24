@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { FUN_FILTERS } from "@/lib/fun-filters";
 import { PHOTO_FILTERS } from "@/lib/photo-filters";
@@ -76,7 +76,7 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   const [compare, setCompare] = useState(false);
   const [compareSplit, setCompareSplit] = useState(100);
   const [filterThumbs, setFilterThumbs] = useState<Record<string, string>>({});
-  const [outWidth, setOutWidth] = useState<number | "">("");
+  const [outWidth] = useState<number | "">("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewRev, setPreviewRev] = useState(0);
   const [tool, setTool] = useState<EditorTool>("move");
@@ -106,7 +106,10 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   }
 
   const committed = history[histIdx]?.edit ?? DEFAULT_IMAGE_EDIT_STATE;
-  const editState: ImageEditState = { ...committed, ...sliderDraft };
+  const editState: ImageEditState = useMemo(
+    () => ({ ...committed, ...sliderDraft }),
+    [committed, sliderDraft],
+  );
   const editStateKey = JSON.stringify(editState);
 
   // Mirror latest render values into refs for event handlers (refs must not be written during render).
@@ -187,7 +190,7 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [workingSrc, editStateKey, drawRev, compositeDraw]);
+  }, [workingSrc, editStateKey, editState, drawRev, compositeDraw]);
 
   useEffect(() => {
     return () => {

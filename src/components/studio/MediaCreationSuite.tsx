@@ -5,11 +5,7 @@ import Link from "next/link";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { useToolHandoff } from "@/lib/landing/use-tool-handoff";
 import { LoadedFromDropChip, HandoffExpiredNote } from "@/components/landing/HandoffNotice";
-import {
-  computeFrameRects,
-  normalizeClipRange,
-  type MediaStudioLayout,
-} from "@/lib/media-studio-layout";
+import type { MediaStudioLayout } from "@/lib/media-studio-layout";
 import {
   VideoPluginManager,
   BUILTIN_VIDEO_PLUGINS,
@@ -17,7 +13,6 @@ import {
 } from "@/lib/video-plugins";
 import {
   calculateTimelineDuration,
-  formatTimecode,
   splitClipAtTime,
   trimClip,
   computeMotionTransform,
@@ -28,6 +23,8 @@ import type {
   TransitionType,
   VisualClip,
 } from "@/lib/video-timeline/timeline-types";
+import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
+import type { CameraMotion } from "@/lib/ai/video-provider";
 
 import { AiVideoGeneratorPanel } from "./video/AiVideoGeneratorPanel";
 import { VideoPluginsPanel } from "./video/VideoPluginsPanel";
@@ -66,18 +63,73 @@ function pickRecorderMime(): string | null {
   return candidates.find((m) => MediaRecorder.isTypeSupported(m)) ?? null;
 }
 
-export function MediaCreationSuite() {
-  const [activeToolboxTab, setActiveToolboxTab] = useState<ToolboxTab>("ai");
+type MediaCreationSuiteProps = {
+  initialPrompt?: string;
+  initialPreset?: string;
+  initialToolboxTab?: ToolboxTab;
+  initialAsset?: StudioInitialAsset | null;
+};
+
+export function MediaCreationSuite({
+  initialPrompt,
+  initialPreset,
+  initialToolboxTab,
+  initialAsset,
+}: MediaCreationSuiteProps = {}) {
+  const [activeToolboxTab, setActiveToolboxTab] = useState<ToolboxTab>(
+    () => initialToolboxTab ?? (initialPreset === "timeline" ? "assets" : "ai"),
+  );
 
   // Project state
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [performanceMode, setPerformanceMode] = useState<PerformanceMode>("active");
 
   // Imported raw media files
-  const [importedAssets, setImportedAssets] = useState<ImportedAsset[]>([]);
+  const [importedAssets, setImportedAssets] = useState<ImportedAsset[]>(() => {
+    if (!initialAsset) return [];
+    const id = `asset-${initialAsset.shortId}`;
+    const isVideo = initialAsset.mimeType.startsWith("video/");
+    const url = `/api/media/file/${initialAsset.storageKey}`;
+    const kind = isVideo ? "video" : initialAsset.mimeType === "image/gif" ? "gif" : "image";
+    const durationSec = isVideo ? 5 : 3;
+    return [
+      {
+        id,
+        file: new File([], `media-${initialAsset.shortId}.${isVideo ? "mp4" : "webp"}`),
+        url,
+        name: `Media (${initialAsset.shortId})`,
+        kind,
+        durationSec,
+      },
+    ];
+  });
 
   // Timeline Tracks
-  const [visualClips, setVisualClips] = useState<VisualClip[]>([]);
+  const [visualClips, setVisualClips] = useState<VisualClip[]>(() => {
+    if (!initialAsset) return [];
+    const id = `asset-${initialAsset.shortId}`;
+    const isVideo = initialAsset.mimeType.startsWith("video/");
+    const url = `/api/media/file/${initialAsset.storageKey}`;
+    const kind = isVideo ? "video" : initialAsset.mimeType === "image/gif" ? "gif" : "image";
+    const durationSec = isVideo ? 5 : 3;
+    return [
+      {
+        id: `clip-${id}`,
+        trackId: "visual-1",
+        assetId: id,
+        url,
+        name: `Media (${initialAsset.shortId})`,
+        kind,
+        startSec: 0,
+        endSec: durationSec,
+        sourceStartSec: 0,
+        sourceDurationSec: durationSec,
+        motion: kind === "image" ? (initialPreset as CameraMotion) || "zoom-in" : undefined,
+        transition: "dissolve",
+        transitionDurationSec: 0.5,
+      },
+    ];
+  });
   const [audioClips, setAudioClips] = useState<AudioClip[]>([]);
   const [textOverlays, setTextOverlays] = useState<TextOverlay[]>([]);
   const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
@@ -111,11 +163,15 @@ export function MediaCreationSuite() {
   const [shareToast, setShareToast] = useState("");
 
   // pacNcap Plugin Manager
-  const pluginManager = useMemo(() => {
-    return new VideoPluginManager({ performanceMode });
-  }, []);
+  const [pluginManager] = useState(() => new VideoPluginManager({ performanceMode }));
 
-  const [enabledPluginIds, setEnabledPluginIds] = useState<Set<string>>(new Set());
+  const [enabledPluginIds, setEnabledPluginIds] = useState<Set<string>>(() => {
+    const set = new Set<string>();
+    if (initialPreset === "vhs") set.add("retro-vhs");
+    else if (initialPreset === "glitch") set.add("glitch");
+    else if (initialPreset === "cyberpunk") set.add("cyberpunk");
+    return set;
+  });
   const [pluginParams, setPluginParams] = useState<Map<string, Record<string, unknown>>>(new Map());
 
   // Register builtin plugins on mount
@@ -192,6 +248,25 @@ export function MediaCreationSuite() {
               motion: kind === "image" ? "zoom-in" : undefined,
               transition: "dissolve",
               transitionDurationSec: 0.5,
+            },
+          ];
+        });
+      } else {
+        setAudioClips((prev) => {
+          const start = prev.length > 0 ? prev[prev.length - 1].endSec : 0;
+          return [
+            ...prev,
+            {
+              id: `audio-${id}`,
+              trackId: "audio-1",
+              assetId: id,
+              url,
+              name: file.name,
+              startSec: start,
+              endSec: start + durationSec,
+              sourceStartSec: 0,
+              sourceDurationSec: durationSec,
+              volume: 1,
             },
           ];
         });
@@ -646,6 +721,17 @@ export function MediaCreationSuite() {
             </button>
             <button
               type="button"
+              onClick={() => setActiveToolboxTab("layout")}
+              className={`flex-1 min-w-[70px] rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                activeToolboxTab === "layout"
+                  ? "bg-[var(--surface-base)] font-semibold text-[var(--accent-primary)] shadow-sm"
+                  : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              📐 Layout
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveToolboxTab("export")}
               className={`flex-1 min-w-[70px] rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                 activeToolboxTab === "export"
@@ -661,8 +747,26 @@ export function MediaCreationSuite() {
           <div className="p-3.5 max-h-[460px] overflow-y-auto">
             {activeToolboxTab === "ai" && (
               <AiVideoGeneratorPanel
+                key={`${initialPrompt ?? ""}-${initialPreset ?? ""}`}
                 onAddClip={handleAddVisualClip}
                 availableAssets={availableVisualAssets}
+                initialPrompt={initialPrompt}
+                initialMotion={
+                  initialPreset &&
+                  ["zoom-in", "zoom-out", "pan-right", "pan-left", "orbit", "pulse", "dramatic"].includes(
+                    initialPreset,
+                  )
+                    ? (initialPreset as CameraMotion)
+                    : undefined
+                }
+                initialStyle={
+                  initialPreset &&
+                  ["cyberpunk", "cinematic", "anime", "vintage-35mm", "claymation", "noir"].includes(
+                    initialPreset,
+                  )
+                    ? initialPreset
+                    : undefined
+                }
               />
             )}
 
@@ -699,6 +803,7 @@ export function MediaCreationSuite() {
                             {asset.kind === "video" ? (
                               <video src={asset.url} className="h-full w-full object-cover" />
                             ) : (
+                              /* eslint-disable-next-line @next/next/no-img-element */
                               <img src={asset.url} alt={asset.name} className="h-full w-full object-cover" />
                             )}
                             <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 text-[9px] uppercase font-bold text-white">
@@ -767,6 +872,103 @@ export function MediaCreationSuite() {
                 onRemoveTextOverlay={handleRemoveTextOverlay}
                 onUpdateTextOverlay={handleUpdateTextOverlay}
               />
+            )}
+
+            {activeToolboxTab === "layout" && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--accent-primary)]">
+                    📐 Canvas Layout &amp; Framing
+                  </h3>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    Choose multi-clip grid alignment, aspect ratios, and background filling.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    Layout Mode
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {LAYOUTS.map((l) => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onClick={() => setLayout(l.id)}
+                        className={`rounded-lg border p-2.5 text-left text-xs transition ${
+                          layout === l.id
+                            ? "border-[var(--accent-primary)] bg-[var(--surface-raised)] font-semibold text-[var(--accent-primary)]"
+                            : "border-[var(--border-subtle)] bg-[var(--surface-sunken)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
+                        }`}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                      Aspect Ratio
+                    </label>
+                    <select
+                      value={aspectRatio}
+                      onChange={(e) => setAspectRatio(e.target.value as "16:9" | "9:16" | "1:1")}
+                      className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-2 text-xs"
+                    >
+                      <option value="16:9">16:9 Landscape</option>
+                      <option value="9:16">9:16 Portrait</option>
+                      <option value="1:1">1:1 Square</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                      Clip Fitting
+                    </label>
+                    <div className="mt-1 flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-1">
+                      <button
+                        type="button"
+                        onClick={() => setFit("cover")}
+                        className={`flex-1 rounded py-1 text-xs font-medium ${
+                          fit === "cover"
+                            ? "bg-[var(--surface-base)] text-[var(--text-primary)]"
+                            : "text-[var(--text-muted)]"
+                        }`}
+                      >
+                        Cover
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFit("contain")}
+                        className={`flex-1 rounded py-1 text-xs font-medium ${
+                          fit === "contain"
+                            ? "bg-[var(--surface-base)] text-[var(--text-primary)]"
+                            : "text-[var(--text-muted)]"
+                        }`}
+                      >
+                        Contain
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    Background Color
+                  </label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={bgColor}
+                      onChange={(e) => setBgColor(e.target.value)}
+                      className="h-8 w-12 cursor-pointer rounded border border-[var(--border-subtle)] bg-transparent p-0.5"
+                    />
+                    <span className="font-mono text-xs text-[var(--text-secondary)]">{bgColor}</span>
+                  </div>
+                </div>
+              </div>
             )}
 
             {activeToolboxTab === "export" && (

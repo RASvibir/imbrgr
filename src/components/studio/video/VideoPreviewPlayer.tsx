@@ -23,7 +23,6 @@ type Props = {
 
 export function VideoPreviewPlayer({
   visualClips,
-  audioClips,
   textOverlays,
   currentTimeSec,
   totalDurationSec,

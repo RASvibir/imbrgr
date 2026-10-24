@@ -215,6 +215,7 @@ export function VideoTimelineTrackView({
 
                   {/* Thumbnail / Kind Icon */}
                   <div className="relative h-full w-14 shrink-0 overflow-hidden bg-black/40">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={clip.url} alt={clip.name} className="h-full w-full object-cover" />
                     {clip.motion ? (
                       <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 text-[8px] font-bold text-[var(--accent-primary)]">

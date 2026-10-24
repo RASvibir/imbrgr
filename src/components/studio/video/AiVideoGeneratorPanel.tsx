@@ -12,13 +12,22 @@ import type { VisualClip } from "@/lib/video-timeline/timeline-types";
 type Props = {
   onAddClip: (clip: VisualClip) => void;
   availableAssets: { id: string; name: string; url: string; kind: "image" | "video" | "gif"; mature?: boolean }[];
+  initialPrompt?: string;
+  initialMotion?: CameraMotion;
+  initialStyle?: string;
 };
 
-export function AiVideoGeneratorPanel({ onAddClip, availableAssets }: Props) {
+export function AiVideoGeneratorPanel({
+  onAddClip,
+  availableAssets,
+  initialPrompt,
+  initialMotion,
+  initialStyle,
+}: Props) {
   const [mode, setMode] = useState<"text" | "image">("text");
-  const [prompt, setPrompt] = useState("");
-  const [selectedStyle, setSelectedStyle] = useState<string>("cinematic");
-  const [selectedMotion, setSelectedMotion] = useState<CameraMotion>("zoom-in");
+  const [prompt, setPrompt] = useState(() => initialPrompt ?? "");
+  const [selectedStyle, setSelectedStyle] = useState<string>(() => initialStyle ?? "cinematic");
+  const [selectedMotion, setSelectedMotion] = useState<CameraMotion>(() => initialMotion ?? "zoom-in");
   const [durationSec, setDurationSec] = useState<number>(3);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [selectedAssetId, setSelectedAssetId] = useState<string>("");
@@ -261,6 +270,7 @@ export function AiVideoGeneratorPanel({ onAddClip, availableAssets }: Props) {
                 AI Clip Ready ({generatedPreview.durationSec}s · {generatedPreview.motion})
               </p>
               <div className="mt-2 overflow-hidden rounded-lg bg-black">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={generatedPreview.url}
                   alt={generatedPreview.prompt}
@@ -345,6 +355,7 @@ export function AiVideoGeneratorPanel({ onAddClip, availableAssets }: Props) {
                           : "border-[var(--border-subtle)] hover:border-[var(--border-strong)]"
                       }`}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={asset.url} alt={asset.name} className="h-16 w-full rounded object-cover" />
                       <p className="mt-1 truncate text-[10px] text-[var(--text-muted)]">{asset.name}</p>
                     </div>

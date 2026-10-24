@@ -7,7 +7,6 @@ import type {
   AudioClip,
   EffectClip,
   TextOverlay,
-  TimelineProject,
   VisualClip,
 } from "./timeline-types";
 
@@ -29,7 +28,6 @@ export function splitClipAtTime(clip: VisualClip, splitTimeSec: number): [Visual
   }
 
   const durationLeft = splitTimeSec - clip.startSec;
-  const durationRight = clip.endSec - splitTimeSec;
 
   const left: VisualClip = {
     ...clip,

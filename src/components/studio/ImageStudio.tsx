@@ -69,12 +69,16 @@ export function ImageStudio({
   initialAssistPrompt,
   initialAsset,
   remixFromShortId,
+  initialPreset,
+  initialMode,
 }: {
   defaultTab?: string;
   initialPrompt?: string;
   initialAssistPrompt?: string;
   initialAsset?: StudioInitialAsset | null;
   remixFromShortId?: string;
+  initialPreset?: string;
+  initialMode?: string;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -824,7 +828,14 @@ export function ImageStudio({
 
 
       {tab === "media" ? (
-        <MediaCreationSuite />
+        <MediaCreationSuite
+          initialPrompt={initialPrompt ?? params.get("prompt") ?? undefined}
+          initialPreset={initialPreset ?? params.get("preset") ?? undefined}
+          initialToolboxTab={
+            initialMode === "fun" || params.get("mode") === "fun" ? "plugins" : undefined
+          }
+          initialAsset={initialAsset}
+        />
       ) : null}
 
       {tab === "share" ? (

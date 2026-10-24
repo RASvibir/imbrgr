@@ -13,7 +13,6 @@ import { deleteMediaStorage } from "@/lib/media-storage";
 import { removeAnonymousStorage, removeUserStorage } from "@/lib/storage-quota";
 import { clampMatureVisibility } from "@/lib/ai/gallery-post";
 import { resolveGalleryPostVisibility } from "@/lib/gallery-visibility";
-import { normalizeVisibility } from "@/lib/visibility";
 
 const patchSchema = z.object({
   altText: z.string().max(500).optional(),

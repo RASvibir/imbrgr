@@ -1,5 +1,4 @@
 import type { Actor } from "@/lib/request-identity";
-import { isPostOwner } from "@/lib/media-access";
 
 type CollectionLike = {
   userId: string;

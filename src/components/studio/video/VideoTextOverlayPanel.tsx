@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
+import { btnPrimary } from "@/lib/ui/button-classes";
 import type { TextOverlay } from "@/lib/video-timeline/timeline-types";
 
 type Props = {

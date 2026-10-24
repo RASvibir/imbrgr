@@ -1,4 +1,4 @@
-import { imagePageUrl, mediaUrl, postUrl, siteUrl } from "@/lib/urls";
+import { imagePageUrl, mediaUrl, siteUrl } from "@/lib/urls";
 
 export function buildShareCodes(
   shortId: string,
