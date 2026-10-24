@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DATABASE_URL: postgresql://imbrgr:imbrgr@localhost:5432/imbrgr?schema=public
+      DATABASE_URL_UNPOOLED: postgresql://imbrgr:imbrgr@localhost:5432/imbrgr?schema=public
+      AUTH_SECRET: e2e-test-secret
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      STORAGE_DRIVER: local
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: imbrgr
+          POSTGRES_PASSWORD: imbrgr
+          POSTGRES_DB: imbrgr
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U imbrgr"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      # Mirrors vercel.json buildCommand so a broken AR asset download fails here, not in production.
+      - run: npm run ar:assets
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
