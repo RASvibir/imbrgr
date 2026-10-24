@@ -33,6 +33,7 @@ type MediaRow = {
   visibility: string;
   userId: string | null;
   voterKey: string | null;
+  mature?: boolean;
   post?: { userId: string | null; visibility: string } | null;
 };
 
@@ -46,6 +47,7 @@ type PostRow = {
 };
 
 export function mediaEligibleForOg(media: MediaRow): boolean {
+  if (media.mature) return false;
   if (!media.mimeType.startsWith("image/")) return false;
   return canViewMedia(media, CRAWLER_ACTOR);
 }

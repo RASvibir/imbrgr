@@ -4,7 +4,7 @@ import { useState } from "react";
 import { MobileBottomSheet } from "@/components/layout/MobileBottomSheet";
 
 type Target = {
-  type: "POST" | "MEDIA" | "COLLECTION" | "USER";
+  type: "POST" | "MEDIA" | "COLLECTION" | "USER" | "COMMENT";
   id: string;
   label: string;
 };

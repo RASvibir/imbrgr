@@ -11,22 +11,25 @@ export function SearchClient() {
   const sp = useSearchParams();
   const q = sp.get("q") ?? "";
   const [query, setQuery] = useState(q);
-  const [results, setResults] = useState<{ id: string }[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+  const [fetched, setFetched] = useState<{ q: string; results: { id: string }[] } | null>(null);
+  const searched = q !== "";
+  const loading = searched && fetched?.q !== q;
+  const results = fetched?.q === q ? fetched.results : [];
 
   useEffect(() => {
-    if (!q) {
-      setResults([]);
-      setSearched(false);
-      return;
-    }
-    setLoading(true);
-    setSearched(true);
+    if (!q) return;
+    let cancelled = false;
     void fetch(`/api/search?q=${encodeURIComponent(q)}`)
       .then((r) => r.json())
-      .then((d) => setResults(d.results ?? []))
-      .finally(() => setLoading(false));
+      .then((d) => {
+        if (!cancelled) setFetched({ q, results: d.results ?? [] });
+      })
+      .catch(() => {
+        if (!cancelled) setFetched({ q, results: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [q]);
 
   return (

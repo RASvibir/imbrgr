@@ -1,7 +1,11 @@
+import { applyFunFilter, isFunFilter } from "@/lib/fun-filters";
+import { applyAnyFilter } from "@/lib/filter-registry";
+
 export type SpotFix = { nx: number; ny: number };
 
 export type ImageEditState = {
   filter: string;
+  filterIntensity?: number;
   brightness: number;
   contrast: number;
   saturation: number;
@@ -21,6 +25,7 @@ export type CropArea = { x: number; y: number; width: number; height: number };
 
 export const DEFAULT_IMAGE_EDIT_STATE: ImageEditState = {
   filter: "none",
+  filterIntensity: 100,
   brightness: 100,
   contrast: 100,
   saturation: 100,
@@ -54,20 +59,11 @@ export const SLIDER_DEFAULTS: Record<SliderKey, number> = {
 };
 
 /** Pixel filters applied after draw (export + live preview). */
-export function applyPixelFilter(imageData: ImageData, filter: string): void {
-  const d = imageData.data;
-  for (let i = 0; i < d.length; i += 4) {
-    if (filter === "mono") {
-      const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-      d[i] = d[i + 1] = d[i + 2] = g;
-    } else if (filter === "ember") {
-      d[i] = Math.min(255, d[i] * 1.1 + 20);
-      d[i + 1] *= 0.92;
-      d[i + 2] *= 0.85;
-    } else if (filter === "vivid") {
-      d[i] = Math.min(255, d[i] * 1.15);
-      d[i + 1] = Math.min(255, d[i + 1] * 1.1);
-      d[i + 2] = Math.min(255, d[i + 2] * 1.1);
+export function applyPixelFilter(imageData: ImageData, filter: string, filterIntensity = 100): void {
+  const intensity = Math.max(0, Math.min(100, filterIntensity)) / 100;
+  if (!applyAnyFilter(imageData, filter, { intensity })) {
+    if (isFunFilter(filter)) {
+      applyFunFilter(imageData, filter, { intensity });
     }
   }
 }
@@ -263,9 +259,9 @@ export async function renderEditedImageCanvas(
   );
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-  let pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
   if (state.filter !== "none") {
-    applyPixelFilter(pixels, state.filter);
+    applyPixelFilter(pixels, state.filter, state.filterIntensity ?? 100);
   }
   applyWarmth(pixels, state.warmth);
   if (state.spotFixes.length) {

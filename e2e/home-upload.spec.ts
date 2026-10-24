@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
 
 const png = path.join(__dirname, "fixtures/tiny.png");
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+ensureArtifactsDir();
 
 async function dropFileOnHero(page: import("@playwright/test").Page, file: { name: string; mime: string; buffer: Buffer }) {
   const importDone = page.waitForResponse(

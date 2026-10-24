@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
+import { FUN_FILTERS } from "@/lib/fun-filters";
+import { PHOTO_FILTERS } from "@/lib/photo-filters";
 import {
   AUTO_ENHANCE_EDIT,
   DEFAULT_IMAGE_EDIT_STATE,
@@ -11,6 +13,7 @@ import {
   canvasToJpegBlob,
   loadImageBitmapFromUrl,
   renderEditedImageCanvas,
+  applyPixelFilter,
 } from "@/lib/image-editor-render";
 import {
   DRAW_COLOR_SWATCHES,
@@ -36,10 +39,12 @@ type Props = {
 type EditorTool = "move" | "draw" | "eraser" | "smooth" | "spot";
 
 const FILTERS = [
-  { id: "none", label: "Original" },
-  { id: "ember", label: "Ember" },
-  { id: "mono", label: "Mono" },
-  { id: "vivid", label: "Vivid" },
+  { id: "none", label: "Original", emoji: "🔘" },
+  { id: "ember", label: "Ember", emoji: "🔥" },
+  { id: "mono", label: "Mono", emoji: "⚪" },
+  { id: "vivid", label: "Vivid", emoji: "🌈" },
+  ...PHOTO_FILTERS.map((p) => ({ id: p.id, label: p.label, emoji: p.emoji })),
+  ...FUN_FILTERS.map((f) => ({ id: f.id, label: f.label, emoji: f.emoji })),
 ];
 
 const SLIDERS: { key: SliderKey; label: string; min: number; max: number }[] = [
@@ -69,7 +74,9 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   const [histIdx, setHistIdx] = useState(0);
   const [sliderDraft, setSliderDraft] = useState<Partial<ImageEditState> | null>(null);
   const [compare, setCompare] = useState(false);
-  const [outWidth, setOutWidth] = useState<number | "">("");
+  const [compareSplit, setCompareSplit] = useState(100);
+  const [filterThumbs, setFilterThumbs] = useState<Record<string, string>>({});
+  const [outWidth] = useState<number | "">("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewRev, setPreviewRev] = useState(0);
   const [tool, setTool] = useState<EditorTool>("move");
@@ -84,24 +91,34 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
   const editStateRef = useRef<ImageEditState>(DEFAULT_IMAGE_EDIT_STATE);
   const previewGen = useRef(0);
   const historyRef = useRef(history);
-  historyRef.current = history;
   const histIdxRef = useRef(histIdx);
-  histIdxRef.current = histIdx;
   const toolRef = useRef<EditorTool>(tool);
-  toolRef.current = tool;
 
-  useEffect(() => {
+  // Reset editor state when a new source image arrives (adjust state during render, not in an effect).
+  const [prevImageSrc, setPrevImageSrc] = useState(imageSrc);
+  if (prevImageSrc !== imageSrc) {
+    setPrevImageSrc(imageSrc);
     setWorkingSrc(imageSrc);
     setHistory(initialEditorHistory());
     setHistIdx(0);
     setSliderDraft(null);
     setTool("move");
-  }, [imageSrc]);
+  }
 
   const committed = history[histIdx]?.edit ?? DEFAULT_IMAGE_EDIT_STATE;
-  const editState: ImageEditState = { ...committed, ...sliderDraft };
-  editStateRef.current = editState;
+  const editState: ImageEditState = useMemo(
+    () => ({ ...committed, ...sliderDraft }),
+    [committed, sliderDraft],
+  );
   const editStateKey = JSON.stringify(editState);
+
+  // Mirror latest render values into refs for event handlers (refs must not be written during render).
+  useEffect(() => {
+    historyRef.current = history;
+    histIdxRef.current = histIdx;
+    toolRef.current = tool;
+    editStateRef.current = editState;
+  });
 
   const pushHistory = useCallback((nextEdit: ImageEditState, drawDataUrl: string | null) => {
     setSliderDraft(null);
@@ -173,13 +190,49 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [workingSrc, editStateKey, drawRev, compositeDraw]);
+  }, [workingSrc, editStateKey, editState, drawRev, compositeDraw]);
 
   useEffect(() => {
     return () => {
       if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const generateThumbs = async () => {
+      try {
+        const img = await loadImageBitmapFromUrl(workingSrc);
+        const thumbCanvas = document.createElement("canvas");
+        thumbCanvas.width = 36;
+        thumbCanvas.height = 36;
+        const ctx = thumbCanvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, 36, 36);
+        const baseData = ctx.getImageData(0, 0, 36, 36);
+
+        const thumbs: Record<string, string> = {};
+        for (const f of FILTERS) {
+          if (cancelled) return;
+          if (f.id === "none") {
+            thumbs[f.id] = thumbCanvas.toDataURL("image/jpeg", 0.6);
+            continue;
+          }
+          const copyData = new ImageData(new Uint8ClampedArray(baseData.data), 36, 36);
+          applyPixelFilter(copyData, f.id, 100);
+          ctx.putImageData(copyData, 0, 0);
+          thumbs[f.id] = thumbCanvas.toDataURL("image/jpeg", 0.6);
+        }
+        if (!cancelled) setFilterThumbs(thumbs);
+      } catch {
+        /* fallback to emoji */
+      }
+    };
+    void generateThumbs();
+    return () => {
+      cancelled = true;
+    };
+  }, [workingSrc]);
 
   function applyHistoryIndex(n: number) {
     setSliderDraft(null);
@@ -364,7 +417,7 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
     setTool("draw");
   }
 
-  const cropperImage = compare ? workingSrc : previewUrl ?? workingSrc;
+  const cropperImage = compare || compareSplit === 0 ? workingSrc : previewUrl ?? workingSrc;
   const canUndo = histIdx > 0;
   const canRedo = histIdx < history.length - 1;
   const overlayInteractive = allowDraw && tool !== "move";
@@ -420,10 +473,16 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
               key={f.id}
               type="button"
               data-testid={`image-editor-filter-${f.id}`}
-              className={`tap-target shrink-0 rounded px-3 py-2 text-sm ${editState.filter === f.id ? "bg-[var(--accent-primary)]" : "border"}`}
+              className={`tap-target shrink-0 flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition ${editState.filter === f.id ? "bg-[var(--accent-primary)] text-[var(--on-accent)] font-semibold shadow-sm" : "border border-[var(--border-subtle)] bg-[var(--surface-sunken)] hover:bg-[var(--surface-hover)]"}`}
               onClick={() => patchEdit({ filter: f.id })}
             >
-              {f.label}
+              {filterThumbs[f.id] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={filterThumbs[f.id]} alt="" className="h-5 w-5 rounded object-cover" />
+              ) : (
+                <span className="text-sm">{f.emoji}</span>
+              )}
+              <span>{f.label}</span>
             </button>
           ))}
           {!profileMode ? (
@@ -454,6 +513,53 @@ export function ImageEditor({ imageSrc, aspectPreset, studioMode, onExport, onCa
             </>
           ) : null}
         </div>
+
+        {editState.filter !== "none" ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-2.5 text-xs" data-testid="image-editor-filter-intensity-panel">
+            <div className="flex flex-1 items-center gap-2 min-w-[200px]">
+              <span className="shrink-0 font-semibold text-[var(--accent-primary)]">Filter Intensity:</span>
+              <input
+                type="range"
+                data-testid="image-editor-filter-intensity"
+                min={0}
+                max={100}
+                value={editState.filterIntensity ?? 100}
+                onChange={(e) => setSliderDraft((d) => ({ ...d, filterIntensity: +e.target.value }))}
+                onPointerUp={commitSlider}
+                onTouchEnd={commitSlider}
+                className="min-w-0 flex-1"
+                aria-label="Filter intensity slider"
+              />
+              <span className="w-9 text-right font-mono">{editState.filterIntensity ?? 100}%</span>
+            </div>
+            <button
+              type="button"
+              className="tap-target rounded border border-[var(--border-subtle)] px-2 py-0.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              onClick={() => commitEdit({ ...editStateRef.current, filterIntensity: 100 })}
+            >
+              Reset
+            </button>
+          </div>
+        ) : null}
+
+        {!profileMode ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-2 text-xs">
+            <div className="flex flex-1 items-center gap-2 min-w-[200px]">
+              <span className="text-[var(--text-muted)] font-medium">Before / After:</span>
+              <input
+                type="range"
+                data-testid="image-editor-compare-slider"
+                min={0}
+                max={100}
+                value={compareSplit}
+                onChange={(e) => setCompareSplit(+e.target.value)}
+                className="flex-1"
+                aria-label="Before and after split comparison"
+              />
+              <span className="font-mono text-[10px] w-8 text-right">{compareSplit}%</span>
+            </div>
+          </div>
+        ) : null}
 
         <section className="rounded-lg border border-[var(--border-subtle)] p-3" data-testid="image-editor-adjust">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

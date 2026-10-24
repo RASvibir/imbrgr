@@ -74,6 +74,9 @@ export async function POST(req: Request) {
     }
 
     const fullPrompt = buildFluxPrompt(prompt, parsed.data.style);
+    if (isPromptBlocked(prompt) || isPromptBlocked(fullPrompt)) {
+      return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
+    }
     const width = parsed.data.width ?? 1024;
     const height = parsed.data.height ?? 1024;
     const baseSeed = parsed.data.seed ?? Math.floor(Math.random() * 2_147_483_647);
@@ -151,6 +154,7 @@ export async function POST(req: Request) {
       visibility: galleryVisibility,
       title: titleFromAiPrompt(parsed.data.prompt),
       aiPrompt: fullPrompt,
+      mature: matureRequested,
     });
 
     const primary = results[0];

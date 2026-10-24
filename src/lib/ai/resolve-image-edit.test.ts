@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/simple-image-edit", () => ({
   simpleImageEdit: vi.fn(async () => Buffer.from("local-png")),

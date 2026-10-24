@@ -9,8 +9,8 @@ test.describe("create hub", () => {
 
     await page.goto("/create");
     await expect(page.getByTestId("create-hub")).toBeVisible();
-    await expect(page.getByTestId("create-card-video")).toContainText("Coming soon");
-    await expect(page.getByTestId("create-card-fun")).toContainText("Coming soon");
+    await expect(page.getByTestId("create-card-video").getByRole("link")).toHaveAttribute("href", "/studio?tab=video");
+    await expect(page.getByTestId("create-card-fun")).toBeVisible();
 
     await page.getByTestId("create-card-image").getByRole("link").click();
     await expect(page).toHaveURL(/\/studio/);

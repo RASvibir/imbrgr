@@ -6,7 +6,7 @@ import { consumeRateLimit } from "@/lib/rate-limit";
 import { z } from "zod";
 
 const schema = z.object({
-  targetType: z.enum(["POST", "MEDIA", "COLLECTION", "USER"]),
+  targetType: z.enum(["POST", "MEDIA", "COLLECTION", "USER", "COMMENT"]),
   targetId: z.string().min(1),
   reason: z.string().min(3).max(500),
   postShortId: z.string().optional(),
@@ -56,6 +56,13 @@ export async function POST(req: Request) {
     });
     if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
     targetId = user.id;
+  } else if (parsed.data.targetType === "COMMENT") {
+    const comment = await prisma.comment.findUnique({
+      where: { id: targetId },
+    });
+    if (!comment) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    targetId = comment.id;
+    postId = comment.postId;
   } else if (parsed.data.postShortId) {
     const post = await prisma.post.findUnique({ where: { shortId: parsed.data.postShortId } });
     postId = post?.id ?? null;

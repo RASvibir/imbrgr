@@ -28,11 +28,12 @@ export async function POST(req: Request) {
   const file = form.get("file");
   const visibilityRaw = form.get("visibility")?.toString();
   const keepOriginal = parseStudioKeepOriginal(form.get("keepOriginal")?.toString() ?? true);
+  const mature = form.get("mature") === "true" || form.get("mature") === "1";
   if (!(file instanceof File)) return NextResponse.json({ error: "file required" }, { status: 400 });
 
   const mime = file.type || "application/octet-stream";
-  if (!validateUploadMime(mime) || !mime.startsWith("image/")) {
-    return NextResponse.json({ error: "Unsupported image type" }, { status: 400 });
+  if (!validateUploadMime(mime)) {
+    return NextResponse.json({ error: "Unsupported media type" }, { status: 400 });
   }
   const buf = Buffer.from(await file.arrayBuffer());
   if (buf.byteLength > maxBytesForMime(mime)) {
@@ -47,7 +48,11 @@ export async function POST(req: Request) {
     });
     userDefault = user?.defaultPostVisibility ?? null;
   }
-  const visibility = resolveGalleryPostVisibility(visibilityRaw, actor.userId, userDefault);
+  const { clampMatureVisibility } = await import("@/lib/visibility");
+  const visibility = clampMatureVisibility(
+    resolveGalleryPostVisibility(visibilityRaw, actor.userId, userDefault),
+    mature,
+  );
 
   try {
     const media = await processAndStoreUpload({
@@ -56,12 +61,14 @@ export async function POST(req: Request) {
       userId: actor.userId,
       voterKey: actor.userId ? null : actor.voterKey,
       visibility,
+      mature,
     });
     const post = await ensureGalleryPostForMedia({
       mediaId: media.id,
       userId: actor.userId,
       visibility,
       title: defaultUploadPostTitle(file.name),
+      mature,
     });
     await syncStudioAutoLibrarySave(actor, media.id, keepOriginal);
     return NextResponse.json({
@@ -73,6 +80,7 @@ export async function POST(req: Request) {
       height: media.height,
       byteSize: media.byteSize,
       deleteToken: media.deleteToken,
+      mature: media.mature,
     });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Import failed" }, { status: 400 });

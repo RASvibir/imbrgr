@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
 
 const png = path.join(__dirname, "fixtures/tiny.png");
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+ensureArtifactsDir();
 const DESKTOP = { width: 1280, height: 800 };
 
 async function setRange(page: import("@playwright/test").Page, testId: string, value: number) {
@@ -71,7 +72,7 @@ test.describe("image editor sliders & draw @ desktop", () => {
       const c = el as HTMLCanvasElement;
       const ctx = c.getContext("2d");
       if (!ctx) return false;
-      const { data, width, height } = ctx.getImageData(0, 0, c.width, c.height);
+      const { data } = ctx.getImageData(0, 0, c.width, c.height);
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] > 0 && data[i + 2] > data[i] + 20) return true;
       }

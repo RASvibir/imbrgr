@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
 
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+ensureArtifactsDir();
 const DESKTOP = { width: 1280, height: 800 };
 
 async function autoLibraryMediaShortIds(request: import("@playwright/test").APIRequestContext) {

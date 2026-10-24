@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { PostMediaImage } from "@/components/media/PostMediaImage";
 import { mediaUrl } from "@/lib/urls";
 
@@ -16,6 +19,7 @@ type PostCardData = {
     thumbSmKey?: string | null;
     thumbMdKey?: string | null;
     placeholderCss?: string | null;
+    mature?: boolean;
   }[];
   user: { username: string } | null;
 };
@@ -27,12 +31,43 @@ export function PostCard({
   post: PostCardData;
   thumbVariant?: "sm" | "md";
 }) {
+  const [copied, setCopied] = useState(false);
   const thumb = post.media[0];
   const src = thumb && thumb.mimeType.startsWith("video/") ? mediaUrl(thumb.storageKey, thumb.mimeType) : null;
+
+  const handleQuickShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}/p/${post.shortId}`;
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: post.title, url });
+        return;
+      } catch {
+        /* dismissed */
+      }
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleQuickDownload = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!thumb) return;
+    const downloadSrc = mediaUrl(thumb.storageKey, thumb.mimeType);
+    const a = document.createElement("a");
+    a.href = downloadSrc;
+    const ext = thumb.mimeType.split("/")[1] || (thumb.mimeType.startsWith("video/") ? "webm" : "jpg");
+    a.download = `imbrgr-${post.shortId}.${ext}`;
+    a.click();
+  };
+
   return (
     <Link
       href={`/p/${post.shortId}`}
-      className="group overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition hover:border-[var(--accent-primary)] hover:shadow-[var(--shadow-ember)]"
+      className="group relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition hover:border-[var(--accent-primary)] hover:shadow-[var(--shadow-ember)]"
     >
       <div className="relative aspect-video bg-[var(--surface-sunken)]">
         {post.aiGenerated ? (
@@ -40,9 +75,44 @@ export function PostCard({
             AI
           </span>
         ) : null}
+
+        {thumb?.mature ? (
+          <span className="absolute left-2 bottom-2 z-10 rounded bg-red-600/80 px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+            🔞 18+
+          </span>
+        ) : null}
+
+        {/* Quick Action Overlay (Share & Download) */}
+        <div className="absolute right-0 top-0 z-20 flex items-center gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+          <button
+            type="button"
+            onClick={handleQuickShare}
+            className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
+            title={copied ? "Copied link!" : "Share post"}
+            aria-label="Share post"
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--ring)]">
+              {copied ? "✓" : "🔗"}
+            </span>
+          </button>
+          {thumb ? (
+            <button
+              type="button"
+              onClick={handleQuickDownload}
+              className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
+              title="Download media"
+              aria-label="Download media"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--ring)]">
+                💾
+              </span>
+            </button>
+          ) : null}
+        </div>
+
         {thumb ? (
           thumb.mimeType.startsWith("video/") && src ? (
-            <video src={src} className="h-full w-full object-cover" muted playsInline />
+            <video src={src} className={`h-full w-full object-cover ${thumb.mature ? "blur-md" : ""}`} muted playsInline />
           ) : (
             <PostMediaImage media={thumb} variant={thumbVariant} className="transition group-hover:scale-[1.02]" />
           )

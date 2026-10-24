@@ -27,6 +27,11 @@ export async function POST(req: Request) {
   try {
     const enhanced = await autoEnhanceBuffer(source);
     const parentId = media.parentMediaId ?? media.id;
+    const parentMedia = media.parentMediaId
+      ? await prisma.media.findUnique({ where: { id: media.parentMediaId }, select: { mature: true } })
+      : null;
+    const isMature = Boolean(media.mature || parentMedia?.mature);
+
     const created = await processAndStoreUpload({
       buffer: enhanced,
       mime: "image/jpeg",
@@ -34,6 +39,7 @@ export async function POST(req: Request) {
       voterKey: actor.userId ? null : actor.voterKey,
       parentMediaId: parentId,
       visibility: normalizeVisibility(media.visibility),
+      mature: isMature,
     });
     return NextResponse.json({
       shortId: created.shortId,

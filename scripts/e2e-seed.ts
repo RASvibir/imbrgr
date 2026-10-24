@@ -51,8 +51,8 @@ async function main() {
 
   await prisma.siteSetting.upsert({
     where: { id: "global" },
-    create: { id: "global", updatedAt: new Date() },
-    update: { updatedAt: new Date() },
+    create: { id: "global", anonAiDailyLimit: 10000, updatedAt: new Date() },
+    update: { anonAiDailyLimit: 10000, updatedAt: new Date() },
   });
 
   await prisma.$disconnect();

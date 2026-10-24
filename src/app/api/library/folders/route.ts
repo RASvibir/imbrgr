@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { newShortId } from "@/lib/ids";
-import { libraryOwnerWhere, ownsLibraryRow } from "@/lib/library-access";
+import { libraryOwnerWhere } from "@/lib/library-access";
 import { getActor } from "@/lib/request-identity";
 
 const createSchema = z.object({

@@ -16,6 +16,8 @@ import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
 import { normalizeStudioAsset } from "@/lib/studio-asset";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
+import { useToolHandoff } from "@/lib/landing/use-tool-handoff";
+import { LoadedFromDropChip, HandoffExpiredNote } from "@/components/landing/HandoffNotice";
 import { COPY, friendlyError } from "@/lib/user-messages";
 import { mediaUrl } from "@/lib/urls";
 import { StudioMobileActionBar } from "@/components/studio/StudioMobileActionBar";
@@ -47,7 +49,7 @@ type Tab = "create" | "refine" | "media" | "share";
 const TABS: { id: Tab; label: string }[] = [
   { id: "create", label: "Create" },
   { id: "refine", label: "Refine" },
-  { id: "media", label: "Media lab" },
+  { id: "media", label: "Video studio" },
   { id: "share", label: "Share" },
 ];
 
@@ -67,12 +69,16 @@ export function ImageStudio({
   initialAssistPrompt,
   initialAsset,
   remixFromShortId,
+  initialPreset,
+  initialMode,
 }: {
   defaultTab?: string;
   initialPrompt?: string;
   initialAssistPrompt?: string;
   initialAsset?: StudioInitialAsset | null;
   remixFromShortId?: string;
+  initialPreset?: string;
+  initialMode?: string;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -153,6 +159,7 @@ export function ImageStudio({
 
   useEffect(() => {
     if (initialAsset?.shortId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- loads share state for the opened asset; state is set from the response
       void refreshShare(initialAsset.shortId);
     }
   }, [initialAsset?.shortId, refreshShare]);
@@ -210,6 +217,19 @@ export function ImageStudio({
     await setActiveAsset(next);
     selectTab("refine", next.shortId);
   };
+
+  // Handoff integration from landing
+  const isVideoStudio = tab === "media";
+  const { isLoadedFromDrop, fileName, isExpired, clearHandoff, dismissExpired } = useToolHandoff({
+    enabled: !isVideoStudio,
+    onFileLoaded: async (file) => {
+      await importFile(file);
+    },
+    onClear: () => {
+      setAsset(null);
+      selectTab("create");
+    },
+  });
 
   const importFromUrl = async () => {
     setErr("");
@@ -446,6 +466,7 @@ export function ImageStudio({
           }
         });
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- guest preference lives in browser storage, which is only readable on the client
       setKeepOriginal(readGuestKeepOriginal());
     }
   }, [signedIn]);
@@ -565,6 +586,17 @@ export function ImageStudio({
         <FieldPressDraftStudioChrome />
       </header>
 
+      {(isLoadedFromDrop || isExpired) && (
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          {isLoadedFromDrop && (
+            <LoadedFromDropChip fileName={fileName} onClear={clearHandoff} />
+          )}
+          {isExpired && (
+            <HandoffExpiredNote onDismiss={dismissExpired} />
+          )}
+        </div>
+      )}
+
       <nav className="flex gap-1 overflow-x-auto border-b border-[var(--border-subtle)] pb-1" aria-label="Studio steps">
         {TABS.map((t) => (
           <button
@@ -603,6 +635,48 @@ export function ImageStudio({
             fieldPressVisibility={mediaVisibility}
             fieldPressTitle={settings.title}
           />
+          {/* Quick Action Toolbar for Download, Share & Video Bridge */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                const a = document.createElement("a");
+                a.href = preview;
+                a.download = `imbrgr-${asset.shortId}.${asset.mimeType.split("/")[1] || "png"}`;
+                a.click();
+                setMsg("Downloading image…");
+              }}
+              className={`${btnSecondary} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}
+            >
+              <span>💾</span>
+              <span>Download Image</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab("share")}
+              className={`${btnSecondary} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}
+            >
+              <span>🔗</span>
+              <span>Share Links</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => selectTab("media")}
+              className={`${btnPrimary} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold shadow-[var(--shadow-ember)]`}
+              title="Animate this image in AI Video Studio"
+            >
+              <span>🎬</span>
+              <span>Animate in Video Studio ⚡</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className={`${btnSecondary} flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold`}
+            >
+              <span>✏️</span>
+              <span>Spot Eraser</span>
+            </button>
+          </div>
           <StudioVersionStrip
             mediaShortId={asset.shortId}
             refreshKey={versionRefreshKey}
@@ -754,7 +828,14 @@ export function ImageStudio({
 
 
       {tab === "media" ? (
-        <MediaCreationSuite />
+        <MediaCreationSuite
+          initialPrompt={initialPrompt ?? params.get("prompt") ?? undefined}
+          initialPreset={initialPreset ?? params.get("preset") ?? undefined}
+          initialToolboxTab={
+            initialMode === "fun" || params.get("mode") === "fun" ? "plugins" : undefined
+          }
+          initialAsset={initialAsset}
+        />
       ) : null}
 
       {tab === "share" ? (
@@ -773,6 +854,15 @@ export function ImageStudio({
                 <button type="button" onClick={saveMediaSettings} className={btnSecondary}>
                   Save details
                 </button>
+                {preview ? (
+                  <a
+                    href={preview}
+                    download={`imbrgr-${asset.shortId}.${asset.mimeType.split("/")[1] || "png"}`}
+                    className={`${btnSecondary} inline-flex items-center gap-1.5`}
+                  >
+                    💾 Download Image
+                  </a>
+                ) : null}
                 {signedIn ? (
                   <button
                     type="button"
