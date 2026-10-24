@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
 
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+ensureArtifactsDir();
 
 test.describe("library UI hotfix", () => {
   test("desktop 1280: no internal labels; folder add control visible", async ({ page }) => {

@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs/promises";
 import path from "node:path";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
 
 const png = path.join(__dirname, "fixtures/tiny.png");
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+ensureArtifactsDir();
 const DESKTOP = { width: 1280, height: 800 };
 
 async function clickCookUp(page: import("@playwright/test").Page) {
@@ -16,7 +16,7 @@ test.describe("desktop 1280×800 flows", () => {
   test("home hero: logo, prompt, and primary actions", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("home-hero")).toBeVisible();
-    await expect(page.getByTestId("ember-hero-mark")).toBeVisible();
+    await expect(page.getByTestId("ember-hero-mark").locator("visible=true")).toHaveCount(1);
     await expect(page.getByTestId("home-studio-prompt")).toBeVisible();
     await expect(page.getByTestId("home-upload-button")).toBeVisible();
     await expect(page.getByRole("button", { name: /Cook up image/i })).toBeVisible();

@@ -5,9 +5,10 @@ import {
   auditMobileLayout,
   MOBILE_VIEWPORTS,
 } from "./mobile-layout-helpers";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
 
 const png = path.join(__dirname, "fixtures/tiny.png");
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+ensureArtifactsDir();
 
 async function signInUser(page: import("@playwright/test").Page) {
   await page.goto("/auth/signin");

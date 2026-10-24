@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
-import fs from "node:fs/promises";
 import path from "node:path";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
 
 const png = path.join(__dirname, "fixtures/tiny.png");
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+ensureArtifactsDir();
 const DESKTOP = { width: 1280, height: 800 };
 
 async function signInE2E(page: import("@playwright/test").Page) {

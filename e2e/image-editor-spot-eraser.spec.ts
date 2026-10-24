@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
 
 const spotted = path.join(__dirname, "fixtures/spotted.png");
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+ensureArtifactsDir();
 const DESKTOP = { width: 1280, height: 800 };
 
 async function openStudioEditor(page: import("@playwright/test").Page, file: string) {

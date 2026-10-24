@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
 
 const png = path.join(__dirname, "fixtures/tiny.png");
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+ensureArtifactsDir();
 
 async function clickCookUp(page: import("@playwright/test").Page) {
   const mobile = page.getByTestId("studio-mobile-generate");
@@ -195,11 +196,14 @@ test.describe("imbrgr e2e", () => {
     await page.locator('input[type="file"]').setInputFiles(png);
     await expect(page.getByText(/Ready in the studio/i)).toBeVisible({ timeout: 15000 });
     await page.getByRole("navigation", { name: "Studio steps" }).getByRole("button", { name: "Share" }).click();
-    const pageLink = await page.locator('input[readonly][value*="/i/"]').first().inputValue();
-    const shortId = pageLink.match(/\/i\/([^/?#]+)/)?.[1];
-    expect(shortId).toBeTruthy();
-    await page.goto(`/i/${shortId}`);
+    // Guest uploads are public-by-default posts, so the share page link is /p/<postShortId>.
+    const pageLink = await page.getByLabel("Page link").first().inputValue();
+    expect(pageLink).toMatch(/\/p\/[^/?#]+/);
+    await page.goto(new URL(pageLink).pathname);
     await page.getByRole("link", { name: /Refine in studio/i }).click();
+    await page.waitForURL(/media=/);
+    const shortId = new URL(page.url()).searchParams.get("media");
+    expect(shortId).toBeTruthy();
     await expect(page.getByRole("button", { name: /Open editor/i })).toBeVisible();
     await page.getByRole("button", { name: /Open editor/i }).click();
     await page.getByRole("button", { name: /Save to studio/i }).click();
@@ -251,7 +255,8 @@ test.describe("imbrgr e2e", () => {
     const anon = await request.get("/api/admin/dashboard");
     expect(anon.status()).toBe(404);
     await page.goto("/admin");
-    await expect(page.getByText(/not found|404/i)).toBeVisible();
+    await expect(page.getByTestId("empty-state")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Back to gallery/i })).toBeVisible();
 
     await page.goto("/auth/signin");
     await page.getByPlaceholder(/email/i).fill("e2euser@imbrgr.test");
@@ -305,7 +310,7 @@ test.describe("imbrgr e2e", () => {
     await expect(page.getByText("COOK COUNT", { exact: true })).toBeVisible();
     await expect(page.getByText(/Each cook counts once/i)).toHaveCount(0);
     await page.locator("[data-testid=cheese-spice-gauge]").screenshot({
-      path: "/opt/cursor/artifacts/screenshots/cook-count-flame-gauge.png",
+      path: `${artifactsDir}/cook-count-flame-gauge.png`,
     });
     await expect(page.getByText(/Cheese pull/i)).toBeVisible();
     await expect(page.getByText(/spicy meter/i)).toHaveCount(0);

@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
-const artifactsDir = "/opt/cursor/artifacts/screenshots";
+import { artifactsDir, ensureArtifactsDir } from "./helpers/artifacts";
+
+ensureArtifactsDir();
 const DESKTOP = { width: 1280, height: 800 };
 
 test.describe("studio library save and locked original", () => {

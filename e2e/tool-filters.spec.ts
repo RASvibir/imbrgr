@@ -14,8 +14,6 @@ test.describe("Tool: Photo Filters (/tools/filters)", () => {
   });
 
   test("universal download and post feedback in tool shell", async ({ page }) => {
-    page.on("console", (msg) => console.log("CONSOLE:", msg.text()));
-    page.on("pageerror", (err) => console.log("PAGE ERROR:", err));
     await page.goto("/tools/filters");
     await page.getByTestId("tool-download-btn").click();
     await expect(page.getByTestId("tool-status-toast")).toBeVisible();
