@@ -168,7 +168,7 @@ export function MyImagesPanel({
                     </button>
                     <button
                       type="button"
-                      className="hidden text-xs text-[var(--text-muted)] group-hover:inline"
+                      className="inline-flex min-h-11 items-center px-2 text-xs text-[var(--text-muted)] [@media(hover:hover)]:hidden [@media(hover:hover)]:group-hover:inline-flex"
                       onClick={() => {
                         setRenamingId(f.shortId);
                         setRenameValue(f.name);
@@ -178,7 +178,7 @@ export function MyImagesPanel({
                     </button>
                     <button
                       type="button"
-                      className="hidden text-xs text-[var(--danger)] group-hover:inline"
+                      className="inline-flex min-h-11 items-center px-2 text-xs text-[var(--danger)] [@media(hover:hover)]:hidden [@media(hover:hover)]:group-hover:inline-flex"
                       onClick={() => void deleteFolder(f.shortId)}
                     >
                       Del
@@ -238,7 +238,7 @@ export function MyImagesPanel({
                       <img src={s.media.previewUrl} alt="" className="aspect-square w-full object-cover" />
                       
                       {/* Quick Action Overlay (Download & Copy Link) */}
-                      <div className="absolute right-2 top-2 z-10 flex items-center gap-1.5 opacity-0 transition-opacity duration-150 group-hover/lib:opacity-100 focus-within:opacity-100">
+                      <div className="absolute right-0 top-0 z-10 flex items-center gap-0 opacity-0 transition-opacity duration-150 group-hover/lib:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
                         <button
                           type="button"
                           onClick={(e) => {
@@ -250,11 +250,13 @@ export function MyImagesPanel({
                             a.download = `imbrgr-${s.media.shortId}.${ext}`;
                             a.click();
                           }}
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition hover:bg-[var(--accent-primary)] hover:text-[var(--on-accent)]"
+                          className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
                           title="Download image"
                           aria-label="Download image"
                         >
-                          💾
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--accent-primary)]">
+                            💾
+                          </span>
                         </button>
                         <button
                           type="button"
@@ -264,11 +266,13 @@ export function MyImagesPanel({
                             const url = `${window.location.origin}/studio?tab=refine&media=${s.media.shortId}`;
                             await navigator.clipboard.writeText(url);
                           }}
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition hover:bg-[var(--accent-primary)] hover:text-[var(--on-accent)]"
+                          className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
                           title="Copy link"
                           aria-label="Copy link"
                         >
-                          🔗
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--accent-primary)]">
+                            🔗
+                          </span>
                         </button>
                       </div>
                     </div>
