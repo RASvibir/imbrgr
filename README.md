@@ -159,6 +159,8 @@ STORAGE_DRIVER=local AI_MOCK=true npm run test:e2e
 npm run test:e2e:artifacts   # optional screenshots → /opt/cursor/artifacts
 ```
 
+See [docs/testing.md](docs/testing.md) for CI, environment gotchas and the guest-cookie rule.
+
 ### AR Camera Assets
 
 The AR Camera (`/tools/ar`) uses `@mediapipe/tasks-vision` for client-side face landmarking. Run:
