@@ -5,6 +5,23 @@ import Link from "next/link";
 import { OUTCOME_TOOLS, type OutcomeTool } from "./landing-tools";
 import { btnPrimary } from "@/lib/ui/button-classes";
 
+export type PreviewKind = "meme" | "gif" | "collage" | "filter" | "ar" | "ai";
+
+const CANVAS_PREVIEW_KIND_MAP: Record<string, PreviewKind> = {
+  meme: "meme",
+  gif: "gif",
+  collage: "collage",
+  style: "filter",
+  filters: "filter",
+  ar: "ar",
+  ai: "ai",
+  image: "ai",
+};
+
+export function getCanvasPreviewKind(tool: OutcomeTool): PreviewKind {
+  return tool.kind ?? CANVAS_PREVIEW_KIND_MAP[tool.id] ?? "ai";
+}
+
 export function OutcomeTiles() {
   return (
     <section
@@ -62,6 +79,7 @@ export function OutcomeTiles() {
 
 function OutcomeTile({ tool }: { tool: OutcomeTool }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewKind = getCanvasPreviewKind(tool);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -96,7 +114,7 @@ function OutcomeTile({ tool }: { tool: OutcomeTool }) {
       if (isVisible) {
         const t = (now - startTime) / 1000;
         ctx.clearRect(0, 0, w, h);
-        drawToolPreview(ctx, tool.kind, w, h, prefersReducedMotion ? 0 : t);
+        drawToolPreview(ctx, previewKind, w, h, prefersReducedMotion ? 0 : t);
       }
       if (!prefersReducedMotion && isVisible) {
         animId = requestAnimationFrame(loop);
@@ -104,13 +122,13 @@ function OutcomeTile({ tool }: { tool: OutcomeTool }) {
     };
 
     // Draw initial static frame immediately
-    drawToolPreview(ctx, tool.kind, w, h, 0);
+    drawToolPreview(ctx, previewKind, w, h, 0);
 
     return () => {
       cancelAnimationFrame(animId);
       observer.disconnect();
     };
-  }, [tool.kind]);
+  }, [previewKind]);
 
   return (
     <div
@@ -161,7 +179,7 @@ function OutcomeTile({ tool }: { tool: OutcomeTool }) {
 /** Procedural lightweight canvas preview for each tool kind */
 function drawToolPreview(
   ctx: CanvasRenderingContext2D,
-  kind: OutcomeTool["kind"],
+  kind: PreviewKind,
   w: number,
   h: number,
   t: number,

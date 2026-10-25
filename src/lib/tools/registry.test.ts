@@ -7,8 +7,10 @@ import {
   getPopularTools,
   getCreateHubTools,
   getNoveltyTools,
+  getLandingTools,
   type ToolCategory,
   type ToolStatus,
+  type OutcomeTool,
 } from "./registry";
 
 describe("Tool Registry Integrity", () => {
@@ -110,5 +112,33 @@ describe("Tool Registry Integrity", () => {
     expect(TOOL_CATEGORIES.length).toBe(6);
     const categoryIds = TOOL_CATEGORIES.map((c) => c.id);
     expect(categoryIds).toEqual(["all", "photo", "video", "gif", "fun", "ar"]);
+  });
+
+  it("returns outcome-driven tools for the landing page in expected order", () => {
+    const landingTools = getLandingTools();
+    expect(landingTools.length).toBe(6);
+
+    const ids = landingTools.map((t: OutcomeTool) => t.id);
+    expect(ids).toEqual(["meme", "gif", "collage", "style", "ar", "ai"]);
+
+    for (const tool of landingTools) {
+      expect(tool.id.trim().length).toBeGreaterThan(0);
+      expect(tool.outcome.trim().length).toBeGreaterThan(0);
+      expect(tool.promise.trim().length).toBeGreaterThan(0);
+      expect(tool.cta.trim().length).toBeGreaterThan(0);
+      expect(tool.href.startsWith("/")).toBe(true);
+      expect(typeof tool.badge).toBe("string");
+    }
+
+    // Verify key destinations
+    const styleTool = landingTools.find((t) => t.id === "style");
+    expect(styleTool?.href).toBe("/tools/filters");
+    expect(styleTool?.outcome).toBe("Style a photo or video");
+    expect(styleTool?.badge).toBe("Sizzle & Shaders");
+
+    const aiTool = landingTools.find((t) => t.id === "ai");
+    expect(aiTool?.href).toBe("/studio");
+    expect(aiTool?.outcome).toBe("Generate images & video with AI");
+    expect(aiTool?.badge).toBe("AI Kitchen");
   });
 });

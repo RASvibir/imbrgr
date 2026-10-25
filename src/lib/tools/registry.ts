@@ -1,6 +1,25 @@
 export type ToolCategory = "photo" | "video" | "gif" | "fun" | "ar";
 export type ToolStatus = "live" | "beta" | "soon";
 
+export interface ToolLandingInfo {
+  id?: string;
+  order?: number;
+  outcome: string;
+  promise: string;
+  cta?: string;
+  badge?: string;
+}
+
+export interface OutcomeTool {
+  id: string;
+  outcome: string;
+  promise: string;
+  cta: string;
+  href: string;
+  badge?: string;
+  kind?: "meme" | "gif" | "collage" | "filter" | "ar" | "ai";
+}
+
 export interface ToolDefinition {
   id: string;
   title: string;
@@ -17,6 +36,7 @@ export interface ToolDefinition {
   popular?: boolean;
   gradient: string;
   inCreateHub?: boolean;
+  landing?: ToolLandingInfo;
 }
 
 export interface ToolCategoryInfo {
@@ -53,6 +73,15 @@ export const TOOLS: ToolDefinition[] = [
     popular: true,
     gradient: "from-orange-500/10 via-amber-500/5 to-transparent",
     inCreateHub: true,
+    landing: {
+      id: "ai",
+      outcome: "Generate images & video with AI",
+      promise:
+        "Cook fresh images, text-to-video clips, and motion loops, then trim them on the timeline.",
+      cta: "Generate with AI",
+      badge: "AI Kitchen",
+      order: 6,
+    },
   },
   {
     id: "video",
@@ -123,6 +152,14 @@ export const TOOLS: ToolDefinition[] = [
     cta: "Create a meme",
     popular: true,
     gradient: "from-emerald-500/10 via-teal-500/5 to-transparent",
+    landing: {
+      id: "meme",
+      outcome: "Make a meme",
+      promise: "Drop punchlines, classic caption text, and stickers in seconds.",
+      cta: "Make a meme",
+      badge: "Viral Classic",
+      order: 1,
+    },
   },
   {
     id: "gif",
@@ -140,6 +177,14 @@ export const TOOLS: ToolDefinition[] = [
     cta: "Make a GIF",
     popular: true,
     gradient: "from-purple-500/10 via-pink-500/5 to-transparent",
+    landing: {
+      id: "gif",
+      outcome: "Turn a video into a GIF",
+      promise: "Trim, scrub, and export lightweight looping GIFs with zero lag.",
+      cta: "Create a GIF",
+      badge: "Loop Ready",
+      order: 2,
+    },
   },
   {
     id: "collage",
@@ -157,6 +202,14 @@ export const TOOLS: ToolDefinition[] = [
     cta: "Build collage",
     popular: false,
     gradient: "from-blue-500/10 via-indigo-500/5 to-transparent",
+    landing: {
+      id: "collage",
+      outcome: "Combine photos",
+      promise: "Arrange side-by-side comparisons, multi-shots, and clean grids.",
+      cta: "Combine photos",
+      badge: "Multi-Shot",
+      order: 3,
+    },
   },
   {
     id: "filters",
@@ -174,6 +227,14 @@ export const TOOLS: ToolDefinition[] = [
     cta: "Apply filters",
     popular: false,
     gradient: "from-fuchsia-500/10 via-rose-500/5 to-transparent",
+    landing: {
+      id: "style",
+      outcome: "Style a photo or video",
+      promise: "Flame-grill, deep-fry, and apply retro halftone and VHS shaders.",
+      cta: "Style your media",
+      badge: "Sizzle & Shaders",
+      order: 4,
+    },
   },
   {
     id: "ar",
@@ -191,6 +252,14 @@ export const TOOLS: ToolDefinition[] = [
     cta: "Launch AR camera",
     popular: true,
     gradient: "from-sky-500/10 via-teal-500/5 to-transparent",
+    landing: {
+      id: "ar",
+      outcome: "Try a face effect",
+      promise: "Live interactive burger hats, glowing heat vision, and AR masks.",
+      cta: "Try face effects",
+      badge: "Realtime Face AR",
+      order: 5,
+    },
   },
 ];
 
@@ -213,4 +282,20 @@ export function getCreateHubTools(): ToolDefinition[] {
 
 export function getNoveltyTools(): ToolDefinition[] {
   return TOOLS.filter((tool) => tool.href.startsWith("/tools/"));
+}
+
+export function getLandingTools(): OutcomeTool[] {
+  return TOOLS.filter(
+    (tool): tool is ToolDefinition & { landing: ToolLandingInfo } =>
+      Boolean(tool.landing),
+  )
+    .sort((a, b) => (a.landing.order ?? 0) - (b.landing.order ?? 0))
+    .map((tool) => ({
+      id: tool.landing.id ?? tool.id,
+      outcome: tool.landing.outcome,
+      promise: tool.landing.promise,
+      cta: tool.landing.cta ?? tool.cta,
+      href: tool.href,
+      badge: tool.landing.badge ?? tool.badge,
+    }));
 }
