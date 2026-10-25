@@ -63,8 +63,8 @@ export const OUTCOME_TOOLS: readonly OutcomeTool[] = [
   },
   {
     id: "ai",
-    outcome: "Generate with AI",
-    promise: "Cook fresh images, animations, and motion loops from text prompts.",
+    outcome: "Generate images & video with AI",
+    promise: "Cook fresh images, text-to-video clips, and motion loops, then trim them on the timeline.",
     cta: "Generate with AI",
     href: "/studio",
     badge: "AI Kitchen",
