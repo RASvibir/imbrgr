@@ -49,6 +49,9 @@ jobs:
       # Mirrors vercel.json buildCommand so a broken AR asset download fails here, not in production.
       - run: npm run ar:assets
       - run: npm run build
+      # Playwright starts the web server before globalSetup, and the home page queries the DB,
+      # so the schema must exist before the test run begins.
+      - run: npx prisma migrate deploy
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - name: Upload Playwright artifacts
