@@ -30,6 +30,7 @@ import { AiVideoGeneratorPanel } from "./video/AiVideoGeneratorPanel";
 import { VideoPluginsPanel } from "./video/VideoPluginsPanel";
 import { VideoTextOverlayPanel } from "./video/VideoTextOverlayPanel";
 import { VideoTimelineTrackView } from "./video/VideoTimelineTrackView";
+import { videoExportFormat } from "@/lib/video-export-format";
 import { VideoPreviewPlayer } from "./video/VideoPreviewPlayer";
 
 type ToolboxTab = "ai" | "assets" | "plugins" | "text" | "layout" | "export";
@@ -587,8 +588,9 @@ export function MediaCreationSuite({
 
     try {
       const formData = new FormData();
-      const file = new File([exportedBlob], "imbrgr-video.webm", {
-        type: exportedBlob.type || "video/webm",
+      const exportFormat = videoExportFormat(exportedBlob.type);
+      const file = new File([exportedBlob], `imbrgr-video.${exportFormat.ext}`, {
+        type: exportFormat.mime,
       });
       const isMature = postMature || visualClips.some((c) => c.mature);
       const effectiveVisibility = isMature && postVisibility === "PUBLIC" ? "UNLISTED" : postVisibility;
@@ -1007,18 +1009,19 @@ export function MediaCreationSuite({
                     <div className="flex flex-wrap gap-2">
                       <a
                         href={exportUrl}
-                        download={`imbrgr-${(postTitle || "video").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.webm`}
+                        download={`imbrgr-${(postTitle || "video").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.${videoExportFormat(exportedBlob?.type).ext}`}
                         className={`${btnPrimary} flex-1 text-center py-2 text-xs font-semibold`}
                       >
-                        💾 Download WebM {exportedBlob ? `(${(exportedBlob.size / 1024 / 1024).toFixed(1)} MB)` : ""}
+                        💾 Download {videoExportFormat(exportedBlob?.type).label} {exportedBlob ? `(${(exportedBlob.size / 1024 / 1024).toFixed(1)} MB)` : ""}
                       </a>
                       <button
                         type="button"
                         onClick={async () => {
                           if (!exportedBlob) return;
                           try {
-                            const file = new File([exportedBlob], "imbrgr-video.webm", {
-                              type: exportedBlob.type || "video/webm",
+                            const shareFormat = videoExportFormat(exportedBlob.type);
+                            const file = new File([exportedBlob], `imbrgr-video.${shareFormat.ext}`, {
+                              type: shareFormat.mime,
                             });
                             if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })) {
                               await navigator.share({
