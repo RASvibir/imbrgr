@@ -395,7 +395,7 @@ export function ImageStudio({
       });
       const data = await res.json();
       if (!res.ok) {
-        setAssistErr(data.error ?? "Edit failed");
+        setAssistErr(friendlyError(data.error ?? "Edit failed"));
         return;
       }
       const after = normalizeStudioAsset({
