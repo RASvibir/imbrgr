@@ -17,7 +17,6 @@ export interface OutcomeTool {
   cta: string;
   href: string;
   badge?: string;
-  kind?: "meme" | "gif" | "collage" | "filter" | "ar" | "ai";
 }
 
 export interface ToolDefinition {
