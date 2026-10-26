@@ -38,10 +38,13 @@ export type VisualClip = {
 export type AudioClip = {
   id: string;
   trackId: string;
+  assetId?: string;
   url: string;
   name: string;
   startSec: number;
   endSec: number;
+  sourceStartSec?: number;
+  sourceDurationSec?: number;
   volume: number; // 0 to 1
   muted?: boolean;
 };
