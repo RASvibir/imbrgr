@@ -19,6 +19,7 @@ const schema = z.object({
   targetSec: z.number().min(PLAN_MIN_SEC).max(PLAN_MAX_SEC).optional(),
   aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
   style: z.string().max(40).optional(),
+  brandName: z.string().trim().max(40).optional(),
   safe: z.boolean().optional(),
   mature: z.boolean().optional(),
 });
@@ -44,7 +45,11 @@ export async function POST(req: Request) {
   }
 
   const { isPromptBlocked, blockedPromptMessage } = await import("@/lib/prompt-safety");
-  if (isPromptBlocked(parsed.data.prompt) || isPromptBlocked(parsed.data.style ?? "")) {
+  if (
+    isPromptBlocked(parsed.data.prompt) ||
+    isPromptBlocked(parsed.data.style ?? "") ||
+    isPromptBlocked(parsed.data.brandName ?? "")
+  ) {
     return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
   }
 
@@ -69,6 +74,7 @@ export async function POST(req: Request) {
       targetSec: parsed.data.targetSec ?? 20,
       aspectRatio: parsed.data.aspectRatio,
       style: parsed.data.style,
+      brandName: parsed.data.brandName,
     });
     return NextResponse.json({ success: true, storyboard: result.storyboard, provider: result.provider });
   } catch (err) {

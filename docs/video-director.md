@@ -8,12 +8,15 @@ the existing clip generation and timeline editor.
 
 ```json
 POST /api/ai/video/plan
-{ "prompt": "a day at the harbor", "targetSec": 20, "aspectRatio": "9:16", "style": "cinematic" }
+{ "prompt": "a day at the harbor", "targetSec": 20, "aspectRatio": "9:16", "style": "cinematic", "brandName": "Harbor Co" }
 ```
 
 Returns `{ success, storyboard, provider }`. Errors: `400` invalid or blocked prompt, or a mature request;
 `403` AI use blocked for the account; `429` rate limited; `502` no provider returned a valid, safe plan;
 `503` planner not configured.
+
+`brandName` is optional (max 40 chars). When given, it is used verbatim in the title, narration and captions, never in
+image prompts. Plans that still contain template slots such as `[Brand]` are discarded and the next provider is tried.
 
 ## Providers (free tiers)
 

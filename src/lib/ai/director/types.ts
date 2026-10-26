@@ -35,6 +35,8 @@ export type PlanParams = {
   targetSec: number;
   aspectRatio?: "16:9" | "9:16" | "1:1";
   style?: string;
+  /** Optional brand or product name, used verbatim in narration, title and captions. */
+  brandName?: string;
 };
 
 export type PlanResult = {
