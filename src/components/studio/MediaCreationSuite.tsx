@@ -31,6 +31,8 @@ import { VideoPluginsPanel } from "./video/VideoPluginsPanel";
 import { VideoTextOverlayPanel } from "./video/VideoTextOverlayPanel";
 import { VideoTimelineTrackView } from "./video/VideoTimelineTrackView";
 import { videoExportFormat } from "@/lib/video-export-format";
+import { ExportUnsupportedError, exportTimelineVideo } from "@/lib/video-export/export-video";
+import { seekVideo } from "@/lib/video-export/render-frame";
 import { VideoPreviewPlayer } from "./video/VideoPreviewPlayer";
 
 type ToolboxTab = "ai" | "assets" | "plugins" | "text" | "layout" | "export";
@@ -152,6 +154,7 @@ export function MediaCreationSuite({
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const cancelExportRef = useRef(false);
+  const engineAbortRef = useRef<AbortController | null>(null);
 
   // Gallery Post Publish Form State
   const [postTitle, setPostTitle] = useState("AI Video Creation");
@@ -397,6 +400,53 @@ export function MediaCreationSuite({
       setError("Please add at least one visual clip to the timeline before exporting.");
       return;
     }
+    if (typeof VideoEncoder !== "undefined") {
+      const controller = new AbortController();
+      engineAbortRef.current = controller;
+      cancelExportRef.current = false;
+      setExporting(true);
+      setExportProgress(0);
+      try {
+        const result = await exportTimelineVideo({
+          visualClips,
+          audioClips,
+          textOverlays,
+          aspectRatio,
+          bgColor,
+          durationSec: totalDurationSec,
+          pluginManager,
+          pluginsActive: enabledPluginIds.size > 0,
+          signal: controller.signal,
+          onProgress: setExportProgress,
+        });
+        setExportedBlob(result.blob);
+        setExportUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(result.blob);
+        });
+        setActiveToolboxTab("export");
+        setStatus(
+          result.droppedAudio
+            ? "Video rendered without audio: this browser can't encode it."
+            : "Video rendering complete!",
+        );
+        setExporting(false);
+        return;
+      } catch (err) {
+        setExporting(false);
+        if (controller.signal.aborted) {
+          setStatus("Export canceled.");
+          return;
+        }
+        if (!(err instanceof ExportUnsupportedError)) {
+          setError(err instanceof Error ? err.message : "Video export failed.");
+          return;
+        }
+      } finally {
+        engineAbortRef.current = null;
+      }
+    }
+
     const mime = pickRecorderMime();
     if (!mime) {
       setError("MediaRecorder is not supported in this browser for video export.");
@@ -494,7 +544,7 @@ export function MediaCreationSuite({
         if (clip.kind === "video") {
           const v = videoElements.get(clip.id);
           if (v) {
-            v.currentTime = clip.sourceStartSec + (time - clip.startSec);
+            await seekVideo(v, clip.sourceStartSec + (time - clip.startSec));
             drawCover(ctx, v, v.videoWidth, v.videoHeight, width, height);
           }
         } else {
@@ -1003,7 +1053,10 @@ export function MediaCreationSuite({
                     </span>
                     <button
                       type="button"
-                      onClick={() => { cancelExportRef.current = true; }}
+                      onClick={() => {
+                        cancelExportRef.current = true;
+                        engineAbortRef.current?.abort();
+                      }}
                       className={`${btnSecondary} mt-3 text-xs`}
                     >
                       Cancel Export
