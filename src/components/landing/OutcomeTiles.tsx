@@ -12,14 +12,12 @@ const CANVAS_PREVIEW_KIND_MAP: Record<string, PreviewKind> = {
   gif: "gif",
   collage: "collage",
   style: "filter",
-  filters: "filter",
   ar: "ar",
   ai: "ai",
-  image: "ai",
 };
 
 export function getCanvasPreviewKind(tool: OutcomeTool): PreviewKind {
-  return tool.kind ?? CANVAS_PREVIEW_KIND_MAP[tool.id] ?? "ai";
+  return CANVAS_PREVIEW_KIND_MAP[tool.id] ?? "ai";
 }
 
 export function OutcomeTiles() {
