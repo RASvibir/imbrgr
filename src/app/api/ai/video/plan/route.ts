@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { aiRateLimitPerHour, videoPlanGlobalDailyLimit } from "@/lib/config";
 import {
   PlannerFailedError,
   PlannerNotConfiguredError,
@@ -10,7 +9,7 @@ import {
 import { PLAN_MAX_SEC, PLAN_MIN_SEC } from "@/lib/ai/director/types";
 import { getActor } from "@/lib/request-identity";
 import { assertUserMayUseAi } from "@/lib/user-guards";
-import { consumeRateLimit } from "@/lib/rate-limit";
+import { consumePlanLimits } from "@/lib/ai/director/limits";
 
 export const maxDuration = 60;
 
@@ -25,7 +24,7 @@ const schema = z.object({
 
 /**
  * Turn an idea into a storyboard (script + shot list) using a free-tier LLM provider chain.
- * Planning does not count against the daily generation quota; it has its own hourly and global caps.
+ * Planning does not count against the daily generation quota; it has its own budgets, kept separate for signed-in users and guests.
  */
 export async function POST(req: Request) {
   const actor = await getActor(req);
@@ -56,11 +55,11 @@ export async function POST(req: Request) {
     const aiBlock = await assertUserMayUseAi(actor.userId);
     if (aiBlock) return NextResponse.json({ error: aiBlock }, { status: 403 });
 
-    await consumeRateLimit(`ai-video-plan:${actor.userId ?? actor.ipHash}`, aiRateLimitPerHour(), 60 * 60 * 1000);
-    await consumeRateLimit("ai-video-plan:global", videoPlanGlobalDailyLimit(), 24 * 60 * 60 * 1000);
+    const limit = await consumePlanLimits(actor);
+    if (!limit.ok) return NextResponse.json({ error: limit.error }, { status: limit.status });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Rate limit or quota exceeded";
-    return NextResponse.json({ error: message }, { status: 429 });
+    console.error("[imbrgr/video-plan] guard error", err);
+    return NextResponse.json({ error: "Storyboard planning failed." }, { status: 500 });
   }
 
   try {

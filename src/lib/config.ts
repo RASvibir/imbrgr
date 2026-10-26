@@ -34,9 +34,23 @@ export function aiRateLimitPerHour(): number {
   return 30;
 }
 
-/** Shared daily budget for storyboard planning, to protect free-tier provider quotas. */
+/** Parses a positive integer env value; unset, blank, zero, negative or non-numeric values fall back. */
+function positiveIntEnv(name: string, fallback: number): number {
+  const parsed = Number.parseInt(process.env[name] ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/** Daily budget for storyboard planning by signed-in users, to protect free-tier provider quotas. */
 export function videoPlanGlobalDailyLimit(): number {
-  const raw = process.env.VIDEO_PLAN_GLOBAL_DAILY_LIMIT;
-  if (raw) return Number.parseInt(raw, 10);
-  return 500;
+  return positiveIntEnv("VIDEO_PLAN_GLOBAL_DAILY_LIMIT", 500);
+}
+
+/** Daily storyboard plans allowed per signed-out visitor (per hashed IP). */
+export function videoPlanAnonIpDailyLimit(): number {
+  return positiveIntEnv("VIDEO_PLAN_ANON_IP_DAILY_LIMIT", 3);
+}
+
+/** Shared daily pool for all signed-out visitors, so guests can't use up signed-in capacity. */
+export function videoPlanAnonGlobalDailyLimit(): number {
+  return positiveIntEnv("VIDEO_PLAN_ANON_GLOBAL_DAILY_LIMIT", 60);
 }
