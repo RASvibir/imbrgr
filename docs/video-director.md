@@ -25,7 +25,7 @@ Tried in order; the first one that returns valid, safe JSON wins. Providers with
 | Provider | Env vars | Notes |
 | --- | --- | --- |
 | Ollama | `OLLAMA_HOST` (must be set explicitly), optional `OLLAMA_MODEL`, `OLLAMA_API_KEY` | Local/self-hosted. Ignored in production if the host is localhost. |
-| Groq | `GROQ_API_KEY`, optional `GROQ_PLAN_MODEL` (default `llama-3.1-8b-instant`) | Free tier has per-model daily request caps. |
+| Groq | `GROQ_API_KEY`, optional `GROQ_PLAN_MODEL` (default `openai/gpt-oss-20b`; Groq retired `llama-3.1-8b-instant` on 2026-08-16) | Free tier has per-model daily request caps. |
 | Cloudflare Workers AI | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, optional `CLOUDFLARE_PLAN_MODEL` | 10,000 Neurons/day free, shared with other Workers AI use. |
 
 With no credentials the route returns `503` and does nothing, so it is safe to deploy without keys.
