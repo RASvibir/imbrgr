@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cloudflareProvider, groqProvider, ollamaProvider } from "./providers";
+import { cloudflareProvider, groqProvider, ollamaProvider, groqRequestBody } from "./providers";
 
 const messages = [
   { role: "system" as const, content: "sys" },
@@ -35,7 +35,19 @@ describe("groqProvider", () => {
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer secret");
     const sent = JSON.parse(init.body as string);
     expect(sent.response_format).toEqual({ type: "json_object" });
-    expect(sent.model).toBe("llama-3.1-8b-instant");
+    expect(sent.model).toBe("openai/gpt-oss-20b");
+    expect(sent.reasoning_effort).toBe("low");
+    expect(sent.max_tokens).toBeGreaterThanOrEqual(2000);
+  });
+
+  it("only sends reasoning_effort to gpt-oss models, so a GROQ_PLAN_MODEL override is not rejected", () => {
+    vi.stubEnv("GROQ_PLAN_MODEL", "some-other/model");
+    const body = groqRequestBody(messages);
+    expect(body.model).toBe("some-other/model");
+    expect(body).not.toHaveProperty("reasoning_effort");
+    expect(body.max_tokens).toBe(1200);
+    vi.stubEnv("GROQ_PLAN_MODEL", "openai/gpt-oss-120b");
+    expect(groqRequestBody(messages)).toMatchObject({ model: "openai/gpt-oss-120b", reasoning_effort: "low" });
   });
 
   it("surfaces HTTP errors without leaking the key", async () => {

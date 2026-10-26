@@ -3,6 +3,26 @@ import type { ChatMessage, PlannerProvider } from "./types";
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 
+/** Groq retired llama-3.1-8b-instant on 2026-08-16; this is its recommended replacement. */
+export const GROQ_DEFAULT_PLAN_MODEL = "openai/gpt-oss-20b";
+
+/**
+ * Request body for Groq. gpt-oss models are reasoning models: reasoning tokens count against max_tokens, so
+ * they get a low reasoning effort and extra headroom. Other models (via GROQ_PLAN_MODEL) don't accept that field.
+ */
+export function groqRequestBody(messages: ChatMessage[]) {
+  const model = process.env.GROQ_PLAN_MODEL || GROQ_DEFAULT_PLAN_MODEL;
+  const reasoning = model.startsWith("openai/gpt-oss");
+  return {
+    model,
+    messages,
+    temperature: 0.7,
+    max_tokens: reasoning ? 2500 : 1200,
+    response_format: { type: "json_object" },
+    ...(reasoning ? { reasoning_effort: "low" } : {}),
+  };
+}
+
 /** Groq: OpenAI-compatible chat completions with JSON mode. Free tier has per-model daily caps. */
 export const groqProvider: PlannerProvider = {
   name: "groq",
@@ -15,13 +35,7 @@ export const groqProvider: PlannerProvider = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
       },
-      body: JSON.stringify({
-        model: process.env.GROQ_PLAN_MODEL || "llama-3.1-8b-instant",
-        messages,
-        temperature: 0.7,
-        max_tokens: 1200,
-        response_format: { type: "json_object" },
-      }),
+      body: JSON.stringify(groqRequestBody(messages)),
     });
     if (!res.ok) throw new Error(`groq_http_${res.status}`);
     const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };

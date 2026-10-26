@@ -127,6 +127,11 @@ function mockStoryboard(params: PlanParams): Storyboard {
   };
 }
 
+/** Log which provider's plan was skipped and why. Reason codes only, never the plan or the user's prompt. */
+function logRejected(provider: string, reason: "invalid_shape" | "unfilled_placeholder" | "blocked_by_safety_filter") {
+  console.error(`[imbrgr/video-plan] ${provider} plan rejected: ${reason}`);
+}
+
 /**
  * Produce a storyboard from the first provider that returns valid, safe output.
  * Throws PlannerNotConfiguredError when no provider is configured, PlannerFailedError when all fail.
@@ -150,10 +155,19 @@ export async function planStoryboard(
     try {
       const raw = await provider.complete(messages);
       const parsed = storyboardSchema.safeParse(extractJson(raw));
-      if (!parsed.success) continue;
+      if (!parsed.success) {
+        logRejected(provider.name, "invalid_shape");
+        continue;
+      }
       const resolved = resolvePlaceholders(parsed.data, safeParams.brandName);
-      if (!resolved) continue;
-      if (storyboardBlocked(resolved)) continue;
+      if (!resolved) {
+        logRejected(provider.name, "unfilled_placeholder");
+        continue;
+      }
+      if (storyboardBlocked(resolved)) {
+        logRejected(provider.name, "blocked_by_safety_filter");
+        continue;
+      }
       return { storyboard: fitDurations(resolved, targetSec), provider: provider.name };
     } catch (err) {
       // Log the provider and error class only, never the user's prompt.
