@@ -7,6 +7,7 @@ import {
   VIDEO_STYLES,
   type CameraMotion,
 } from "@/lib/ai/video-provider";
+import { getVideoLimits, type VideoMode } from "@/lib/ai/video-limits";
 import type { VisualClip } from "@/lib/video-timeline/timeline-types";
 
 type Props = {
@@ -28,7 +29,9 @@ export function AiVideoGeneratorPanel({
   const [prompt, setPrompt] = useState(() => initialPrompt ?? "");
   const [selectedStyle, setSelectedStyle] = useState<string>(() => initialStyle ?? "cinematic");
   const [selectedMotion, setSelectedMotion] = useState<CameraMotion>(() => initialMotion ?? "zoom-in");
-  const [durationSec, setDurationSec] = useState<number>(3);
+  const [clipKind, setClipKind] = useState<VideoMode>("video");
+  const [durationSec, setDurationSec] = useState<number>(getVideoLimits("video").defaultSec);
+  const limits = getVideoLimits(clipKind);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [selectedAssetId, setSelectedAssetId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
@@ -41,6 +44,11 @@ export function AiVideoGeneratorPanel({
     prompt: string;
     mature?: boolean;
   } | null>(null);
+
+  const switchClipKind = (kind: VideoMode) => {
+    setClipKind(kind);
+    setDurationSec(getVideoLimits(kind).defaultSec);
+  };
 
   const handleGenerateTextToVideo = async () => {
     if (!prompt.trim() || prompt.trim().length < 3) {
@@ -57,6 +65,7 @@ export function AiVideoGeneratorPanel({
           prompt,
           style: selectedStyle,
           motion: selectedMotion,
+          mode: clipKind,
           durationSec,
           aspectRatio,
           safe: !mature,
@@ -126,6 +135,23 @@ export function AiVideoGeneratorPanel({
 
   return (
     <div className="space-y-4" data-testid="video-generator-panel">
+      <div className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-1" data-testid="clip-kind-toggle">
+        {(["video", "gif"] as const).map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            onClick={() => switchClipKind(kind)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+              clipKind === kind
+                ? "bg-[var(--surface-raised)] text-[var(--accent-primary)] shadow-sm"
+                : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            {kind === "video" ? `Video (${getVideoLimits("video").minSec}-${getVideoLimits("video").maxSec}s)` : `GIF (${getVideoLimits("gif").minSec}-${getVideoLimits("gif").maxSec}s)`}
+          </button>
+        ))}
+      </div>
+
       {/* Tab toggle between Text-to-Video and Image-to-Video */}
       <div className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-1">
         <button
@@ -208,18 +234,18 @@ export function AiVideoGeneratorPanel({
             </div>
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)]">
-                Duration
+                Duration ({durationSec}s)
               </label>
-              <select
+              <input
+                type="range"
+                min={limits.minSec}
+                max={limits.maxSec}
+                step={limits.stepSec}
                 value={durationSec}
                 onChange={(e) => setDurationSec(Number(e.target.value))}
-                className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-1.5 text-xs"
-              >
-                <option value={2}>2 seconds</option>
-                <option value={3}>3 seconds (Standard)</option>
-                <option value={5}>5 seconds</option>
-                <option value={8}>8 seconds</option>
-              </select>
+                className="mt-1 w-full"
+                data-testid="video-duration-slider"
+              />
             </div>
           </div>
 
@@ -327,17 +353,17 @@ export function AiVideoGeneratorPanel({
             </label>
             <input
               type="range"
-              min={1}
-              max={8}
-              step={0.5}
+              min={limits.minSec}
+              max={limits.maxSec}
+              step={limits.stepSec}
               value={durationSec}
               onChange={(e) => setDurationSec(Number(e.target.value))}
               className="mt-1 w-full"
             />
             <div className="flex justify-between text-[10px] text-[var(--text-muted)]">
-              <span>1s (Quick)</span>
+              <span>{limits.minSec}s</span>
               <span>{durationSec}s</span>
-              <span>8s (Long)</span>
+              <span>{limits.maxSec}s</span>
             </div>
           </div>
 

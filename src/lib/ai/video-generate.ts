@@ -11,6 +11,7 @@ import {
   type VideoGenParams,
   type VideoGenResult,
 } from "@/lib/ai/video-provider";
+import { clampVideoDuration } from "@/lib/ai/video-limits";
 
 // Route maxDuration is 60s: 2 attempts x 22s plus backoff stays under it.
 const VIDEO_IMAGE_MAX_ATTEMPTS = 2;
@@ -25,7 +26,7 @@ function aiMockEnabled(): boolean {
  */
 export async function generateAiVideo(params: VideoGenParams): Promise<VideoGenResult> {
   const seed = params.seed ?? Math.floor(Math.random() * 2_147_483_647);
-  const durationSec = Math.min(Math.max(params.durationSec ?? 3, 1), 10);
+  const durationSec = clampVideoDuration(params.mode ?? "video", params.durationSec);
   const fps = params.fps ?? 24;
   const motion = params.motion ?? "zoom-in";
   const { width, height } = resolveVideoDimensions(params.aspectRatio ?? "16:9");

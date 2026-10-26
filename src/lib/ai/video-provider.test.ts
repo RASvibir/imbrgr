@@ -37,6 +37,7 @@ describe("AI Video Provider", () => {
     const res = await generateAiVideo({
       prompt: "tasty cheeseburger sizzling",
       motion: "pan-right",
+      mode: "gif",
       durationSec: 4,
       aspectRatio: "16:9",
     });
