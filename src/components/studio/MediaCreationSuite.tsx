@@ -621,7 +621,10 @@ export function MediaCreationSuite({
   };
 
   return (
-    <section className="mt-6 space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 shadow-sm">
+    <section
+      data-testid="studio-video-tab"
+      className="mt-6 space-y-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4 shadow-sm"
+    >
       {/* Studio Header & pacNcap Catalyst Badge */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
         <div>
@@ -662,6 +665,7 @@ export function MediaCreationSuite({
 
           <button
             type="button"
+            data-testid="video-export-button"
             disabled={exporting || visualClips.length === 0}
             onClick={() => void exportVideo()}
             className={`${btnPrimary} px-4 py-1.5 text-xs font-semibold`}
@@ -679,6 +683,7 @@ export function MediaCreationSuite({
           <div className="flex overflow-x-auto border-b border-[var(--border-subtle)] bg-[var(--surface-sunken)]/60 p-1">
             <button
               type="button"
+              data-testid="video-tab-ai"
               onClick={() => setActiveToolboxTab("ai")}
               className={`flex-1 min-w-[70px] rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                 activeToolboxTab === "ai"
@@ -690,6 +695,7 @@ export function MediaCreationSuite({
             </button>
             <button
               type="button"
+              data-testid="video-tab-assets"
               onClick={() => setActiveToolboxTab("assets")}
               className={`flex-1 min-w-[70px] rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                 activeToolboxTab === "assets"
@@ -701,6 +707,7 @@ export function MediaCreationSuite({
             </button>
             <button
               type="button"
+              data-testid="video-tab-plugins"
               onClick={() => setActiveToolboxTab("plugins")}
               className={`flex-1 min-w-[70px] rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                 activeToolboxTab === "plugins"
@@ -712,6 +719,7 @@ export function MediaCreationSuite({
             </button>
             <button
               type="button"
+              data-testid="video-tab-text"
               onClick={() => setActiveToolboxTab("text")}
               className={`flex-1 min-w-[70px] rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                 activeToolboxTab === "text"
@@ -723,6 +731,7 @@ export function MediaCreationSuite({
             </button>
             <button
               type="button"
+              data-testid="video-tab-layout"
               onClick={() => setActiveToolboxTab("layout")}
               className={`flex-1 min-w-[70px] rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                 activeToolboxTab === "layout"
@@ -734,6 +743,7 @@ export function MediaCreationSuite({
             </button>
             <button
               type="button"
+              data-testid="video-tab-export"
               onClick={() => setActiveToolboxTab("export")}
               className={`flex-1 min-w-[70px] rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                 activeToolboxTab === "export"
@@ -1209,6 +1219,7 @@ export function MediaCreationSuite({
                       </p>
                       <button
                         type="button"
+                        data-testid="video-render-button"
                         disabled={visualClips.length === 0}
                         onClick={() => void exportVideo()}
                         className={`${btnPrimary} mt-3 text-xs`}

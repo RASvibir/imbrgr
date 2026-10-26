@@ -125,7 +125,7 @@ export function AiVideoGeneratorPanel({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="video-generator-panel">
       {/* Tab toggle between Text-to-Video and Image-to-Video */}
       <div className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-1">
         <button

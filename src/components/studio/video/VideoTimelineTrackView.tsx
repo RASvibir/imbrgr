@@ -64,7 +64,10 @@ export function VideoTimelineTrackView({
   }, [duration]);
 
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-base)] shadow-sm">
+    <div
+      data-testid="video-timeline"
+      className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-base)] shadow-sm"
+    >
       {/* Timeline Quick Action Toolbar */}
       <div className="flex flex-wrap items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-raised)] px-3 py-2 text-xs">
         <div className="flex items-center gap-2">
