@@ -41,6 +41,49 @@ export function extractJson(text: string): unknown {
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 
+/** Strips characters that could break out of the prompt line or look like a template slot. */
+export function cleanBrandName(raw: string | undefined): string | undefined {
+  const cleaned = (raw ?? "")
+    .replace(/[\u0000-\u001f\u007f"`<>{}\[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 40);
+  return cleaned || undefined;
+}
+
+/** Common slot names small models invent, e.g. "[Brand]" or "[Your Company Name]". */
+const BRAND_SLOT = /\[\s*(?:your\s+)?(?:brand|company|business|product)(?:\s*name)?\s*\]/gi;
+/** Any leftover bracket, brace or angle-bracket slot, which means the text isn't finished. */
+const ANY_SLOT = /\[[^\]\n]{1,40}\]|\{\{?[^}\n]{1,40}\}?\}|<[A-Za-z][^>\n]{0,30}>/;
+
+/**
+ * Fill known brand slots and reject anything still templated. Brand names go in the title, narration and
+ * captions; image and stock prompts get a neutral phrase so the generator is never asked to render a name.
+ * Returns null when a slot can't be filled, so the caller can fall through to the next provider.
+ */
+export function resolvePlaceholders(sb: Storyboard, brandName?: string): Storyboard | null {
+  const text = (v: string) => (brandName ? v.replace(BRAND_SLOT, brandName) : v);
+  const visual = (v: string) => v.replace(BRAND_SLOT, "the brand");
+  const resolved: Storyboard = {
+    title: text(sb.title),
+    narration: text(sb.narration),
+    shots: sb.shots.map((s) => ({
+      ...s,
+      caption: text(s.caption),
+      visualPrompt: visual(s.visualPrompt),
+      stockQuery: visual(s.stockQuery),
+    })),
+  };
+  const strings = [
+    resolved.title,
+    resolved.narration,
+    ...resolved.shots.flatMap((s) => [s.caption, s.visualPrompt, s.stockQuery]),
+  ];
+  if (strings.some((v) => ANY_SLOT.test(v))) return null;
+  const valid = storyboardSchema.safeParse(resolved);
+  return valid.success ? valid.data : null;
+}
+
 /** True if any user-visible string in the storyboard trips the prompt-safety filter. */
 function storyboardBlocked(sb: Storyboard): boolean {
   const strings = [
@@ -71,7 +114,9 @@ function mockStoryboard(params: PlanParams): Storyboard {
   const motions = ["zoom-in", "pan-right", "orbit", "zoom-out"] as const;
   return {
     title: topic.slice(0, 80),
-    narration: `A short video about ${topic}. First the scene is set, then the details, then a closing shot.`,
+    narration: params.brandName
+      ? `${params.brandName}: a short video about ${topic}. First the scene is set, then the details, then a closing shot.`
+      : `A short video about ${topic}. First the scene is set, then the details, then a closing shot.`,
     shots: motions.map((motion, i) => ({
       durationSec: per,
       caption: `Shot ${i + 1}`,
@@ -91,7 +136,7 @@ export async function planStoryboard(
   providers: PlannerProvider[] = defaultPlannerProviders(),
 ): Promise<PlanResult> {
   const targetSec = Math.min(PLAN_MAX_SEC, Math.max(PLAN_MIN_SEC, params.targetSec));
-  const safeParams = { ...params, targetSec };
+  const safeParams = { ...params, targetSec, brandName: cleanBrandName(params.brandName) };
 
   if (aiMockEnabled()) {
     return { storyboard: fitDurations(mockStoryboard(safeParams), targetSec), provider: "imbrgr-planner-mock" };
@@ -106,8 +151,10 @@ export async function planStoryboard(
       const raw = await provider.complete(messages);
       const parsed = storyboardSchema.safeParse(extractJson(raw));
       if (!parsed.success) continue;
-      if (storyboardBlocked(parsed.data)) continue;
-      return { storyboard: fitDurations(parsed.data, targetSec), provider: provider.name };
+      const resolved = resolvePlaceholders(parsed.data, safeParams.brandName);
+      if (!resolved) continue;
+      if (storyboardBlocked(resolved)) continue;
+      return { storyboard: fitDurations(resolved, targetSec), provider: provider.name };
     } catch (err) {
       // Log the provider and error class only, never the user's prompt.
       console.error(`[imbrgr/video-plan] ${provider.name} failed`, err instanceof Error ? err.message : "unknown");

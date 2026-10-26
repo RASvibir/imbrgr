@@ -2,11 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PlannerFailedError,
   PlannerNotConfiguredError,
+  cleanBrandName,
   extractJson,
   fitDurations,
   planStoryboard,
   plannerAvailable,
+  resolvePlaceholders,
 } from "./planner";
+import { buildPlannerMessages } from "./prompt";
 import type { PlannerProvider, Storyboard } from "./types";
 
 const goodBoard: Storyboard = {
@@ -97,5 +100,100 @@ describe("helpers", () => {
       expect(s.durationSec).toBeGreaterThanOrEqual(1);
       expect(s.durationSec).toBeLessThanOrEqual(10);
     }
+  });
+});
+
+const slotted: Storyboard = {
+  title: "[Brand] mugs",
+  narration: "Start your day with a piece of art. [Brand]: where your coffee finds its home.",
+  shots: [
+    { durationSec: 4, caption: "Meet [Brand]", visualPrompt: "potter shaping clay, [Brand] studio", stockQuery: "[Brand] pottery", motion: "zoom-in" },
+    { durationSec: 4, caption: "Fired to perfection", visualPrompt: "kiln glowing orange", stockQuery: "kiln firing", motion: "orbit" },
+    { durationSec: 4, caption: "Your morning", visualPrompt: "steaming mug on a wooden table", stockQuery: "morning coffee", motion: "pan-right" },
+  ],
+};
+
+describe("brand names and placeholders", () => {
+  beforeEach(() => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("AI_MOCK", "");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("fills brand slots in text with the brand name and keeps it out of image and stock prompts", () => {
+    const out = resolvePlaceholders(slotted, "Clay & Co");
+    expect(out).not.toBeNull();
+    expect(out!.title).toBe("Clay & Co mugs");
+    expect(out!.narration).toContain("Clay & Co: where your coffee");
+    expect(out!.shots[0].caption).toBe("Meet Clay & Co");
+    expect(out!.shots[0].visualPrompt).toBe("potter shaping clay, the brand studio");
+    expect(out!.shots[0].stockQuery).toBe("the brand pottery");
+  });
+
+  it("rejects a plan with unfilled slots when no brand name was given", () => {
+    expect(resolvePlaceholders(slotted)).toBeNull();
+  });
+
+  it("rejects any other leftover template slot", () => {
+    const odd = { ...goodBoard, narration: "Welcome, {{customer_name}}. The harbor wakes up slowly." };
+    expect(resolvePlaceholders(odd, "Clay & Co")).toBeNull();
+    expect(resolvePlaceholders({ ...goodBoard, title: "Harbor <company>" }, "Clay & Co")).toBeNull();
+  });
+
+  it("rejects a plan whose filled text would break the schema limits", () => {
+    const longTitle = { ...slotted, title: "x".repeat(75) + " [Brand]" };
+    expect(resolvePlaceholders(longTitle, "A".repeat(40))).toBeNull();
+  });
+
+  it("leaves finished plans untouched", () => {
+    expect(resolvePlaceholders(goodBoard, "Clay & Co")).toEqual(goodBoard);
+  });
+
+  it("planStoryboard substitutes the brand and returns a finished plan", async () => {
+    const p = provider("a", async () => JSON.stringify(slotted));
+    const out = await planStoryboard({ prompt: "mug brand teaser", targetSec: 12, brandName: "Clay & Co" }, [p]);
+    expect(out.storyboard.narration).toContain("Clay & Co");
+    expect(JSON.stringify(out.storyboard)).not.toContain("[Brand]");
+  });
+
+  it("planStoryboard falls through to the next provider when the first leaves a slot", async () => {
+    const templated = provider("templated", async () => JSON.stringify(slotted));
+    const finished = provider("finished", async () => JSON.stringify(goodBoard));
+    const out = await planStoryboard({ prompt: "mug brand teaser", targetSec: 12 }, [templated, finished]);
+    expect(out.provider).toBe("finished");
+  });
+
+  it("fails when every provider leaves a slot", async () => {
+    const templated = provider("templated", async () => JSON.stringify(slotted));
+    await expect(planStoryboard({ prompt: "mug brand teaser", targetSec: 12 }, [templated])).rejects.toBeInstanceOf(
+      PlannerFailedError,
+    );
+  });
+
+  it("cleanBrandName strips characters that could break the prompt or look like a slot", () => {
+    expect(cleanBrandName('  Clay "&"\nCo  ')).toBe("Clay & Co");
+    expect(cleanBrandName("[Brand] {x} <y> `z`")).toBe("Brand x y z");
+    expect(cleanBrandName("   ")).toBeUndefined();
+    expect(cleanBrandName(undefined)).toBeUndefined();
+    expect(cleanBrandName("a".repeat(100))).toHaveLength(40);
+  });
+
+  it("puts a sanitized brand name on its own line in the prompt, and omits it when absent", async () => {
+    const withBrand = buildPlannerMessages({ prompt: "mugs", targetSec: 20, brandName: "Clay & Co" });
+    expect(withBrand[1].content).toContain("Brand name: Clay & Co");
+    const without = buildPlannerMessages({ prompt: "mugs", targetSec: 20 });
+    expect(without[1].content).not.toContain("Brand name");
+    expect(withBrand[0].content).toMatch(/Never write bracketed or templated placeholders/);
+  });
+
+  it("passes the cleaned brand name to the provider", async () => {
+    const p = provider("a", async () => JSON.stringify(goodBoard));
+    await planStoryboard({ prompt: "mugs", targetSec: 12, brandName: 'Clay\n"Co"' }, [p]);
+    const sent = (p.complete as ReturnType<typeof vi.fn>).mock.calls[0][0] as { content: string }[];
+    expect(sent[1].content).toContain("Brand name: Clay Co");
   });
 });
