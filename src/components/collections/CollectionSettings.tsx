@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { friendlyError } from "@/lib/user-messages";
 
 type Row = {
   shortId: string;
@@ -36,7 +37,7 @@ export function CollectionSettings() {
     });
     const data = await res.json();
     if (!res.ok) {
-      setMsg(data.error ?? "Could not create collection");
+      setMsg(friendlyError(data.error ?? "Could not create collection"));
       return;
     }
     setTitle("");

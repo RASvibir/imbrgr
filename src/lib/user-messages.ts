@@ -1,3 +1,5 @@
+import { findInternalConsumerCopy } from "./consumer-copy-denylist";
+
 /** Map internal/API errors to warm consumer copy (ember voice). */
 export function friendlyError(raw: string | undefined | null): string {
   const msg = (raw ?? "").trim();
@@ -42,6 +44,9 @@ export function friendlyError(raw: string | undefined | null): string {
   }
   if (lower.includes("invalid") && lower.includes("prompt")) {
     return "Tell us a bit more about what you want to see (a few words at least).";
+  }
+  if (findInternalConsumerCopy(msg)) {
+    return "Something didn't quite work — give it another try.";
   }
   return msg.length > 120 ? "Something didn't quite work — give it another try." : msg;
 }
