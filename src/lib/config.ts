@@ -33,3 +33,10 @@ export function aiRateLimitPerHour(): number {
   if (raw) return Number.parseInt(raw, 10);
   return 30;
 }
+
+/** Shared daily budget for storyboard planning, to protect free-tier provider quotas. */
+export function videoPlanGlobalDailyLimit(): number {
+  const raw = process.env.VIDEO_PLAN_GLOBAL_DAILY_LIMIT;
+  if (raw) return Number.parseInt(raw, 10);
+  return 500;
+}
