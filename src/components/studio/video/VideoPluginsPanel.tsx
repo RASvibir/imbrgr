@@ -121,7 +121,7 @@ export function VideoPluginsPanel({
   }, [category, search]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="video-shader-panel">
       {/* pacNcap Performance Mode Selector */}
       <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-3">
         <div className="flex items-center justify-between">
@@ -246,7 +246,7 @@ export function VideoPluginsPanel({
           </span>
         </div>
 
-        <div className="mt-2.5 space-y-2.5">
+        <div className="mt-2.5 space-y-2.5" data-testid="video-plugins-panel">
           {filteredPlugins.map((plugin: VideoPlugin) => {
             const isEnabled = enabledPluginIds.has(plugin.metadata.id) && !compareBypass;
             const currentParams = pluginParams.get(plugin.metadata.id) ?? {};
@@ -255,6 +255,7 @@ export function VideoPluginsPanel({
             return (
               <div
                 key={plugin.metadata.id}
+                data-testid={`plugin-card-${plugin.metadata.id}`}
                 className={`rounded-xl border p-3 transition ${
                   isEnabled
                     ? "border-[var(--accent-primary)] bg-[var(--surface-raised)]"
@@ -290,13 +291,17 @@ export function VideoPluginsPanel({
                     </div>
                   </div>
 
-                  <label className="relative inline-flex cursor-pointer items-center shrink-0">
+                  <label
+                    className="relative inline-flex cursor-pointer items-center shrink-0"
+                    data-testid={`shader-toggle-${plugin.metadata.id}`}
+                  >
                     <input
                       type="checkbox"
                       checked={isEnabled}
                       onChange={(e) => onTogglePlugin(plugin.metadata.id, e.target.checked)}
                       className="sr-only peer"
                       aria-label={`Toggle ${plugin.metadata.name}`}
+                      data-testid={`shader-checkbox-${plugin.metadata.id}`}
                     />
                     <div className="w-8 h-4 bg-[var(--border-strong)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-[var(--accent-primary)]"></div>
                   </label>

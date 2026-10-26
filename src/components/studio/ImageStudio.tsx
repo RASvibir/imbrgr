@@ -603,6 +603,7 @@ export function ImageStudio({
             key={t.id}
             type="button"
             onClick={() => selectTab(t.id)}
+            data-testid={`studio-tab-${t.id === "media" ? "video" : t.id}`}
             className={`tap-target min-h-11 shrink-0 rounded-t-lg px-4 text-sm font-medium ${
               tab === t.id
                 ? "bg-[var(--surface-raised)] text-[var(--accent-primary)]"
