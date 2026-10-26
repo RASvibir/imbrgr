@@ -275,6 +275,10 @@ export function AiVideoGeneratorPanel({
                   src={generatedPreview.url}
                   alt={generatedPreview.prompt}
                   className="max-h-36 w-full object-contain"
+                  onError={() => {
+                    setGeneratedPreview(null);
+                    setError("The preview couldn't load — try generating again.");
+                  }}
                 />
               </div>
               <button

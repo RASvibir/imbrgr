@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { generateAiVideo, buildCinematicVideoPrompt } from "@/lib/ai/video-provider";
+import { buildCinematicVideoPrompt } from "@/lib/ai/video-provider";
+import { generateAiVideo } from "@/lib/ai/video-generate";
 import {
   assertCanGenerateAiForAnonymous,
   assertCanGenerateAiForUser,
@@ -12,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { getActor } from "@/lib/request-identity";
 import { assertUserMayUseAi } from "@/lib/user-guards";
 import { consumeRateLimit } from "@/lib/rate-limit";
+import { friendlyError } from "@/lib/user-messages";
 
 export const maxDuration = 60;
 
@@ -100,7 +102,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("[imbrgr/ai-video] generate error", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Video generation failed" },
+      { error: friendlyError(err instanceof Error ? err.message : "Video generation failed") },
       { status: 500 },
     );
   }

@@ -8,6 +8,9 @@ export type ImageGenParams = {
   seed?: number;
   model?: string;
   safe?: boolean;
+  /** Optional per-call overrides; defaults come from env. */
+  maxAttempts?: number;
+  timeoutMs?: number;
 };
 
 export type ImageGenResult = {
@@ -77,8 +80,9 @@ export class PollinationsProvider implements ImageProvider {
       headers.Authorization = `Bearer ${process.env.POLLINATIONS_API_KEY}`;
     }
 
-    const attempts = maxAttempts();
-    const timeoutMs = fetchTimeoutMs();
+    const attempts =
+      params.maxAttempts != null ? Math.min(Math.max(Math.floor(params.maxAttempts), 1), 5) : maxAttempts();
+    const timeoutMs = params.timeoutMs != null ? Math.max(params.timeoutMs, 5_000) : fetchTimeoutMs();
     let lastStatus = 0;
 
     for (let attempt = 0; attempt < attempts; attempt++) {
