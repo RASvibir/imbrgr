@@ -25,6 +25,9 @@ type JobState = {
     imageUrl?: string;
     videoUrl?: string;
     mediaType?: "image" | "video";
+    sourceDurationSec?: number;
+    creditName?: string;
+    creditUrl?: string;
   }[];
 };
 
@@ -57,7 +60,16 @@ export function AiVideoGeneratorPanel({
   const [error, setError] = useState("");
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [generatedPreview, setGeneratedPreview] = useState<{
-    shots: { url: string; motion: CameraMotion; durationSec: number; caption?: string; mediaType: "image" | "video" }[];
+    shots: {
+      url: string;
+      motion: CameraMotion;
+      durationSec: number;
+      caption?: string;
+      mediaType: "image" | "video";
+      sourceDurationSec?: number;
+      creditName?: string;
+      creditUrl?: string;
+    }[];
     durationSec: number;
     prompt: string;
     mature?: boolean;
@@ -117,6 +129,9 @@ export function AiVideoGeneratorPanel({
             durationSec: shot.durationSec,
             caption: shot.caption,
             mediaType: isVideo ? "video" : "image",
+            sourceDurationSec: shot.sourceDurationSec,
+            creditName: shot.creditName,
+            creditUrl: shot.creditUrl,
           };
         }),
         durationSec: job.durationSec,
@@ -164,9 +179,9 @@ export function AiVideoGeneratorPanel({
         name: `AI: ${(shot.caption ?? generatedPreview.prompt).slice(0, 24)}…`,
         kind: isVideo ? "video" : "image",
         startSec: 0,
-        endSec: shot.durationSec,
+        endSec: isVideo ? Math.min(shot.durationSec, shot.sourceDurationSec ?? shot.durationSec) : shot.durationSec,
         sourceStartSec: 0,
-        sourceDurationSec: shot.durationSec,
+        sourceDurationSec: isVideo ? (shot.sourceDurationSec ?? shot.durationSec) : shot.durationSec,
         motion: isVideo ? undefined : shot.motion,
         transition: "dissolve",
         transitionDurationSec: Math.min(0.5, shot.durationSec / 2),
@@ -376,6 +391,26 @@ export function AiVideoGeneratorPanel({
                     </div>
                   ))}
                 </div>
+              ) : null}
+              {generatedPreview.shots.some((shot) => shot.creditName) ? (
+                <p className="mt-2 text-[11px] text-[var(--text-muted)]" data-testid="stock-credit">
+                  Stock footage from{" "}
+                  {[...new Map(generatedPreview.shots.filter((s) => s.creditName).map((s) => [s.creditName, s])).values()].map(
+                    (s, i) => (
+                      <span key={s.creditName}>
+                        {i > 0 ? ", " : ""}
+                        <a
+                          href={s.creditUrl ?? `https://${s.creditName}.com`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          {s.creditName === "pixabay" ? "Pixabay" : s.creditName}
+                        </a>
+                      </span>
+                    ),
+                  )}
+                </p>
               ) : null}
               <button
                 type="button"

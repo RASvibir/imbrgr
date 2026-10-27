@@ -101,6 +101,9 @@ export async function stepVideoJob(
             imageUrl: shotResult.imageUrl,
             videoUrl: shotResult.videoUrl,
             mediaType: shotResult.mediaType || (shotResult.videoUrl ? ("video" as const) : ("image" as const)),
+            sourceDurationSec: shotResult.sourceDurationSec,
+            creditName: shotResult.creditName,
+            creditUrl: shotResult.creditUrl,
           };
     const updated = shots.map((s, i) => (i === index ? { ...s, ...patch } : s));
     const last = index === shots.length - 1;

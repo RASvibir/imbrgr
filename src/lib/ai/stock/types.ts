@@ -7,6 +7,7 @@ export type StockVideoClip = {
   width: number;
   height: number;
   sourceUrl?: string; // Direct provider URL before download
+  pageUrl?: string; // Provider page for attribution
 };
 
 export interface StockSearchOptions {

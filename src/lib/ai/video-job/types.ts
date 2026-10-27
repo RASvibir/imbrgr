@@ -21,6 +21,9 @@ export type JobShot = {
   imageUrl?: string;
   videoUrl?: string;
   mediaType?: "image" | "video";
+  sourceDurationSec?: number;
+  creditName?: string;
+  creditUrl?: string;
 };
 
 export type JobStatus = "queued" | "running" | "done" | "failed";

@@ -94,6 +94,7 @@ describe("assembledBackend", () => {
       videoUrl: "/api/media/file/test.mp4",
       imageUrl: "/api/media/file/test.jpg",
       mediaType: "video",
+      sourceDurationSec: 5,
     });
   });
 

@@ -115,6 +115,51 @@ describe("pixabayProvider", () => {
     expect(firstCallUrl).toContain("safesearch=true");
   });
 
+  it("prefers a clip at least as long as the shot and carries the attribution page", async () => {
+    vi.stubEnv("PIXABAY_API_KEY", "secret-key");
+    const size = (name: string) => ({ url: `https://cdn.pixabay.com/${name}.mp4`, width: 1280, height: 720, size: 1 });
+    mockFetchResponses([
+      {
+        status: 200,
+        json: async () => ({
+          total: 3,
+          totalHits: 3,
+          hits: [
+            { id: 1, duration: 4, pageURL: "https://pixabay.com/videos/a-1/", videos: { small: size("short") } },
+            { id: 2, duration: 12, pageURL: "https://pixabay.com/videos/b-2/", videos: { small: size("long") } },
+            { id: 3, duration: 9, pageURL: "https://pixabay.com/videos/c-3/", videos: { small: size("mid") } },
+          ],
+        }),
+      },
+      { status: 200 },
+    ]);
+    const clip = await pixabayProvider.searchVideo("beach waves", { aspectRatio: "16:9", durationSec: 8 });
+    expect(clip?.id).toBe("pixabay-2");
+    expect(clip?.pageUrl).toBe("https://pixabay.com/videos/b-2/");
+  });
+
+  it("falls back to the longest clip when none is long enough", async () => {
+    vi.stubEnv("PIXABAY_API_KEY", "secret-key");
+    const size = (name: string) => ({ url: `https://cdn.pixabay.com/${name}.mp4`, width: 1280, height: 720, size: 1 });
+    mockFetchResponses([
+      {
+        status: 200,
+        json: async () => ({
+          total: 2,
+          totalHits: 2,
+          hits: [
+            { id: 1, duration: 3, videos: { small: size("a") } },
+            { id: 2, duration: 6, videos: { small: size("b") } },
+          ],
+        }),
+      },
+      { status: 200 },
+    ]);
+    const clip = await pixabayProvider.searchVideo("city night", { durationSec: 13 });
+    expect(clip?.id).toBe("pixabay-2");
+    expect(clip?.durationSec).toBe(6);
+  });
+
   it("caches successful queries for 24 hours without duplicate network calls", async () => {
     vi.stubEnv("PIXABAY_API_KEY", "secret-key");
 

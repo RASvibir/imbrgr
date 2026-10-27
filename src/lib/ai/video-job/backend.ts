@@ -11,6 +11,9 @@ export type RenderShotResult = {
   imageUrl?: string;
   videoUrl?: string;
   mediaType: "image" | "video";
+  sourceDurationSec?: number;
+  creditName?: string;
+  creditUrl?: string;
 };
 
 export interface ShotBackend {
@@ -38,6 +41,9 @@ export const assembledBackend: ShotBackend = {
               videoUrl: clip.url,
               imageUrl: clip.thumbnailUrl,
               mediaType: "video",
+              sourceDurationSec: clip.durationSec,
+              creditName: clip.provider,
+              creditUrl: clip.pageUrl,
             };
           }
         } catch (err) {

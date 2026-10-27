@@ -94,7 +94,7 @@ export const pixabayProvider: StockProvider = {
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return null;
 
-    const cacheKey = `${normalizedQuery}:${options?.aspectRatio ?? "any"}`;
+    const cacheKey = `${normalizedQuery}:${options?.aspectRatio ?? "any"}:${Math.ceil(options?.durationSec ?? 0)}`;
     const cached = queryCache.get(cacheKey);
     if (cached && Date.now() < cached.expiresAt) {
       return cached.clip;
@@ -104,7 +104,7 @@ export const pixabayProvider: StockProvider = {
     endpoint.searchParams.set("key", apiKey);
     endpoint.searchParams.set("q", normalizedQuery);
     endpoint.searchParams.set("safesearch", "true");
-    endpoint.searchParams.set("per_page", "5");
+    endpoint.searchParams.set("per_page", "12");
 
     try {
       const res = await fetchWithTimeout(endpoint.toString(), {
@@ -127,28 +127,20 @@ export const pixabayProvider: StockProvider = {
         return null;
       }
 
-      // Find hit matching aspect ratio preference, or fallback to first hit with a video
-      let selectedHit: PixabayHit | null = null;
-      let selectedSize: PixabayVideoSize | null = null;
-
-      for (const hit of data.hits) {
-        const size = pickVideoSize(hit);
-        if (size && matchesAspectRatio(size, options?.aspectRatio)) {
-          selectedHit = hit;
-          selectedSize = size;
-          break;
-        }
-      }
-
-      if (!selectedHit || !selectedSize) {
-        selectedHit = data.hits[0];
-        selectedSize = pickVideoSize(selectedHit);
-      }
-
-      if (!selectedHit || !selectedSize || !selectedSize.url) {
+      const candidates = data.hits
+        .map((hit) => ({ hit, size: pickVideoSize(hit) }))
+        .filter((c): c is { hit: PixabayHit; size: PixabayVideoSize } => Boolean(c.size?.url));
+      if (candidates.length === 0) {
         queryCache.set(cacheKey, { clip: null, expiresAt: Date.now() + CACHE_TTL_MS });
         return null;
       }
+      const aspectMatches = candidates.filter((c) => matchesAspectRatio(c.size, options?.aspectRatio));
+      const pool = aspectMatches.length > 0 ? aspectMatches : candidates;
+      const wanted = options?.durationSec;
+      const longEnough = wanted ? pool.filter((c) => c.hit.duration >= wanted) : pool;
+      const chosen = longEnough[0] ?? [...pool].sort((x, y) => y.hit.duration - x.hit.duration)[0];
+      const selectedHit = chosen.hit;
+      const selectedSize = chosen.size;
 
       const { storedVideoUrl, storedThumbUrl } = await downloadAndStore(
         selectedSize.url,
@@ -165,6 +157,7 @@ export const pixabayProvider: StockProvider = {
         width: selectedSize.width,
         height: selectedSize.height,
         sourceUrl: selectedSize.url,
+        pageUrl: selectedHit.pageURL,
       };
 
       queryCache.set(cacheKey, { clip, expiresAt: Date.now() + CACHE_TTL_MS });
