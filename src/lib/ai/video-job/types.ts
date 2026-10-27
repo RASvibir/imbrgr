@@ -24,6 +24,9 @@ export type JobShot = {
   sourceDurationSec?: number;
   creditName?: string;
   creditUrl?: string;
+  remoteId?: string;
+  startedAt?: number;
+  lastFrame?: string;
 };
 
 export type JobStatus = "queued" | "running" | "done" | "failed";

@@ -1,4 +1,5 @@
 import type { Storyboard } from "@/lib/ai/director/types";
+import { planClipChain } from "@/lib/ai/gpu/clip-chain";
 import type { JobInput, JobShot } from "./types";
 
 export const MAX_JOB_SHOTS = 4;
@@ -56,5 +57,17 @@ export function planShots(input: JobInput, storyboard: Storyboard | null): JobSh
     motion: s.motion,
     caption: s.caption,
     stockQuery: input.mature ? undefined : (s.stockQuery || stockQueryFromPrompt(s.visualPrompt)),
+  }));
+}
+
+/** Clip-by-clip plan for a generative backend: each clip continues from the previous clip's last frame. */
+export function planGpuShots(input: JobInput, storyboard: Storyboard | null, maxClipSec: number): JobShot[] {
+  const chain = planClipChain(input.durationSec, maxClipSec, MAX_JOB_SHOTS);
+  const board = storyboard?.shots ?? [];
+  return chain.clips.map((clip, i) => ({
+    durationSec: clip.durationSec,
+    visualPrompt: board[i]?.visualPrompt ?? input.prompt,
+    motion: input.motion,
+    caption: board[i]?.caption,
   }));
 }

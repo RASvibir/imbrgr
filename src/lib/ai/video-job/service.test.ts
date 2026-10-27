@@ -148,10 +148,83 @@ describe("stepVideoJob", () => {
   });
 });
 
+describe("stepVideoJob with an async backend", () => {
+  const gpu = (advance: ReturnType<typeof vi.fn>): ShotBackend => ({
+    name: "gpu",
+    tier: 3,
+    isConfigured: () => true,
+    renderShot: vi.fn(),
+    advanceShot: advance,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it("stores the remote id and keeps the shot open while the GPU works", async () => {
+    const advance = vi.fn().mockResolvedValue({ state: "pending", remoteId: "r1" });
+    findUnique.mockResolvedValueOnce(row()).mockResolvedValueOnce(row({ status: "running" }));
+    await stepVideoJob("j1", actor, gpu(advance));
+    const data = updateMany.mock.calls[0][0].data;
+    expect(data.status).toBe("running");
+    expect(data.nextShot).toBeUndefined();
+    expect(data.shots[0].remoteId).toBe("r1");
+    expect(typeof data.shots[0].startedAt).toBe("number");
+    expect(recordUser).not.toHaveBeenCalled();
+  });
+
+  it("passes the previous clip's last frame into the next clip", async () => {
+    const advance = vi.fn().mockResolvedValue({ state: "pending", remoteId: "r2" });
+    const shots = [
+      { durationSec: 4, visualPrompt: "a", motion: "zoom-in", videoUrl: "/v1.mp4", lastFrame: "data:image/jpeg;base64,AA" },
+      { durationSec: 4, visualPrompt: "b", motion: "zoom-in" },
+    ];
+    findUnique.mockResolvedValueOnce(row({ shots, nextShot: 1, status: "running" })).mockResolvedValueOnce(row());
+    await stepVideoJob("j1", actor, gpu(advance));
+    expect(advance).toHaveBeenCalledWith(expect.objectContaining({ initImage: "data:image/jpeg;base64,AA" }));
+  });
+
+  it("advances and records quota when the last clip finishes", async () => {
+    const advance = vi.fn().mockResolvedValue({
+      state: "done",
+      result: { videoUrl: "/v2.mp4", mediaType: "video" },
+      lastFrame: "data:image/jpeg;base64,BB",
+    });
+    const shots = [
+      { durationSec: 4, visualPrompt: "a", motion: "zoom-in", videoUrl: "/v1.mp4" },
+      { durationSec: 4, visualPrompt: "b", motion: "zoom-in", remoteId: "r2", startedAt: Date.now() },
+    ];
+    findUnique.mockResolvedValueOnce(row({ shots, nextShot: 1, status: "running" })).mockResolvedValueOnce(row({ status: "done" }));
+    await stepVideoJob("j1", actor, gpu(advance));
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "done", nextShot: 2 }) }));
+    expect(recordUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails the job when the GPU run exceeds the timeout", async () => {
+    const advance = vi.fn();
+    const shots = [{ durationSec: 4, visualPrompt: "a", motion: "zoom-in", remoteId: "r1", startedAt: Date.now() - 2_000_000 }];
+    findUnique.mockResolvedValueOnce(row({ shots, status: "running" })).mockResolvedValueOnce(row({ status: "failed" }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await stepVideoJob("j1", actor, gpu(advance));
+    expect(advance).not.toHaveBeenCalled();
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "failed" }) }));
+    expect(recordUser).not.toHaveBeenCalled();
+  });
+});
+
 describe("serializeJob", () => {
   it("includes images only for finished jobs when requested", () => {
     expect(serializeJob(row() as never, { images: true }).shots).toBeUndefined();
     expect(serializeJob(row({ status: "done", nextShot: 2 }) as never, { images: true }).shots).toHaveLength(2);
+    const withInternals = row({
+      status: "done",
+      nextShot: 1,
+      shots: [{ durationSec: 4, visualPrompt: "a", motion: "zoom-in", remoteId: "r", startedAt: 1, lastFrame: "x" }],
+    });
+    expect(Object.keys(serializeJob(withInternals as never, { images: true }).shots![0])).not.toEqual(
+      expect.arrayContaining(["remoteId", "lastFrame", "startedAt"]),
+    );
     expect(serializeJob(row({ status: "done", nextShot: 2 }) as never, { images: false }).shots).toBeUndefined();
   });
 
