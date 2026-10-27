@@ -50,3 +50,4 @@ test-results/
 
 # mediapipe wasm & task models (downloaded via npm run ar:assets)
 /public/mediapipe/
+__pycache__/
