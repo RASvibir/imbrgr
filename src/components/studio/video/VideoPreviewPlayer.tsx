@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { formatTimecode, computeMotionTransform } from "@/lib/video-timeline/timeline-ops";
+import {
+  formatTimecode,
+  computeMotionTransform,
+  transitionState,
+  UNDERLAY_TAIL_SEC,
+} from "@/lib/video-timeline/timeline-ops";
 import type { VideoPluginManager } from "@/lib/video-plugins/plugin-manager";
 import type { AudioClip, TextOverlay, VisualClip } from "@/lib/video-timeline/timeline-types";
 
@@ -98,25 +103,13 @@ export function VideoPreviewPlayer({
     // 2. Render active visual clips
     const activeClips = visualClips.filter((c) => time >= c.startSec && time < c.endSec);
 
-    for (const clip of activeClips) {
+    const drawVisual = (clip: VisualClip, clipTime: number, alpha: number) => {
       const clipDuration = Math.max(0.1, clip.endSec - clip.startSec);
-      const clipProgress = Math.max(0, Math.min(1, (time - clip.startSec) / clipDuration));
+      const clipProgress = Math.max(0, Math.min(1, (clipTime - clip.startSec) / clipDuration));
       const motionTransform = computeMotionTransform(clip.motion, clipProgress);
 
       ctx.save();
-      ctx.globalAlpha = motionTransform.alpha;
-
-      // Handle Transitions
-      if (clip.transition && clip.transition !== "none" && clip.transitionDurationSec) {
-        const transDur = clip.transitionDurationSec;
-        const timeIntoClip = time - clip.startSec;
-        if (timeIntoClip < transDur) {
-          const transP = timeIntoClip / transDur;
-          if (clip.transition === "fade") {
-            ctx.globalAlpha *= transP;
-          }
-        }
-      }
+      ctx.globalAlpha = motionTransform.alpha * alpha;
 
       // Apply Ken Burns scale and translate
       const cx = canvas.width / 2;
@@ -131,7 +124,7 @@ export function VideoPreviewPlayer({
       if (clip.kind === "video") {
         const vid = loadedVideosRef.current.get(clip.url);
         if (vid && vid.readyState >= 2) {
-          const expectedVideoTime = clip.sourceStartSec + (time - clip.startSec);
+          const expectedVideoTime = clip.sourceStartSec + (clipTime - clip.startSec);
           if (Math.abs(vid.currentTime - expectedVideoTime) > 0.3) {
             vid.currentTime = expectedVideoTime;
           }
@@ -144,6 +137,14 @@ export function VideoPreviewPlayer({
         }
       }
       ctx.restore();
+    };
+
+    for (const clip of activeClips) {
+      const { alpha, underlay } = transitionState(visualClips, clip, time);
+      if (underlay) {
+        drawVisual(underlay, Math.max(underlay.startSec, underlay.endSec - UNDERLAY_TAIL_SEC), 1);
+      }
+      drawVisual(clip, time, alpha);
     }
 
     // 3. Render active text overlays

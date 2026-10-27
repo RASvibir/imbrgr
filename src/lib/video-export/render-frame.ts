@@ -1,4 +1,4 @@
-import { computeMotionTransform } from "@/lib/video-timeline/timeline-ops";
+import { computeMotionTransform, transitionState, UNDERLAY_TAIL_SEC } from "@/lib/video-timeline/timeline-ops";
 import type { TextOverlay, VisualClip } from "@/lib/video-timeline/timeline-types";
 
 export type DrawableSource = {
@@ -73,6 +73,32 @@ export function drawTextOverlay(
   ctx.restore();
 }
 
+async function drawClipLayer(
+  ctx: CanvasRenderingContext2D,
+  scene: RenderScene,
+  clip: VisualClip,
+  timeSec: number,
+  alpha: number,
+  getSource: ClipSourceProvider,
+): Promise<void> {
+  const src = await getSource(clip, timeSec);
+  if (!src) return;
+
+  const { width, height } = scene;
+  const clipDur = Math.max(0.1, clip.endSec - clip.startSec);
+  const progress = Math.max(0, Math.min(1, (timeSec - clip.startSec) / clipDur));
+  const motion = computeMotionTransform(clip.motion, progress);
+
+  ctx.save();
+  ctx.globalAlpha = motion.alpha * alpha;
+  ctx.translate(width / 2, height / 2);
+  ctx.scale(motion.scale, motion.scale);
+  if (motion.rotateDeg) ctx.rotate((motion.rotateDeg * Math.PI) / 180);
+  ctx.translate(-width / 2, -height / 2);
+  drawCover(ctx, src.source, src.width, src.height, width, height);
+  ctx.restore();
+}
+
 export async function renderTimelineFrame(
   ctx: CanvasRenderingContext2D,
   scene: RenderScene,
@@ -85,21 +111,12 @@ export async function renderTimelineFrame(
 
   for (const clip of scene.visualClips) {
     if (!(timeSec >= clip.startSec && timeSec < clip.endSec)) continue;
-    const src = await getSource(clip, timeSec);
-    if (!src) continue;
-
-    const clipDur = Math.max(0.1, clip.endSec - clip.startSec);
-    const progress = Math.max(0, Math.min(1, (timeSec - clip.startSec) / clipDur));
-    const motion = computeMotionTransform(clip.motion, progress);
-
-    ctx.save();
-    ctx.globalAlpha = motion.alpha;
-    ctx.translate(width / 2, height / 2);
-    ctx.scale(motion.scale, motion.scale);
-    if (motion.rotateDeg) ctx.rotate((motion.rotateDeg * Math.PI) / 180);
-    ctx.translate(-width / 2, -height / 2);
-    drawCover(ctx, src.source, src.width, src.height, width, height);
-    ctx.restore();
+    const { alpha, underlay } = transitionState(scene.visualClips, clip, timeSec);
+    if (underlay) {
+      const tailSec = Math.max(underlay.startSec, underlay.endSec - UNDERLAY_TAIL_SEC);
+      await drawClipLayer(ctx, scene, underlay, tailSec, 1, getSource);
+    }
+    await drawClipLayer(ctx, scene, clip, timeSec, alpha, getSource);
   }
 
   for (const t of scene.textOverlays) {

@@ -9,7 +9,7 @@ import { assertCanGenerateAiForAnonymous, assertCanGenerateAiForUser } from "@/l
 import { planGpuShots, planShots } from "@/lib/ai/video-job/shots";
 import { selectBackend } from "@/lib/ai/video-job/backend";
 import { gpuMaxClipSec } from "@/lib/ai/gpu/client";
-import { createVideoJob, serializeJob } from "@/lib/ai/video-job/service";
+import { createVideoJob, resolveContinuation, serializeJob } from "@/lib/ai/video-job/service";
 import type { JobInput } from "@/lib/ai/video-job/types";
 import { aiRateLimitPerHour } from "@/lib/config";
 import { getActor } from "@/lib/request-identity";
@@ -31,6 +31,8 @@ const schema = z
     seed: z.number().int().min(0).optional(),
     safe: z.boolean().optional(),
     mature: z.boolean().optional(),
+    parentJobId: z.string().min(1).max(64).optional(),
+    continueMode: z.enum(["extend", "next-shot"]).optional(),
   })
   .refine((v) => v.durationSec == null || isDurationValid(v.mode ?? "video", v.durationSec), {
     message: "Duration out of range for this mode",
@@ -60,6 +62,21 @@ export async function POST(req: Request) {
     );
   }
 
+  let seedImage: string | undefined;
+  if (parsed.data.parentJobId) {
+    if (matureRequested) {
+      return NextResponse.json({ error: "Mature clips can't be continued." }, { status: 400 });
+    }
+    if (selectBackend().tier !== 3) {
+      return NextResponse.json({ error: "Continuing a clip needs the GPU video backend." }, { status: 409 });
+    }
+    const continuation = await resolveContinuation(parsed.data.parentJobId, actor);
+    if (!continuation.ok) {
+      return NextResponse.json({ error: continuation.error }, { status: continuation.status });
+    }
+    seedImage = continuation.lastFrame;
+  }
+
   const rateKey = `ai-video:${actor.userId ?? actor.ipHash}`;
   try {
     const aiBlock = await assertUserMayUseAi(actor.userId);
@@ -87,6 +104,8 @@ export async function POST(req: Request) {
     motion: parsed.data.motion ?? "zoom-in",
     seed: parsed.data.seed ?? Math.floor(Math.random() * 2_147_483_647),
     mature: matureRequested,
+    parentJobId: parsed.data.parentJobId,
+    continueMode: parsed.data.parentJobId ? (parsed.data.continueMode ?? "next-shot") : undefined,
   };
 
   let storyboard: Storyboard | null = null;
@@ -109,7 +128,8 @@ export async function POST(req: Request) {
 
   try {
     const useGpu = !matureRequested && selectBackend().tier === 3;
-    const shots = useGpu ? planGpuShots(input, storyboard, gpuMaxClipSec()) : planShots(input, storyboard);
+    const planned = useGpu ? planGpuShots(input, storyboard, gpuMaxClipSec()) : planShots(input, storyboard);
+    const shots = seedImage ? planned.map((s, i) => (i === 0 ? { ...s, seedImage } : s)) : planned;
     const job = await createVideoJob(actor, input, shots);
     return NextResponse.json({ success: true, job: serializeJob(job, { images: false }) });
   } catch (err) {

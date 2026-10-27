@@ -30,6 +30,7 @@ function publicShot(shot: JobShot): JobShot {
   delete copy.remoteId;
   delete copy.startedAt;
   delete copy.lastFrame;
+  delete copy.seedImage;
   return copy;
 }
 
@@ -37,6 +38,7 @@ export function serializeJob(job: JobRow, opts: { images: boolean }): JobView {
   const input = job.input as JobInput;
   const shots = job.shots as JobShot[];
   const status = job.status as JobStatus;
+  const finalShot = shots[shots.length - 1];
   return {
     id: job.id,
     status,
@@ -45,6 +47,7 @@ export function serializeJob(job: JobRow, opts: { images: boolean }): JobView {
     mature: input.mature,
     total: shots.length,
     completed: job.nextShot,
+    canContinue: status === "done" && !input.mature && Boolean(finalShot?.lastFrame),
     error: job.error ?? undefined,
     shots:
       opts.images && status === "done"
@@ -71,6 +74,24 @@ export async function getVideoJob(id: string, actor: JobActor) {
   const job = await prisma.videoJob.findUnique({ where: { id } });
   if (!job || job.ownerKey !== ownerKeyFor(actor)) return null;
   return job;
+}
+
+export type ContinuationResult =
+  | { ok: true; lastFrame: string }
+  | { ok: false; status: 404 | 409; error: string };
+
+/** Finds the last frame of a finished clip the actor owns, so a new job can start from it. */
+export async function resolveContinuation(parentJobId: string, actor: JobActor): Promise<ContinuationResult> {
+  const parent = await getVideoJob(parentJobId, actor);
+  if (!parent) return { ok: false, status: 404, error: "Video job not found" };
+  if (parent.status !== "done") {
+    return { ok: false, status: 409, error: "Wait for the clip to finish before continuing it." };
+  }
+  const input = parent.input as JobInput;
+  const shots = parent.shots as JobShot[];
+  const lastFrame = shots[shots.length - 1]?.lastFrame;
+  if (input.mature || !lastFrame) return { ok: false, status: 409, error: "This clip can't be continued." };
+  return { ok: true, lastFrame };
 }
 
 const OPEN: JobStatus[] = ["queued", "running"];
@@ -114,7 +135,7 @@ export async function stepVideoJob(
       const advance = await backend.advanceShot({
         ...renderParams,
         remoteId: shot.remoteId,
-        initImage: index > 0 ? shots[index - 1].lastFrame : undefined,
+        initImage: index > 0 ? shots[index - 1].lastFrame : shot.seedImage,
       });
       if (advance.state === "pending") {
         const waiting = shots.map((s, i) => (i === index ? { ...s, remoteId: advance.remoteId, startedAt } : s));
