@@ -47,6 +47,7 @@ model User {
   collections       Collection[]
   libraryFolders    LibraryFolder[]
   librarySaves      LibrarySave[]
+  videoJobs         VideoJob[]
 }
 
 model Account {
@@ -399,4 +400,22 @@ model AiPromptCache {
   lastUsedAt     DateTime @default(now())
 
   @@index([lastUsedAt])
+}
+
+model VideoJob {
+  id        String   @id @default(cuid())
+  ownerKey  String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipHash    String?
+  status    String   @default("queued")
+  input     Json
+  shots     Json
+  nextShot  Int      @default(0)
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerKey, createdAt])
+  @@index([userId])
 }

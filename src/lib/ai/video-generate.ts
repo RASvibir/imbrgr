@@ -11,6 +11,7 @@ import {
   type VideoGenParams,
   type VideoGenResult,
 } from "@/lib/ai/video-provider";
+import { clampVideoDuration } from "@/lib/ai/video-limits";
 
 // Route maxDuration is 60s: 2 attempts x 22s plus backoff stays under it.
 const VIDEO_IMAGE_MAX_ATTEMPTS = 2;
@@ -20,22 +21,50 @@ function aiMockEnabled(): boolean {
   return process.env.AI_MOCK === "true" || process.env.NODE_ENV === "test";
 }
 
+export type KeyframeParams = {
+  prompt: string;
+  style?: string;
+  width: number;
+  height: number;
+  seed: number;
+  mature: boolean;
+};
+
+function mockKeyframeUrl(prompt: string, width: number, height: number): string {
+  return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="%231a1a24"/><text x="50%" y="50%" fill="%23ff6b2c" font-size="28" font-family="sans-serif" text-anchor="middle" dominant-baseline="middle">AI Video: ${encodeURIComponent(prompt.slice(0, 30))}</text></svg>`;
+}
+
+/** One still keyframe as a data URL. Failures throw so callers can report them. */
+export async function generateKeyframe(params: KeyframeParams): Promise<string> {
+  if (aiMockEnabled()) return mockKeyframeUrl(params.prompt, params.width, params.height);
+  const image = await defaultImageProvider.generate({
+    prompt: buildCinematicVideoPrompt(params.prompt, params.style),
+    width: params.width,
+    height: params.height,
+    seed: params.seed,
+    safe: !params.mature,
+    maxAttempts: VIDEO_IMAGE_MAX_ATTEMPTS,
+    timeoutMs: VIDEO_IMAGE_TIMEOUT_MS,
+  });
+  const jpeg = await sharp(image.buffer).jpeg({ quality: 82 }).toBuffer();
+  return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+}
+
 /**
  * Generate a synthetic motion animation keyframe sequence for mock or client rendering.
  */
 export async function generateAiVideo(params: VideoGenParams): Promise<VideoGenResult> {
   const seed = params.seed ?? Math.floor(Math.random() * 2_147_483_647);
-  const durationSec = Math.min(Math.max(params.durationSec ?? 3, 1), 10);
+  const durationSec = clampVideoDuration(params.mode ?? "video", params.durationSec);
   const fps = params.fps ?? 24;
   const motion = params.motion ?? "zoom-in";
   const { width, height } = resolveVideoDimensions(params.aspectRatio ?? "16:9");
 
   const isMature = params.mature === true || params.safe === false;
 
-  // In test or mock mode, generate synthetic response
   if (aiMockEnabled()) {
     return {
-      previewUrl: params.sourceImageUrl ?? `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="100%" height="100%" fill="%231a1a24"/><text x="50%" y="50%" fill="%23ff6b2c" font-size="28" font-family="sans-serif" text-anchor="middle" dominant-baseline="middle">AI Video: ${encodeURIComponent(params.prompt.slice(0, 30))}</text></svg>`,
+      previewUrl: params.sourceImageUrl ?? mockKeyframeUrl(params.prompt, width, height),
       motion,
       durationSec,
       fps,
@@ -47,23 +76,16 @@ export async function generateAiVideo(params: VideoGenParams): Promise<VideoGenR
     };
   }
 
-  // Live mode: generate base keyframe from prompt if no source image provided.
-  // Uses the shared image provider (API key, retries). Failures throw so the route reports them.
-  let previewUrl = params.sourceImageUrl;
-  if (!previewUrl) {
-    const fullPrompt = buildCinematicVideoPrompt(params.prompt, params.style);
-    const image = await defaultImageProvider.generate({
-      prompt: fullPrompt,
+  const previewUrl =
+    params.sourceImageUrl ??
+    (await generateKeyframe({
+      prompt: params.prompt,
+      style: params.style,
       width,
       height,
       seed,
-      safe: !isMature,
-      maxAttempts: VIDEO_IMAGE_MAX_ATTEMPTS,
-      timeoutMs: VIDEO_IMAGE_TIMEOUT_MS,
-    });
-    const jpeg = await sharp(image.buffer).jpeg({ quality: 82 }).toBuffer();
-    previewUrl = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
-  }
+      mature: isMature,
+    }));
 
   return {
     previewUrl,

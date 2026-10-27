@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildCinematicVideoPrompt } from "@/lib/ai/video-provider";
 import { generateAiVideo } from "@/lib/ai/video-generate";
+import { VIDEO_LIMITS, isDurationValid } from "@/lib/ai/video-limits";
 import {
   assertCanGenerateAiForAnonymous,
   assertCanGenerateAiForUser,
@@ -17,19 +18,25 @@ import { friendlyError } from "@/lib/user-messages";
 
 export const maxDuration = 60;
 
-const schema = z.object({
-  prompt: z.string().min(3).max(500),
-  sourceImageUrl: z.string().url().or(z.string().startsWith("data:")).optional(),
-  motion: z
-    .enum(["zoom-in", "zoom-out", "pan-right", "pan-left", "orbit", "pulse", "dramatic"])
-    .optional(),
-  durationSec: z.number().min(1).max(10).optional(),
-  aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
-  style: z.string().max(40).optional(),
-  seed: z.number().int().min(0).optional(),
-  safe: z.boolean().optional(),
-  mature: z.boolean().optional(),
-});
+const schema = z
+  .object({
+    prompt: z.string().min(3).max(500),
+    sourceImageUrl: z.string().url().or(z.string().startsWith("data:")).optional(),
+    motion: z
+      .enum(["zoom-in", "zoom-out", "pan-right", "pan-left", "orbit", "pulse", "dramatic"])
+      .optional(),
+    mode: z.enum(["gif", "video"]).optional(),
+    durationSec: z.number().min(VIDEO_LIMITS.gif.minSec).max(VIDEO_LIMITS.video.maxSec).optional(),
+    aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
+    style: z.string().max(40).optional(),
+    seed: z.number().int().min(0).optional(),
+    safe: z.boolean().optional(),
+    mature: z.boolean().optional(),
+  })
+  .refine((v) => v.durationSec == null || isDurationValid(v.mode ?? "video", v.durationSec), {
+    message: "Duration out of range for this mode",
+    path: ["durationSec"],
+  });
 
 export async function POST(req: Request) {
   const actor = await getActor(req);

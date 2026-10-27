@@ -7,7 +7,29 @@ import {
   VIDEO_STYLES,
   type CameraMotion,
 } from "@/lib/ai/video-provider";
+import { getVideoLimits, type VideoMode } from "@/lib/ai/video-limits";
 import type { VisualClip } from "@/lib/video-timeline/timeline-types";
+
+type JobState = {
+  id: string;
+  status: "queued" | "running" | "done" | "failed";
+  durationSec: number;
+  mature: boolean;
+  total: number;
+  completed: number;
+  error?: string;
+  shots?: {
+    durationSec: number;
+    motion: CameraMotion;
+    caption?: string;
+    imageUrl?: string;
+    videoUrl?: string;
+    mediaType?: "image" | "video";
+    sourceDurationSec?: number;
+    creditName?: string;
+    creditUrl?: string;
+  }[];
+};
 
 type Props = {
   onAddClip: (clip: VisualClip) => void;
@@ -28,19 +50,35 @@ export function AiVideoGeneratorPanel({
   const [prompt, setPrompt] = useState(() => initialPrompt ?? "");
   const [selectedStyle, setSelectedStyle] = useState<string>(() => initialStyle ?? "cinematic");
   const [selectedMotion, setSelectedMotion] = useState<CameraMotion>(() => initialMotion ?? "zoom-in");
-  const [durationSec, setDurationSec] = useState<number>(3);
+  const [clipKind, setClipKind] = useState<VideoMode>("video");
+  const [durationSec, setDurationSec] = useState<number>(getVideoLimits("video").defaultSec);
+  const limits = getVideoLimits(clipKind);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
   const [selectedAssetId, setSelectedAssetId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
   const [mature, setMature] = useState(false);
   const [error, setError] = useState("");
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [generatedPreview, setGeneratedPreview] = useState<{
-    url: string;
-    motion: CameraMotion;
+    shots: {
+      url: string;
+      motion: CameraMotion;
+      durationSec: number;
+      caption?: string;
+      mediaType: "image" | "video";
+      sourceDurationSec?: number;
+      creditName?: string;
+      creditUrl?: string;
+    }[];
     durationSec: number;
     prompt: string;
     mature?: boolean;
   } | null>(null);
+
+  const switchClipKind = (kind: VideoMode) => {
+    setClipKind(kind);
+    setDurationSec(getVideoLimits(kind).defaultSec);
+  };
 
   const handleGenerateTextToVideo = async () => {
     if (!prompt.trim() || prompt.trim().length < 3) {
@@ -50,34 +88,61 @@ export function AiVideoGeneratorPanel({
     setError("");
     setGenerating(true);
     try {
-      const res = await fetch("/api/ai/video/generate", {
+      const created = await fetch("/api/ai/video/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
           style: selectedStyle,
           motion: selectedMotion,
+          mode: clipKind,
           durationSec,
           aspectRatio,
           safe: !mature,
           mature,
         }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to generate video");
+      const createdData = await created.json();
+      if (!created.ok || !createdData.success) {
+        throw new Error(createdData.error || "Failed to generate video");
+      }
+      let job: JobState = createdData.job;
+      setProgress({ done: job.completed, total: job.total });
+      while (job.status === "queued" || job.status === "running") {
+        const stepRes = await fetch(`/api/ai/video/jobs/${job.id}/step`, { method: "POST" });
+        const stepData = await stepRes.json();
+        if (!stepRes.ok || !stepData.success) {
+          throw new Error(stepData.error || "Failed to generate video");
+        }
+        job = stepData.job;
+        setProgress({ done: job.completed, total: job.total });
+      }
+      if (job.status === "failed" || !job.shots) {
+        throw new Error(job.error || "Video generation failed");
       }
       setGeneratedPreview({
-        url: data.video.previewUrl,
-        motion: data.video.motion,
-        durationSec: data.video.durationSec,
+        shots: job.shots.map((shot) => {
+          const isVideo = Boolean(shot.videoUrl) || shot.mediaType === "video";
+          return {
+            url: (isVideo ? shot.videoUrl : shot.imageUrl) ?? shot.imageUrl ?? "",
+            motion: shot.motion,
+            durationSec: shot.durationSec,
+            caption: shot.caption,
+            mediaType: isVideo ? "video" : "image",
+            sourceDurationSec: shot.sourceDurationSec,
+            creditName: shot.creditName,
+            creditUrl: shot.creditUrl,
+          };
+        }),
+        durationSec: job.durationSec,
         prompt,
-        mature: Boolean(data.video.mature),
+        mature: job.mature,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Video generation failed");
     } finally {
       setGenerating(false);
+      setProgress(null);
     }
   };
 
@@ -103,29 +168,49 @@ export function AiVideoGeneratorPanel({
 
   const handleInsertGenerated = () => {
     if (!generatedPreview) return;
-    const clipId = `clip-ai-${Date.now()}`;
-    const newClip: VisualClip = {
-      id: clipId,
-      trackId: "visual-1",
-      assetId: `asset-ai-${Date.now()}`,
-      url: generatedPreview.url,
-      name: `AI: ${generatedPreview.prompt.slice(0, 24)}…`,
-      kind: "image",
-      startSec: 0,
-      endSec: generatedPreview.durationSec,
-      sourceStartSec: 0,
-      sourceDurationSec: generatedPreview.durationSec,
-      motion: generatedPreview.motion,
-      transition: "dissolve",
-      transitionDurationSec: 0.5,
-      mature: generatedPreview.mature,
-    };
-    onAddClip(newClip);
+    const stamp = Date.now();
+    generatedPreview.shots.forEach((shot, i) => {
+      const isVideo = shot.mediaType === "video" || shot.url.endsWith(".mp4");
+      const newClip: VisualClip = {
+        id: `clip-ai-${stamp}-${i}`,
+        trackId: "visual-1",
+        assetId: `asset-ai-${stamp}-${i}`,
+        url: shot.url,
+        name: `AI: ${(shot.caption ?? generatedPreview.prompt).slice(0, 24)}…`,
+        kind: isVideo ? "video" : "image",
+        startSec: 0,
+        endSec: isVideo ? Math.min(shot.durationSec, shot.sourceDurationSec ?? shot.durationSec) : shot.durationSec,
+        sourceStartSec: 0,
+        sourceDurationSec: isVideo ? (shot.sourceDurationSec ?? shot.durationSec) : shot.durationSec,
+        motion: isVideo ? undefined : shot.motion,
+        transition: "dissolve",
+        transitionDurationSec: Math.min(0.5, shot.durationSec / 2),
+        mature: generatedPreview.mature,
+      };
+      onAddClip(newClip);
+    });
     setGeneratedPreview(null);
   };
 
   return (
     <div className="space-y-4" data-testid="video-generator-panel">
+      <div className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-1" data-testid="clip-kind-toggle">
+        {(["video", "gif"] as const).map((kind) => (
+          <button
+            key={kind}
+            type="button"
+            onClick={() => switchClipKind(kind)}
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+              clipKind === kind
+                ? "bg-[var(--surface-raised)] text-[var(--accent-primary)] shadow-sm"
+                : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            }`}
+          >
+            {kind === "video" ? `Video (${getVideoLimits("video").minSec}-${getVideoLimits("video").maxSec}s)` : `GIF (${getVideoLimits("gif").minSec}-${getVideoLimits("gif").maxSec}s)`}
+          </button>
+        ))}
+      </div>
+
       {/* Tab toggle between Text-to-Video and Image-to-Video */}
       <div className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-1">
         <button
@@ -208,18 +293,18 @@ export function AiVideoGeneratorPanel({
             </div>
             <div>
               <label className="block text-xs font-semibold text-[var(--text-muted)]">
-                Duration
+                Duration ({durationSec}s)
               </label>
-              <select
+              <input
+                type="range"
+                min={limits.minSec}
+                max={limits.maxSec}
+                step={limits.stepSec}
                 value={durationSec}
                 onChange={(e) => setDurationSec(Number(e.target.value))}
-                className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-1.5 text-xs"
-              >
-                <option value={2}>2 seconds</option>
-                <option value={3}>3 seconds (Standard)</option>
-                <option value={5}>5 seconds</option>
-                <option value={8}>8 seconds</option>
-              </select>
+                className="mt-1 w-full"
+                data-testid="video-duration-slider"
+              />
             </div>
           </div>
 
@@ -261,26 +346,72 @@ export function AiVideoGeneratorPanel({
             onClick={() => void handleGenerateTextToVideo()}
             className={`${btnPrimary} w-full py-2.5 text-sm font-semibold`}
           >
-            {generating ? "Synthesizing AI Video..." : "✨ Generate AI Video Clip"}
+            {generating
+              ? progress
+                ? `Rendering shot ${Math.min(progress.done + 1, progress.total)} of ${progress.total}...`
+                : "Starting..."
+              : "✨ Generate AI Video Clip"}
           </button>
 
           {generatedPreview ? (
             <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-3">
               <p className="text-xs font-semibold text-[var(--accent-primary)]">
-                AI Clip Ready ({generatedPreview.durationSec}s · {generatedPreview.motion})
+                AI Clip Ready ({generatedPreview.durationSec}s · {generatedPreview.shots.length} {generatedPreview.shots.length === 1 ? "shot" : "shots"})
               </p>
               <div className="mt-2 overflow-hidden rounded-lg bg-black">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={generatedPreview.url}
-                  alt={generatedPreview.prompt}
-                  className="max-h-36 w-full object-contain"
-                  onError={() => {
-                    setGeneratedPreview(null);
-                    setError("The preview couldn't load — try generating again.");
-                  }}
-                />
+                {generatedPreview.shots[0]?.mediaType === "video" ||
+                generatedPreview.shots[0]?.url.endsWith(".mp4") ? (
+                  <video
+                    src={generatedPreview.shots[0]?.url}
+                    controls
+                    playsInline
+                    className="max-h-36 w-full object-contain"
+                  />
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={generatedPreview.shots[0]?.url}
+                    alt={generatedPreview.prompt}
+                    className="max-h-36 w-full object-contain"
+                    onError={() => {
+                      setGeneratedPreview(null);
+                      setError("The preview couldn't load — try generating again.");
+                    }}
+                  />
+                )}
               </div>
+              {generatedPreview.shots.length > 1 ? (
+                <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+                  {generatedPreview.shots.map((shot, idx) => (
+                    <div
+                      key={idx}
+                      className="shrink-0 rounded border border-[var(--border-subtle)] bg-[var(--surface-frame)] px-2 py-1 text-[11px] text-[var(--text-secondary)]"
+                    >
+                      Shot {idx + 1}: {shot.durationSec}s {shot.mediaType === "video" ? "📹" : "🖼️"}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {generatedPreview.shots.some((shot) => shot.creditName) ? (
+                <p className="mt-2 text-[11px] text-[var(--text-muted)]" data-testid="stock-credit">
+                  Stock footage from{" "}
+                  {[...new Map(generatedPreview.shots.filter((s) => s.creditName).map((s) => [s.creditName, s])).values()].map(
+                    (s, i) => (
+                      <span key={s.creditName}>
+                        {i > 0 ? ", " : ""}
+                        <a
+                          href={s.creditUrl ?? `https://${s.creditName}.com`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          {s.creditName === "pixabay" ? "Pixabay" : s.creditName}
+                        </a>
+                      </span>
+                    ),
+                  )}
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={handleInsertGenerated}
@@ -327,17 +458,17 @@ export function AiVideoGeneratorPanel({
             </label>
             <input
               type="range"
-              min={1}
-              max={8}
-              step={0.5}
+              min={limits.minSec}
+              max={limits.maxSec}
+              step={limits.stepSec}
               value={durationSec}
               onChange={(e) => setDurationSec(Number(e.target.value))}
               className="mt-1 w-full"
             />
             <div className="flex justify-between text-[10px] text-[var(--text-muted)]">
-              <span>1s (Quick)</span>
+              <span>{limits.minSec}s</span>
               <span>{durationSec}s</span>
-              <span>8s (Long)</span>
+              <span>{limits.maxSec}s</span>
             </div>
           </div>
 

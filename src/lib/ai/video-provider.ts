@@ -3,6 +3,8 @@
  * Supports Text-to-Video and Image-to-Video motion animation.
  */
 
+import type { VideoMode } from "@/lib/ai/video-limits";
+
 export type CameraMotion =
   | "zoom-in"
   | "zoom-out"
@@ -16,6 +18,7 @@ export type VideoGenParams = {
   prompt: string;
   sourceImageUrl?: string;
   motion?: CameraMotion;
+  mode?: VideoMode;
   durationSec?: number;
   fps?: number;
   aspectRatio?: "16:9" | "9:16" | "1:1";
