@@ -1,5 +1,6 @@
 import { generateKeyframe, type KeyframeParams } from "@/lib/ai/video-generate";
 import { selectStockProvider } from "@/lib/ai/stock/provider";
+import { pollGpuClip, storeGpuResult, submitGpuClip } from "@/lib/ai/gpu/client";
 
 export type RenderShotParams = KeyframeParams & {
   stockQuery?: string;
@@ -16,11 +17,22 @@ export type RenderShotResult = {
   creditUrl?: string;
 };
 
+export type AdvanceShotParams = RenderShotParams & {
+  remoteId?: string;
+  initImage?: string;
+};
+
+export type ShotAdvance =
+  | { state: "pending"; remoteId: string }
+  | { state: "done"; result: RenderShotResult; lastFrame?: string };
+
 export interface ShotBackend {
   name: string;
   tier: 1 | 3;
   isConfigured(): boolean;
   renderShot(params: RenderShotParams): Promise<string | RenderShotResult>;
+  /** Long-running backends submit on the first call and are polled on later calls. */
+  advanceShot?(params: AdvanceShotParams): Promise<ShotAdvance>;
 }
 
 export const assembledBackend: ShotBackend = {
@@ -66,6 +78,24 @@ export const selfHostedGpuBackend: ShotBackend = {
   isConfigured: () => Boolean(process.env.VIDEO_GPU_ENDPOINT),
   renderShot: async () => {
     throw new Error("gpu_backend_not_implemented");
+  },
+  advanceShot: async (params) => {
+    if (!params.remoteId) {
+      const remoteId = await submitGpuClip({
+        prompt: params.prompt,
+        durationSec: params.durationSec ?? 5,
+        width: params.width,
+        height: params.height,
+        seed: params.seed,
+        initImage: params.initImage,
+      });
+      return { state: "pending", remoteId };
+    }
+    const status = await pollGpuClip(params.remoteId);
+    if (status.status === "failed") throw new Error(status.error ?? "gpu_generation_failed");
+    if (status.status !== "done") return { state: "pending", remoteId: params.remoteId };
+    const stored = await storeGpuResult(status);
+    return { state: "done", result: { videoUrl: stored.videoUrl, mediaType: "video" }, lastFrame: stored.lastFrame };
   },
 };
 

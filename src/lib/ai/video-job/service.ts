@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { recordAiGenerationSuccess, recordAnonymousAiSuccess } from "@/lib/ai/usage";
 import { resolveVideoDimensions } from "@/lib/ai/video-provider";
 import { friendlyError } from "@/lib/user-messages";
-import { selectBackend, type ShotBackend } from "./backend";
+import { gpuTimeoutMs } from "@/lib/ai/gpu/client";
+import { assembledBackend, selectBackend, type ShotBackend } from "./backend";
 import type { JobInput, JobShot, JobStatus, JobView } from "./types";
 
 type JobRow = {
@@ -24,6 +25,14 @@ export function ownerKeyFor(actor: JobActor): string {
   return actor.userId ? `u:${actor.userId}` : `ip:${actor.ipHash}`;
 }
 
+function publicShot(shot: JobShot): JobShot {
+  const copy = { ...shot };
+  delete copy.remoteId;
+  delete copy.startedAt;
+  delete copy.lastFrame;
+  return copy;
+}
+
 export function serializeJob(job: JobRow, opts: { images: boolean }): JobView {
   const input = job.input as JobInput;
   const shots = job.shots as JobShot[];
@@ -37,7 +46,10 @@ export function serializeJob(job: JobRow, opts: { images: boolean }): JobView {
     total: shots.length,
     completed: job.nextShot,
     error: job.error ?? undefined,
-    shots: opts.images && status === "done" ? shots : undefined,
+    shots:
+      opts.images && status === "done"
+        ? shots.map(publicShot)
+        : undefined,
   };
 }
 
@@ -67,13 +79,14 @@ const OPEN: JobStatus[] = ["queued", "running"];
 export async function stepVideoJob(
   id: string,
   actor: JobActor,
-  backend: ShotBackend = selectBackend(),
+  backendOverride?: ShotBackend,
 ): Promise<JobRow | null> {
   const job = await getVideoJob(id, actor);
   if (!job) return null;
   if (!OPEN.includes(job.status as JobStatus)) return job;
 
   const input = job.input as JobInput;
+  const backend = backendOverride ?? (input.mature ? assembledBackend : selectBackend());
   const shots = job.shots as JobShot[];
   const index = job.nextShot;
   const shot = shots[index];
@@ -83,7 +96,7 @@ export async function stepVideoJob(
   const guard = { id, nextShot: index, status: { in: OPEN } };
 
   try {
-    const shotResult = await backend.renderShot({
+    const renderParams = {
       prompt: shot.visualPrompt,
       stockQuery: shot.stockQuery,
       durationSec: shot.durationSec,
@@ -93,18 +106,46 @@ export async function stepVideoJob(
       height,
       seed: input.seed + index,
       mature: input.mature,
-    });
-    const patch =
-      typeof shotResult === "string"
-        ? { imageUrl: shotResult, mediaType: "image" as const }
-        : {
-            imageUrl: shotResult.imageUrl,
-            videoUrl: shotResult.videoUrl,
-            mediaType: shotResult.mediaType || (shotResult.videoUrl ? ("video" as const) : ("image" as const)),
-            sourceDurationSec: shotResult.sourceDurationSec,
-            creditName: shotResult.creditName,
-            creditUrl: shotResult.creditUrl,
-          };
+    };
+    let patch: Partial<JobShot>;
+    if (backend.advanceShot) {
+      const startedAt = shot.startedAt ?? Date.now();
+      if (Date.now() - startedAt > gpuTimeoutMs()) throw new Error("gpu_generation_timeout");
+      const advance = await backend.advanceShot({
+        ...renderParams,
+        remoteId: shot.remoteId,
+        initImage: index > 0 ? shots[index - 1].lastFrame : undefined,
+      });
+      if (advance.state === "pending") {
+        const waiting = shots.map((s, i) => (i === index ? { ...s, remoteId: advance.remoteId, startedAt } : s));
+        await prisma.videoJob.updateMany({
+          where: guard,
+          data: { shots: waiting as unknown as Prisma.InputJsonValue, status: "running" },
+        });
+        return prisma.videoJob.findUnique({ where: { id } });
+      }
+      patch = {
+        imageUrl: advance.result.imageUrl,
+        videoUrl: advance.result.videoUrl,
+        mediaType: advance.result.mediaType,
+        lastFrame: advance.lastFrame,
+        remoteId: undefined,
+        startedAt: undefined,
+      };
+    } else {
+      const shotResult = await backend.renderShot(renderParams);
+      patch =
+        typeof shotResult === "string"
+          ? { imageUrl: shotResult, mediaType: "image" as const }
+          : {
+              imageUrl: shotResult.imageUrl,
+              videoUrl: shotResult.videoUrl,
+              mediaType: shotResult.mediaType || (shotResult.videoUrl ? ("video" as const) : ("image" as const)),
+              sourceDurationSec: shotResult.sourceDurationSec,
+              creditName: shotResult.creditName,
+              creditUrl: shotResult.creditUrl,
+            };
+    }
     const updated = shots.map((s, i) => (i === index ? { ...s, ...patch } : s));
     const last = index === shots.length - 1;
     const claimed = await prisma.videoJob.updateMany({

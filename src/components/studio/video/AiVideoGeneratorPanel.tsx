@@ -109,6 +109,7 @@ export function AiVideoGeneratorPanel({
       let job: JobState = createdData.job;
       setProgress({ done: job.completed, total: job.total });
       while (job.status === "queued" || job.status === "running") {
+        const before = job.completed;
         const stepRes = await fetch(`/api/ai/video/jobs/${job.id}/step`, { method: "POST" });
         const stepData = await stepRes.json();
         if (!stepRes.ok || !stepData.success) {
@@ -116,6 +117,9 @@ export function AiVideoGeneratorPanel({
         }
         job = stepData.job;
         setProgress({ done: job.completed, total: job.total });
+        if (job.completed === before && job.status === "running") {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        }
       }
       if (job.status === "failed" || !job.shots) {
         throw new Error(job.error || "Video generation failed");

@@ -6,7 +6,9 @@ import { plannerAvailable, planStoryboard } from "@/lib/ai/director/planner";
 import { PLAN_MIN_SEC, type Storyboard } from "@/lib/ai/director/types";
 import { consumePlanLimits } from "@/lib/ai/director/limits";
 import { assertCanGenerateAiForAnonymous, assertCanGenerateAiForUser } from "@/lib/ai/usage";
-import { planShots } from "@/lib/ai/video-job/shots";
+import { planGpuShots, planShots } from "@/lib/ai/video-job/shots";
+import { selectBackend } from "@/lib/ai/video-job/backend";
+import { gpuMaxClipSec } from "@/lib/ai/gpu/client";
 import { createVideoJob, serializeJob } from "@/lib/ai/video-job/service";
 import type { JobInput } from "@/lib/ai/video-job/types";
 import { aiRateLimitPerHour } from "@/lib/config";
@@ -106,7 +108,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const job = await createVideoJob(actor, input, planShots(input, storyboard));
+    const useGpu = !matureRequested && selectBackend().tier === 3;
+    const shots = useGpu ? planGpuShots(input, storyboard, gpuMaxClipSec()) : planShots(input, storyboard);
+    const job = await createVideoJob(actor, input, shots);
     return NextResponse.json({ success: true, job: serializeJob(job, { images: false }) });
   } catch (err) {
     console.error("[imbrgr/ai-video] job create error", err);

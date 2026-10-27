@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Storyboard } from "@/lib/ai/director/types";
-import { MAX_JOB_SHOTS, planShots, stockQueryFromPrompt } from "./shots";
+import { MAX_JOB_SHOTS, planGpuShots, planShots, stockQueryFromPrompt } from "./shots";
 import type { JobInput } from "./types";
 
 const base: JobInput = {
@@ -88,5 +88,23 @@ describe("stock queries", () => {
     const shots = planShots(base, sb);
     expect(shots[0].stockQuery).toBe("sizzling cheeseburger");
     expect(shots[1].stockQuery).toBe("q1");
+  });
+});
+
+describe("planGpuShots", () => {
+  it("chains 13 s into 3 clips on a 5 s backend", () => {
+    const shots = planGpuShots(base, null, 5);
+    expect(shots).toHaveLength(3);
+    expect(shots.every((s) => s.durationSec === 4.33)).toBe(true);
+    expect(shots.every((s) => s.visualPrompt === "neon burger")).toBe(true);
+  });
+
+  it("uses storyboard prompts per clip when available", () => {
+    const shots = planGpuShots(base, storyboard([4, 4, 5]), 5);
+    expect(shots.map((s) => s.visualPrompt)).toEqual(["scene 0", "scene 1", "scene 2"]);
+  });
+
+  it("uses a single clip for a short gif", () => {
+    expect(planGpuShots({ ...base, mode: "gif", durationSec: 3 }, null, 5)).toHaveLength(1);
   });
 });
