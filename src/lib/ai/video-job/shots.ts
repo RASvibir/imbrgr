@@ -1,5 +1,6 @@
 import type { Storyboard } from "@/lib/ai/director/types";
 import { planClipChain } from "@/lib/ai/gpu/clip-chain";
+import { composeGpuPrompt } from "./compose";
 import type { JobInput, JobShot } from "./types";
 
 export const MAX_JOB_SHOTS = 4;
@@ -21,6 +22,21 @@ export function stockQueryFromPrompt(prompt: string, maxWords = 4): string | und
   const unique = [...new Set(words)].slice(0, maxWords);
   const query = unique.join(" ").slice(0, 100).trim();
   return query || undefined;
+}
+
+/** Specific to broad: the full query, its first two words, then its first word (max 3 searches). */
+export function stockQueryLadder(query: string): string[] {
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const rungs = [words.join(" "), words.slice(0, 2).join(" "), words[0]];
+  return [...new Set(rungs)];
+}
+
+/** Keeps the first N-1 shots plus the closer, so the payoff shot is never the one dropped. */
+export function pickShots<T>(shots: T[], max: number): T[] {
+  if (shots.length <= max) return shots;
+  if (max <= 1) return shots.slice(-1);
+  return [...shots.slice(0, max - 1), shots[shots.length - 1]];
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -45,7 +61,7 @@ export function planShots(input: JobInput, storyboard: Storyboard | null): JobSh
       },
     ];
   }
-  const picked = storyboard.shots.slice(0, MAX_JOB_SHOTS);
+  const picked = pickShots(storyboard.shots, MAX_JOB_SHOTS);
   const sum = picked.reduce((acc, s) => acc + s.durationSec, 0);
   let durations = picked.map((s) => round1((s.durationSec * total) / sum));
   const head = durations.slice(0, -1).reduce((acc, d) => acc + d, 0);
@@ -63,11 +79,20 @@ export function planShots(input: JobInput, storyboard: Storyboard | null): JobSh
 /** Clip-by-clip plan for a generative backend: each clip continues from the previous clip's last frame. */
 export function planGpuShots(input: JobInput, storyboard: Storyboard | null, maxClipSec: number): JobShot[] {
   const chain = planClipChain(input.durationSec, maxClipSec, MAX_JOB_SHOTS);
-  const board = storyboard?.shots ?? [];
-  return chain.clips.map((clip, i) => ({
-    durationSec: clip.durationSec,
-    visualPrompt: board[i]?.visualPrompt ?? input.prompt,
-    motion: input.motion,
-    caption: board[i]?.caption,
-  }));
+  const board = pickShots(storyboard?.shots ?? [], chain.clips.length);
+  return chain.clips.map((clip, i) => {
+    const shot = board[i];
+    const motion = shot?.motion ?? input.motion;
+    return {
+      durationSec: clip.durationSec,
+      visualPrompt: composeGpuPrompt({
+        visualPrompt: shot?.visualPrompt ?? input.prompt,
+        motion,
+        style: input.style,
+        continuation: i > 0 || Boolean(input.parentJobId),
+      }),
+      motion,
+      caption: shot?.caption,
+    };
+  });
 }

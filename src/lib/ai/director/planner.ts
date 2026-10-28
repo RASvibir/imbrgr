@@ -1,6 +1,7 @@
 import { isPromptBlocked } from "@/lib/prompt-safety";
 import { buildPlannerMessages } from "./prompt";
 import { defaultPlannerProviders } from "./providers";
+import { repairStoryboard } from "./repair";
 import {
   PLAN_MAX_SEC,
   PLAN_MIN_SEC,
@@ -154,7 +155,7 @@ export async function planStoryboard(
   for (const provider of configured) {
     try {
       const raw = await provider.complete(messages);
-      const parsed = storyboardSchema.safeParse(extractJson(raw));
+      const parsed = storyboardSchema.safeParse(repairStoryboard(extractJson(raw), safeParams));
       if (!parsed.success) {
         logRejected(provider.name, "invalid_shape");
         continue;

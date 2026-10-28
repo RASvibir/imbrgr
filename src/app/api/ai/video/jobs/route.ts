@@ -5,6 +5,7 @@ import { clampVideoDuration, isDurationValid, VIDEO_LIMITS } from "@/lib/ai/vide
 import { plannerAvailable, planStoryboard } from "@/lib/ai/director/planner";
 import { PLAN_MIN_SEC, type Storyboard } from "@/lib/ai/director/types";
 import { consumePlanLimits } from "@/lib/ai/director/limits";
+import { getCachedStoryboard, setCachedStoryboard } from "@/lib/ai/director/plan-cache";
 import { assertCanGenerateAiForAnonymous, assertCanGenerateAiForUser } from "@/lib/ai/usage";
 import { planGpuShots, planShots } from "@/lib/ai/video-job/shots";
 import { selectBackend } from "@/lib/ai/video-job/backend";
@@ -111,15 +112,20 @@ export async function POST(req: Request) {
   let storyboard: Storyboard | null = null;
   if (!matureRequested && mode === "video" && plannerAvailable()) {
     try {
-      const limit = await consumePlanLimits(actor);
-      if (limit.ok) {
-        const planned = await planStoryboard({
-          prompt: input.prompt,
-          targetSec: Math.max(input.durationSec, PLAN_MIN_SEC),
-          aspectRatio: input.aspectRatio,
-          style: input.style,
-        });
-        storyboard = planned.storyboard;
+      const planParams = {
+        prompt: input.prompt,
+        targetSec: Math.max(input.durationSec, PLAN_MIN_SEC),
+        aspectRatio: input.aspectRatio,
+        style: input.style,
+      };
+      storyboard = await getCachedStoryboard(planParams);
+      if (!storyboard) {
+        const limit = await consumePlanLimits(actor);
+        if (limit.ok) {
+          const planned = await planStoryboard(planParams);
+          storyboard = planned.storyboard;
+          await setCachedStoryboard(planParams, storyboard);
+        }
       }
     } catch (err) {
       console.error("[imbrgr/ai-video] planning fell back to a single shot", err);

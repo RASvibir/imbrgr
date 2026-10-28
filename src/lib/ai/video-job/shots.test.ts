@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Storyboard } from "@/lib/ai/director/types";
-import { MAX_JOB_SHOTS, planGpuShots, planShots, stockQueryFromPrompt } from "./shots";
+import { MAX_JOB_SHOTS, pickShots, planGpuShots, planShots, stockQueryFromPrompt, stockQueryLadder } from "./shots";
 import type { JobInput } from "./types";
 
 const base: JobInput = {
@@ -58,6 +58,11 @@ describe("planShots", () => {
     expect(total(shots)).toBe(13);
   });
 
+  it("keeps the closing shot when trimming a long storyboard", () => {
+    const shots = planShots(base, storyboard([2, 2, 2, 2, 2, 2]));
+    expect(shots.map((s) => s.visualPrompt)).toEqual(["scene 0", "scene 1", "scene 2", "scene 5"]);
+  });
+
   it("falls back to an even split when a shot would drop under 1 s", () => {
     const shots = planShots({ ...base, durationSec: 5 }, storyboard([1, 1, 1, 10]));
     expect(total(shots)).toBe(5);
@@ -96,15 +101,55 @@ describe("planGpuShots", () => {
     const shots = planGpuShots(base, null, 5);
     expect(shots).toHaveLength(3);
     expect(shots.every((s) => s.durationSec === 4.33)).toBe(true);
-    expect(shots.every((s) => s.visualPrompt === "neon burger")).toBe(true);
+    expect(shots[0].visualPrompt).toContain("neon burger");
+    expect(shots[0].visualPrompt).not.toMatch(/^Continuing/);
+    expect(shots[1].visualPrompt).toMatch(/^Continuing from the previous frame/);
+    expect(shots.every((s) => s.motion === "zoom-in")).toBe(true);
   });
 
   it("uses storyboard prompts per clip when available", () => {
     const shots = planGpuShots(base, storyboard([4, 4, 5]), 5);
-    expect(shots.map((s) => s.visualPrompt)).toEqual(["scene 0", "scene 1", "scene 2"]);
+    expect(shots[0].visualPrompt).toContain("scene 0");
+    expect(shots[1].visualPrompt).toContain("scene 1");
+    expect(shots[2].visualPrompt).toContain("scene 2");
+  });
+
+  it("uses each storyboard shot's own motion", () => {
+    const shots = planGpuShots(base, storyboard([4, 4, 5]), 5);
+    expect(shots.every((s) => s.motion === "pan-right")).toBe(true);
+    expect(shots[0].visualPrompt).toContain("pan to the right");
+  });
+
+  it("keeps the closing storyboard shot when the board is longer than the chain", () => {
+    const shots = planGpuShots(base, storyboard([2, 2, 2, 2, 2, 2]), 5);
+    expect(shots).toHaveLength(3);
+    expect(shots[2].visualPrompt).toContain("scene 5");
   });
 
   it("uses a single clip for a short gif", () => {
     expect(planGpuShots({ ...base, mode: "gif", durationSec: 3 }, null, 5)).toHaveLength(1);
+  });
+});
+
+describe("pickShots", () => {
+  it("returns the list unchanged when it fits", () => {
+    expect(pickShots([1, 2, 3], 4)).toEqual([1, 2, 3]);
+  });
+
+  it("keeps the first N-1 and the last", () => {
+    expect(pickShots([1, 2, 3, 4, 5, 6], 4)).toEqual([1, 2, 3, 6]);
+    expect(pickShots([1, 2, 3], 1)).toEqual([3]);
+  });
+});
+
+describe("stockQueryLadder", () => {
+  it("goes from specific to broad without duplicates", () => {
+    expect(stockQueryLadder("sizzling cheeseburger grill")).toEqual([
+      "sizzling cheeseburger grill",
+      "sizzling cheeseburger",
+      "sizzling",
+    ]);
+    expect(stockQueryLadder("burger")).toEqual(["burger"]);
+    expect(stockQueryLadder("  ")).toEqual([]);
   });
 });

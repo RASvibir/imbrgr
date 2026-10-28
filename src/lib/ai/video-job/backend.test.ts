@@ -114,4 +114,28 @@ describe("assembledBackend", () => {
       expect(res.mediaType).toBe("image");
     }
   });
+
+  it("broadens the stock query when the specific one misses", async () => {
+    vi.stubEnv("TEST_STOCK_CONFIGURED", "true");
+    searchVideoMock.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: "s2",
+      url: "/api/media/file/b.mp4",
+      durationSec: 6,
+      width: 1920,
+      height: 1080,
+    });
+    const res = await assembledBackend.renderShot({
+      prompt: "x",
+      width: 100,
+      height: 100,
+      seed: 1,
+      mature: false,
+      stockQuery: "sizzling cheeseburger grill",
+    });
+    expect(searchVideoMock.mock.calls.map((c) => c[0])).toEqual([
+      "sizzling cheeseburger grill",
+      "sizzling cheeseburger",
+    ]);
+    expect(typeof res === "object" && res.mediaType).toBe("video");
+  });
 });
