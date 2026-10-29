@@ -10,6 +10,7 @@ const STOP_WORDS = new Set([
   "is", "are", "its", "it", "my", "our", "your", "this", "that", "some", "very", "while", "as",
   "cinematic", "slow", "motion", "shot", "video", "footage", "scene", "close", "up", "closeup", "4k", "hd",
   "dramatic", "beautiful", "stunning", "amazing", "high", "quality", "smooth", "camera",
+  "wide", "establishing", "medium",
 ]);
 
 /** Short keyword query for stock search: a few concrete nouns beat a full prompt sentence. */
@@ -24,11 +25,16 @@ export function stockQueryFromPrompt(prompt: string, maxWords = 4): string | und
   return query || undefined;
 }
 
-/** Specific to broad: the full query, its first two words, then its first word (max 3 searches). */
-export function stockQueryLadder(query: string): string[] {
+/**
+ * Specific to broad: the full query, its first two words, then its first word. An optional extra rung (keywords
+ * taken from the shot's own scene text) gives one more independent chance when the planner's query misses.
+ * At most 4 searches.
+ */
+export function stockQueryLadder(query: string, extra?: string): string[] {
   const words = query.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return [];
+  if (words.length === 0) return extra?.trim() ? [extra.trim()] : [];
   const rungs = [words.join(" "), words.slice(0, 2).join(" "), words[0]];
+  if (extra?.trim()) rungs.push(extra.trim());
   return [...new Set(rungs)];
 }
 

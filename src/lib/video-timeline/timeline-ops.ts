@@ -123,8 +123,18 @@ export type MotionTransform = {
   alpha: number;
 };
 
+/** Smoothstep: camera moves ease in and out instead of sliding at a constant, robotic speed. */
+function ease(p: number): number {
+  return p * p * (3 - 2 * p);
+}
+
+/**
+ * Camera move for a still image. Every move keeps scale high enough that translation and rotation never reveal
+ * the image edges: |translate| <= (scale - 1) / 2 * 100 percent.
+ */
 export function computeMotionTransform(motion?: CameraMotion, progress = 0): MotionTransform {
   const p = Math.max(0, Math.min(1, progress));
+  const e = ease(p);
   const base: MotionTransform = {
     scale: 1,
     translateXPercent: 0,
@@ -137,30 +147,27 @@ export function computeMotionTransform(motion?: CameraMotion, progress = 0): Mot
 
   switch (motion) {
     case "zoom-in":
-      // Smooth Ken Burns zoom in from 1.0 to 1.25
-      return { ...base, scale: 1.0 + 0.25 * p };
+      return { ...base, scale: 1.0 + 0.35 * e };
     case "zoom-out":
-      // Pull back from 1.25 to 1.0
-      return { ...base, scale: 1.25 - 0.25 * p };
+      return { ...base, scale: 1.35 - 0.35 * e };
     case "pan-right":
-      // Pan camera from left to right (translate image right to left)
-      return { ...base, scale: 1.15, translateXPercent: (1 - 2 * p) * 5 };
+      // Camera moves left to right, with a slight rise so it reads as a tracking shot rather than a slide.
+      return { ...base, scale: 1.25, translateXPercent: (1 - 2 * e) * 9, translateYPercent: (0.5 - e) * 3 };
     case "pan-left":
-      return { ...base, scale: 1.15, translateXPercent: (2 * p - 1) * 5 };
+      return { ...base, scale: 1.25, translateXPercent: (2 * e - 1) * 9, translateYPercent: (0.5 - e) * 3 };
     case "orbit":
-      // Subtle 3D rotational drift
+      // Drift around the subject: gentle rotation plus a push, returning toward start.
       return {
         ...base,
-        scale: 1.1 + 0.05 * Math.sin(p * Math.PI),
-        rotateDeg: Math.sin(p * Math.PI * 2) * 1.5,
+        scale: 1.18 + 0.08 * Math.sin(p * Math.PI),
+        rotateDeg: Math.sin(p * Math.PI * 2) * 2.5,
       };
-    case "pulse":
-      // Rhythmic heartbeat/bass pulse
+    case "pulse": {
       const wave = Math.abs(Math.sin(p * Math.PI * 4));
-      return { ...base, scale: 1.0 + 0.08 * wave };
+      return { ...base, scale: 1.0 + 0.1 * wave };
+    }
     case "dramatic":
-      // Dolly zoom effect (scale in while zooming)
-      return { ...base, scale: 1.0 + 0.3 * Math.pow(p, 1.5) };
+      return { ...base, scale: 1.0 + 0.45 * Math.pow(e, 1.4) };
     default:
       return base;
   }

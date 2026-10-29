@@ -1,6 +1,6 @@
 import { generateKeyframe, type KeyframeParams } from "@/lib/ai/video-generate";
 import { selectStockProvider } from "@/lib/ai/stock/provider";
-import { stockQueryLadder } from "./shots";
+import { stockQueryFromPrompt, stockQueryLadder } from "./shots";
 import { pollGpuClip, storeGpuResult, submitGpuClip } from "@/lib/ai/gpu/client";
 
 export type RenderShotParams = KeyframeParams & {
@@ -45,7 +45,7 @@ export const assembledBackend: ShotBackend = {
       const stock = selectStockProvider();
       if (stock?.isConfigured()) {
         try {
-          for (const query of stockQueryLadder(params.stockQuery)) {
+          for (const query of stockQueryLadder(params.stockQuery, stockQueryFromPrompt(params.prompt, 3))) {
             const clip = await stock.searchVideo(query, {
               aspectRatio: params.aspectRatio,
               durationSec: params.durationSec,
