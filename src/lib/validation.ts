@@ -33,7 +33,11 @@ export const postInputSchema = z.object({
 
 export const commentInputSchema = z.object({
   body: z.string().min(1).max(5000),
-  parentId: z.string().optional(),
+  // Top-level comments are sent with parentId: null; treat null the same as omitted.
+  parentId: z
+    .string()
+    .nullish()
+    .transform((v) => v || undefined),
 });
 
 export function parseTags(raw: string): string[] {
