@@ -1,5 +1,5 @@
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
-import type { ChatMessage, PlannerProvider } from "./types";
+import { PLAN_MOTIONS, type ChatMessage, type PlannerProvider } from "./types";
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 
@@ -17,7 +17,7 @@ export function groqRequestBody(messages: ChatMessage[]) {
     model,
     messages,
     temperature: 0.7,
-    max_tokens: reasoning ? 2500 : 1200,
+    max_tokens: reasoning ? 2800 : 1600,
     response_format: { type: "json_object" },
     ...(reasoning ? { reasoning_effort: "low" } : {}),
   };
@@ -82,6 +82,42 @@ function ollamaHost(): string | null {
   return host.replace(/\/$/, "");
 }
 
+/** JSON schema for grammar-constrained decoding. Ollama Cloud ignores it, so it is only sent to self-hosted servers. */
+export const STORYBOARD_JSON_SCHEMA = {
+  type: "object",
+  required: ["title", "narration", "look", "shots"],
+  properties: {
+    title: { type: "string" },
+    narration: { type: "string" },
+    look: { type: "string" },
+    shots: {
+      type: "array",
+      minItems: 1,
+      maxItems: 12,
+      items: {
+        type: "object",
+        required: ["durationSec", "caption", "visualPrompt", "action", "stockQuery", "motion"],
+        properties: {
+          durationSec: { type: "number" },
+          caption: { type: "string" },
+          visualPrompt: { type: "string" },
+          action: { type: "string" },
+          stockQuery: { type: "string" },
+          motion: { type: "string", enum: [...PLAN_MOTIONS] },
+        },
+      },
+    },
+  },
+} as const;
+
+function isOllamaCloud(host: string): boolean {
+  try {
+    return new URL(host).hostname.endsWith("ollama.com");
+  } catch {
+    return false;
+  }
+}
+
 export const ollamaProvider: PlannerProvider = {
   name: "ollama",
   isConfigured: () => ollamaHost() !== null,
@@ -98,9 +134,9 @@ export const ollamaProvider: PlannerProvider = {
         model: process.env.OLLAMA_MODEL || "llama3.2",
         stream: false,
         think: false,
-        format: "json",
+        format: isOllamaCloud(host) ? "json" : STORYBOARD_JSON_SCHEMA,
         messages,
-        options: { num_predict: 1200, temperature: 0.7 },
+        options: { num_predict: 1600, temperature: 0.7 },
       }),
     });
     if (!res.ok) throw new Error(`ollama_http_${res.status}`);

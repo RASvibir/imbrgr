@@ -44,4 +44,16 @@ describe("repairStoryboard", () => {
     expect(out.shots).toHaveLength(12);
     expect(out.shots[11].visualPrompt).toBe("scene 14");
   });
+
+  it("keeps look and action when present and never invents them", () => {
+    const withBoth = repairStoryboard(
+      { title: "t", narration: "n", look: " neon bar ", shots: [{ caption: "c", visualPrompt: "a burger", motion: "orbit", action: " steam rises " }] },
+      params,
+    ) as { look?: string; shots: { action?: string }[] };
+    expect(withBoth.look).toBe("neon bar");
+    expect(withBoth.shots[0].action).toBe("steam rises");
+    const without = repairStoryboard({ title: "t", narration: "n", shots: [{ caption: "c", visualPrompt: "a burger", motion: "orbit" }] }, params) as { look?: string; shots: { action?: string }[] };
+    expect(without.look).toBeUndefined();
+    expect(without.shots[0].action).toBeUndefined();
+  });
 });

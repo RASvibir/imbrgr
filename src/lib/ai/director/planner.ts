@@ -68,17 +68,20 @@ export function resolvePlaceholders(sb: Storyboard, brandName?: string): Storybo
   const resolved: Storyboard = {
     title: text(sb.title),
     narration: text(sb.narration),
+    ...(sb.look ? { look: visual(sb.look) } : {}),
     shots: sb.shots.map((s) => ({
       ...s,
       caption: text(s.caption),
       visualPrompt: visual(s.visualPrompt),
       stockQuery: visual(s.stockQuery),
+      ...(s.action ? { action: visual(s.action) } : {}),
     })),
   };
   const strings = [
     resolved.title,
     resolved.narration,
-    ...resolved.shots.flatMap((s) => [s.caption, s.visualPrompt, s.stockQuery]),
+    ...(resolved.look ? [resolved.look] : []),
+    ...resolved.shots.flatMap((s) => [s.caption, s.visualPrompt, s.stockQuery, ...(s.action ? [s.action] : [])]),
   ];
   if (strings.some((v) => ANY_SLOT.test(v))) return null;
   const valid = storyboardSchema.safeParse(resolved);
@@ -90,7 +93,8 @@ function storyboardBlocked(sb: Storyboard): boolean {
   const strings = [
     sb.title,
     sb.narration,
-    ...sb.shots.flatMap((s) => [s.caption, s.visualPrompt, s.stockQuery]),
+    ...(sb.look ? [sb.look] : []),
+    ...sb.shots.flatMap((s) => [s.caption, s.visualPrompt, s.stockQuery, ...(s.action ? [s.action] : [])]),
   ];
   return strings.some((s) => isPromptBlocked(s));
 }
@@ -128,6 +132,14 @@ function mockStoryboard(params: PlanParams): Storyboard {
   };
 }
 
+/** Short, content-free summary of what failed validation (paths and rules only). */
+export function describeIssues(error: { issues: { path: PropertyKey[]; message: string }[] }): string {
+  return error.issues
+    .slice(0, 4)
+    .map((i) => `${i.path.map(String).join(".") || "root"}: ${i.message}`)
+    .join("; ");
+}
+
 /** Log which provider's plan was skipped and why. Reason codes only, never the plan or the user's prompt. */
 function logRejected(provider: string, reason: "invalid_shape" | "unfilled_placeholder" | "blocked_by_safety_filter") {
   console.error(`[imbrgr/video-plan] ${provider} plan rejected: ${reason}`);
@@ -154,8 +166,17 @@ export async function planStoryboard(
   const messages = buildPlannerMessages(safeParams);
   for (const provider of configured) {
     try {
-      const raw = await provider.complete(messages);
-      const parsed = storyboardSchema.safeParse(repairStoryboard(extractJson(raw), safeParams));
+      let raw = await provider.complete(messages);
+      let parsed = storyboardSchema.safeParse(repairStoryboard(extractJson(raw), safeParams));
+      if (!parsed.success) {
+        // Small models usually fix a specific complaint on the second try; a generic "wrong" gives them nothing.
+        raw = await provider.complete([
+          ...messages,
+          { role: "assistant", content: raw.slice(0, 4000) },
+          { role: "user", content: `That JSON was invalid: ${describeIssues(parsed.error)}. Reply with the corrected JSON object only.` },
+        ]);
+        parsed = storyboardSchema.safeParse(repairStoryboard(extractJson(raw), safeParams));
+      }
       if (!parsed.success) {
         logRejected(provider.name, "invalid_shape");
         continue;

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cloudflareProvider, groqProvider, ollamaProvider, groqRequestBody } from "./providers";
+import { cloudflareProvider, groqProvider, ollamaProvider, groqRequestBody, STORYBOARD_JSON_SCHEMA } from "./providers";
 
 const messages = [
   { role: "system" as const, content: "sys" },
@@ -45,7 +45,7 @@ describe("groqProvider", () => {
     const body = groqRequestBody(messages);
     expect(body.model).toBe("some-other/model");
     expect(body).not.toHaveProperty("reasoning_effort");
-    expect(body.max_tokens).toBe(1200);
+    expect(body.max_tokens).toBe(1600);
     vi.stubEnv("GROQ_PLAN_MODEL", "openai/gpt-oss-120b");
     expect(groqRequestBody(messages)).toMatchObject({ model: "openai/gpt-oss-120b", reasoning_effort: "low" });
   });
@@ -98,7 +98,7 @@ describe("ollamaProvider", () => {
     expect(ollamaProvider.isConfigured()).toBe(true);
   });
 
-  it("posts to /api/chat with JSON format and reads message.content", async () => {
+  it("posts to /api/chat with the storyboard schema as format and reads message.content", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("OLLAMA_HOST", "http://127.0.0.1:11434/");
     const fn = mockFetch({ message: { content: '{"ok":true}' } });
@@ -106,7 +106,17 @@ describe("ollamaProvider", () => {
     const [url, init] = fn.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:11434/api/chat");
     const sent = JSON.parse(init.body as string);
-    expect(sent.format).toBe("json");
+    expect(sent.format).toEqual(STORYBOARD_JSON_SCHEMA);
     expect(sent.stream).toBe(false);
+  });
+});
+
+describe("ollama cloud format", () => {
+  it("sends plain json to Ollama Cloud, which ignores schemas", async () => {
+    vi.stubEnv("OLLAMA_HOST", "https://ollama.com");
+    const fn = mockFetch({ message: { content: "{}" } });
+    await ollamaProvider.complete(messages);
+    const sent = JSON.parse((fn.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(sent.format).toBe("json");
   });
 });

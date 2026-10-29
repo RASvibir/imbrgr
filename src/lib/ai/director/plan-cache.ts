@@ -8,7 +8,7 @@ const SOURCE = "storyboard";
 /** Stable key for one plan request. Reuses the AiPromptCache table, so no migration is needed. */
 export function planCacheKey(params: PlanParams): string {
   const raw = [
-    "storyboard",
+    "storyboard-v2",
     normalizePromptText(params.prompt).toLowerCase(),
     Math.round(params.targetSec),
     params.aspectRatio ?? "",
