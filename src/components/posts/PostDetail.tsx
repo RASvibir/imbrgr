@@ -16,6 +16,7 @@ import { FieldPressInvite } from "@/components/fieldpress/FieldPressInvite";
 import { buildShareCodes } from "@/lib/embed-codes";
 import { mediaUrl, postUrl } from "@/lib/urls";
 import type { Visibility } from "@/lib/visibility";
+import { commentErrorMessage } from "@/lib/comment-safety";
 
 type Media = {
   shortId: string;
@@ -68,6 +69,7 @@ export function PostDetail({ shortId }: { shortId: string }) {
   const [commentBody, setCommentBody] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [commentError, setCommentError] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [ownerSettings, setOwnerSettings] = useState<ImageSettingsValues | null>(null);
   const [revealedMediaIds, setRevealedMediaIds] = useState<Set<string>>(new Set());
@@ -120,18 +122,23 @@ export function PostDetail({ shortId }: { shortId: string }) {
   };
 
   const submitComment = async () => {
+    setCommentError("");
     const res = await fetch(`/api/posts/${shortId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(replyTo ? { body: commentBody, parentId: replyTo } : { body: commentBody }),
-    });
+    }).catch(() => null);
+    if (!res) {
+      setCommentError("Could not post comment. Check your connection and try again.");
+      return;
+    }
     const c = await res.json().catch(() => ({}));
     if (res.ok) {
       setComments((list) => [...list, c]);
       setCommentBody("");
       setReplyTo(null);
     } else {
-      setMsg(c.error || "Could not post comment");
+      setCommentError(commentErrorMessage(c.code));
     }
   };
 
@@ -420,7 +427,10 @@ export function PostDetail({ shortId }: { shortId: string }) {
         <div className="mt-3 space-y-2">
           <textarea
             value={commentBody}
-            onChange={(e) => setCommentBody(e.target.value)}
+            onChange={(e) => {
+              setCommentBody(e.target.value);
+              if (commentError) setCommentError("");
+            }}
             placeholder={replyTo ? "Reply…" : "Add a comment"}
             rows={2}
             className="w-full rounded-lg border px-3 py-2"
@@ -428,6 +438,11 @@ export function PostDetail({ shortId }: { shortId: string }) {
           <button type="button" onClick={submitComment} className="rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]">
             Post comment
           </button>
+          {commentError ? (
+            <p role="alert" data-testid="comment-error" className="text-sm text-red-600">
+              {commentError}
+            </p>
+          ) : null}
         </div>
         <ul className="mt-6 space-y-4">
           {threaded.map((c) => (

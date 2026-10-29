@@ -62,13 +62,48 @@ test.describe("post comments", () => {
     expect((await crossPost.json()).error).toMatch(/parent/i);
   });
 
-  test("a blocked comment is rejected and not shown", async ({ page }) => {
+  test("a blocked comment is rejected with a code and not shown", async ({ page }) => {
     const shortId = await createPost(page);
     const res = await page.request.post(`/api/posts/${shortId}/comments`, {
-      data: { body: "this is nsfw content" },
+      data: { body: "csam" },
     });
     expect(res.status()).toBe(400);
+    expect((await res.json()).code).toBe("blocked");
     const list = await (await page.request.get(`/api/posts/${shortId}/comments`)).json();
     expect(list).toHaveLength(0);
+  });
+
+  test("ordinary words from the image-prompt filter are accepted in comments", async ({ page }) => {
+    const shortId = await createPost(page);
+    const res = await page.request.post(`/api/posts/${shortId}/comments`, {
+      data: { body: "my cp setup shows this at naked eye zoom" },
+    });
+    expect(res.status()).toBe(200);
+  });
+
+  test("a blocked comment shows an inline error under the button and a clean retry posts", async ({ page }) => {
+    const shortId = await createPost(page);
+    await page.goto(`/p/${shortId}`);
+
+    const box = page.getByPlaceholder("Add a comment");
+    const button = page.getByRole("button", { name: "Post comment" });
+
+    await box.fill("csam");
+    await button.click();
+    const error = page.getByTestId("comment-error");
+    await expect(error).toBeVisible();
+    await expect(error).toHaveAttribute("role", "alert");
+    await expect(error).toContainText("can't be posted");
+    await expect(error).toBeInViewport();
+
+    const clean = `clean retry ${Date.now()}`;
+    await box.fill(clean);
+    await expect(error).toHaveCount(0);
+    const ok = page.waitForResponse(
+      (r) => r.url().includes(`/api/posts/${shortId}/comments`) && r.request().method() === "POST",
+    );
+    await button.click();
+    expect((await ok).status()).toBe(200);
+    await expect(page.getByText(clean)).toBeVisible();
   });
 });
