@@ -1,6 +1,6 @@
 # GPU video endpoint contract
 
-Set `VIDEO_PROVIDER=gpu`, `VIDEO_GPU_ENDPOINT` and optionally `VIDEO_GPU_TOKEN`, `VIDEO_GPU_MAX_CLIP_SEC` (default 5) and `VIDEO_GPU_TIMEOUT_SEC` (default 900).
+Set `VIDEO_PROVIDER=gpu`, `VIDEO_GPU_ENDPOINT` and optionally `VIDEO_GPU_TOKEN`, `VIDEO_GPU_MAX_CLIP_SEC` (default 5) and `VIDEO_GPU_TIMEOUT_SEC` (default 300).
 
 `POST {endpoint}/generate` with JSON `{ prompt, durationSec, width, height, seed, initImage? }`. `initImage` is a data URL of the previous clip's last frame; start the clip from it. Respond `{ "id": "<job id>" }` immediately.
 

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findUnique, updateMany, create, recordUser, recordAnon } = vi.hoisted(() => ({
+const { findUnique, updateMany, create, recordUser, recordAnon, assembledRender } = vi.hoisted(() => ({
+  assembledRender: vi.fn(),
   findUnique: vi.fn(),
   updateMany: vi.fn(),
   create: vi.fn(),
@@ -13,6 +14,11 @@ vi.mock("@/lib/ai/usage", () => ({
   recordAiGenerationSuccess: recordUser,
   recordAnonymousAiSuccess: recordAnon,
 }));
+
+vi.mock("./backend", async (orig) => {
+  const actual = await orig<typeof import("./backend")>();
+  return { ...actual, assembledBackend: { ...actual.assembledBackend, renderShot: assembledRender } };
+});
 
 import { ownerKeyFor, serializeJob, stepVideoJob } from "./service";
 import type { ShotBackend } from "./backend";
@@ -207,15 +213,70 @@ describe("stepVideoJob with an async backend", () => {
     expect(recordUser).toHaveBeenCalledTimes(1);
   });
 
-  it("fails the job when the GPU run exceeds the timeout", async () => {
+  it("records the gpu backend and request id on a finished clip", async () => {
+    const advance = vi.fn().mockResolvedValue({
+      state: "done",
+      result: { videoUrl: "/v1.mp4", mediaType: "video" },
+      lastFrame: "data:image/jpeg;base64,BB",
+    });
+    const shots = [{ durationSec: 4, visualPrompt: "a", motion: "zoom-in", remoteId: "r9", startedAt: Date.now() }];
+    findUnique.mockResolvedValueOnce(row({ shots, status: "running" })).mockResolvedValueOnce(row({ status: "done" }));
+    await stepVideoJob("j1", actor, gpu(advance));
+    const saved = updateMany.mock.calls[0][0].data.shots[0];
+    expect(saved).toMatchObject({ backend: "gpu", gpuRequestId: "r9", videoUrl: "/v1.mp4" });
+    expect(saved.remoteId).toBeUndefined();
+  });
+
+  it("falls back to the assembled backend when the GPU run exceeds the timeout", async () => {
     const advance = vi.fn();
+    assembledRender.mockResolvedValue("data:image/jpeg;base64,CC");
     const shots = [{ durationSec: 4, visualPrompt: "a", motion: "zoom-in", remoteId: "r1", startedAt: Date.now() - 2_000_000 }];
-    findUnique.mockResolvedValueOnce(row({ shots, status: "running" })).mockResolvedValueOnce(row({ status: "failed" }));
+    findUnique.mockResolvedValueOnce(row({ shots, status: "running" })).mockResolvedValueOnce(row({ status: "done" }));
     vi.spyOn(console, "error").mockImplementation(() => {});
     await stepVideoJob("j1", actor, gpu(advance));
     expect(advance).not.toHaveBeenCalled();
+    expect(assembledRender).toHaveBeenCalledTimes(1);
+    const data = updateMany.mock.calls[0][0].data;
+    expect(data.status).toBe("done");
+    expect(data.shots[0]).toMatchObject({
+      backend: "assembled",
+      imageUrl: "data:image/jpeg;base64,CC",
+      fallbackReason: "gpu_generation_timeout",
+      gpuRequestId: "r1",
+    });
+    expect(data.shots[0].remoteId).toBeUndefined();
+    expect(recordUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the assembled backend when the GPU errors", async () => {
+    const advance = vi.fn().mockRejectedValue(new Error("gpu_http_500"));
+    assembledRender.mockResolvedValue({ videoUrl: "/stock.mp4", imageUrl: "/t.jpg", mediaType: "video" });
+    findUnique.mockResolvedValueOnce(row()).mockResolvedValueOnce(row({ status: "running" }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await stepVideoJob("j1", actor, gpu(advance));
+    const data = updateMany.mock.calls[0][0].data;
+    expect(data).toMatchObject({ status: "running", nextShot: 1 });
+    expect(data.shots[0]).toMatchObject({ backend: "assembled", videoUrl: "/stock.mp4", fallbackReason: "gpu_http_500" });
+    expect(recordUser).not.toHaveBeenCalled();
+  });
+
+  it("fails the job only when the fallback also fails", async () => {
+    const advance = vi.fn().mockRejectedValue(new Error("gpu_http_500"));
+    assembledRender.mockRejectedValue(new Error("keyframe_failed"));
+    findUnique.mockResolvedValueOnce(row()).mockResolvedValueOnce(row({ status: "failed" }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await stepVideoJob("j1", actor, gpu(advance));
+    expect(updateMany).toHaveBeenCalledTimes(1);
     expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "failed" }) }));
     expect(recordUser).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back for mature jobs", async () => {
+    const advance = vi.fn().mockRejectedValue(new Error("gpu_http_500"));
+    findUnique.mockResolvedValueOnce(row({ input: { ...input, mature: true } })).mockResolvedValueOnce(row({ status: "failed" }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await stepVideoJob("j1", actor, gpu(advance));
+    expect(assembledRender).not.toHaveBeenCalled();
   });
 });
 

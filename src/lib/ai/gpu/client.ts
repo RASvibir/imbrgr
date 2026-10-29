@@ -27,7 +27,7 @@ export function gpuMaxClipSec(): number {
 
 export function gpuTimeoutMs(): number {
   const n = Number(process.env.VIDEO_GPU_TIMEOUT_SEC);
-  return (Number.isFinite(n) && n > 0 ? n : 900) * 1000;
+  return (Number.isFinite(n) && n > 0 ? n : 300) * 1000;
 }
 
 function endpoint(): URL {

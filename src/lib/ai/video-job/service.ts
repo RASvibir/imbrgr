@@ -31,6 +31,8 @@ function publicShot(shot: JobShot): JobShot {
   delete copy.startedAt;
   delete copy.lastFrame;
   delete copy.seedImage;
+  delete copy.gpuRequestId;
+  delete copy.fallbackReason;
   return copy;
 }
 
@@ -115,59 +117,20 @@ export async function stepVideoJob(
 
   const { width, height } = resolveVideoDimensions(input.aspectRatio);
   const guard = { id, nextShot: index, status: { in: OPEN } };
+  const renderParams = {
+    prompt: shot.visualPrompt,
+    stockQuery: shot.stockQuery,
+    durationSec: shot.durationSec,
+    aspectRatio: input.aspectRatio,
+    style: input.style,
+    width,
+    height,
+    // Stills share one seed so keyframes keep a similar look; chained GPU clips vary it per clip.
+    seed: backend.advanceShot ? input.seed + index : input.seed,
+    mature: input.mature,
+  };
 
-  try {
-    const renderParams = {
-      prompt: shot.visualPrompt,
-      stockQuery: shot.stockQuery,
-      durationSec: shot.durationSec,
-      aspectRatio: input.aspectRatio,
-      style: input.style,
-      width,
-      height,
-      // Stills share one seed so keyframes keep a similar look; chained GPU clips vary it per clip.
-      seed: backend.advanceShot ? input.seed + index : input.seed,
-      mature: input.mature,
-    };
-    let patch: Partial<JobShot>;
-    if (backend.advanceShot) {
-      const startedAt = shot.startedAt ?? Date.now();
-      if (Date.now() - startedAt > gpuTimeoutMs()) throw new Error("gpu_generation_timeout");
-      const advance = await backend.advanceShot({
-        ...renderParams,
-        remoteId: shot.remoteId,
-        initImage: index > 0 ? shots[index - 1].lastFrame : shot.seedImage,
-      });
-      if (advance.state === "pending") {
-        const waiting = shots.map((s, i) => (i === index ? { ...s, remoteId: advance.remoteId, startedAt } : s));
-        await prisma.videoJob.updateMany({
-          where: guard,
-          data: { shots: waiting as unknown as Prisma.InputJsonValue, status: "running" },
-        });
-        return prisma.videoJob.findUnique({ where: { id } });
-      }
-      patch = {
-        imageUrl: advance.result.imageUrl,
-        videoUrl: advance.result.videoUrl,
-        mediaType: advance.result.mediaType,
-        lastFrame: advance.lastFrame,
-        remoteId: undefined,
-        startedAt: undefined,
-      };
-    } else {
-      const shotResult = await backend.renderShot(renderParams);
-      patch =
-        typeof shotResult === "string"
-          ? { imageUrl: shotResult, mediaType: "image" as const }
-          : {
-              imageUrl: shotResult.imageUrl,
-              videoUrl: shotResult.videoUrl,
-              mediaType: shotResult.mediaType || (shotResult.videoUrl ? ("video" as const) : ("image" as const)),
-              sourceDurationSec: shotResult.sourceDurationSec,
-              creditName: shotResult.creditName,
-              creditUrl: shotResult.creditUrl,
-            };
-    }
+  const commit = async (patch: Partial<JobShot>) => {
     const updated = shots.map((s, i) => (i === index ? { ...s, ...patch } : s));
     const last = index === shots.length - 1;
     const claimed = await prisma.videoJob.updateMany({
@@ -186,15 +149,81 @@ export async function stepVideoJob(
         console.error("[imbrgr/ai-video] quota record failed", err);
       }
     }
+  };
+
+  const stillsPatch = async (renderer: ShotBackend, seed: number): Promise<Partial<JobShot>> => {
+    const shotResult = await renderer.renderShot({ ...renderParams, seed });
+    return typeof shotResult === "string"
+      ? { imageUrl: shotResult, mediaType: "image" as const, backend: "assembled" as const }
+      : {
+          imageUrl: shotResult.imageUrl,
+          videoUrl: shotResult.videoUrl,
+          mediaType: shotResult.mediaType || (shotResult.videoUrl ? ("video" as const) : ("image" as const)),
+          sourceDurationSec: shotResult.sourceDurationSec,
+          creditName: shotResult.creditName,
+          creditUrl: shotResult.creditUrl,
+          backend: "assembled" as const,
+        };
+  };
+
+  try {
+    if (backend.advanceShot) {
+      const startedAt = shot.startedAt ?? Date.now();
+      if (Date.now() - startedAt > gpuTimeoutMs()) throw new Error("gpu_generation_timeout");
+      const advance = await backend.advanceShot({
+        ...renderParams,
+        remoteId: shot.remoteId,
+        initImage: index > 0 ? shots[index - 1].lastFrame : shot.seedImage,
+      });
+      if (advance.state === "pending") {
+        const waiting = shots.map((s, i) => (i === index ? { ...s, remoteId: advance.remoteId, startedAt } : s));
+        await prisma.videoJob.updateMany({
+          where: guard,
+          data: { shots: waiting as unknown as Prisma.InputJsonValue, status: "running" },
+        });
+        return prisma.videoJob.findUnique({ where: { id } });
+      }
+      await commit({
+        imageUrl: advance.result.imageUrl,
+        videoUrl: advance.result.videoUrl,
+        mediaType: advance.result.mediaType,
+        lastFrame: advance.lastFrame,
+        backend: "gpu",
+        gpuRequestId: shot.remoteId,
+        remoteId: undefined,
+        startedAt: undefined,
+      });
+    } else {
+      await commit(await stillsPatch(backend, renderParams.seed));
+    }
   } catch (err) {
-    console.error("[imbrgr/ai-video] shot render failed", err);
-    await prisma.videoJob.updateMany({
-      where: guard,
-      data: {
-        status: "failed",
-        error: friendlyError(err instanceof Error ? err.message : "Video generation failed"),
-      },
-    });
+    console.error("[imbrgr/ai-video] shot render failed", { jobId: id, shot: index, backend: backend.name }, err);
+    const reason = err instanceof Error ? err.message : "unknown";
+    let recovered = false;
+    if (backend.advanceShot && !input.mature) {
+      try {
+        const patch = await stillsPatch(assembledBackend, input.seed);
+        await commit({
+          ...patch,
+          fallbackReason: reason,
+          gpuRequestId: shot.remoteId,
+          remoteId: undefined,
+          startedAt: undefined,
+        });
+        recovered = true;
+      } catch (fallbackErr) {
+        console.error("[imbrgr/ai-video] assembled fallback failed", { jobId: id, shot: index }, fallbackErr);
+      }
+    }
+    if (!recovered) {
+      await prisma.videoJob.updateMany({
+        where: guard,
+        data: {
+          status: "failed",
+          error: friendlyError(reason === "unknown" ? "Video generation failed" : reason),
+        },
+      });
+    }
   }
 
   return prisma.videoJob.findUnique({ where: { id } });
