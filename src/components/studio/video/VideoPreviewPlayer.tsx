@@ -42,6 +42,9 @@ export function VideoPreviewPlayer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const loadedImagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const loadedVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  // URLs that would not load with CORS; they still play, but taint the canvas so plugins are skipped.
+  const noCorsUrlsRef = useRef<Set<string>>(new Set());
+  const warnedTaintRef = useRef(false);
   const animationFrameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
   const renderFrameRef = useRef<(time: number) => Promise<void>>(async () => {});
@@ -60,6 +63,19 @@ export function VideoPreviewPlayer({
       if (clip.kind === "video") {
         if (!loadedVideosRef.current.has(clip.url)) {
           const video = document.createElement("video");
+          // Needed so frames can be read back for plugins without tainting the canvas.
+          video.crossOrigin = "anonymous";
+          video.addEventListener(
+            "error",
+            () => {
+              if (video.crossOrigin === null) return;
+              noCorsUrlsRef.current.add(clip.url);
+              video.removeAttribute("crossorigin");
+              video.src = clip.url;
+              video.load();
+            },
+            { once: true },
+          );
           video.src = clip.url;
           video.muted = true;
           video.preload = "auto";
@@ -69,6 +85,13 @@ export function VideoPreviewPlayer({
       } else {
         if (!loadedImagesRef.current.has(clip.url)) {
           const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onerror = () => {
+            if (img.crossOrigin === null) return;
+            noCorsUrlsRef.current.add(clip.url);
+            img.removeAttribute("crossorigin");
+            img.src = clip.url;
+          };
           img.src = clip.url;
           loadedImagesRef.current.set(clip.url, img);
         }
@@ -180,6 +203,14 @@ export function VideoPreviewPlayer({
 
     // 4. Pass frame through pacNcap Plugin Pipeline
     pluginManager.setFrameContext(time, Math.floor(time * 30));
+    const tainted = activeClips.some((c) => noCorsUrlsRef.current.has(c.url));
+    if (tainted) {
+      if (!warnedTaintRef.current) {
+        warnedTaintRef.current = true;
+        console.warn("Plugins skipped: a clip's host does not allow cross-origin frame reads.");
+      }
+      return;
+    }
     try {
       const rawFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const filtered = await pluginManager.processFrame(rawFrame);
