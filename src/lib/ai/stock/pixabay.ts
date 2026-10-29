@@ -104,7 +104,7 @@ export const pixabayProvider: StockProvider = {
     endpoint.searchParams.set("key", apiKey);
     endpoint.searchParams.set("q", normalizedQuery);
     endpoint.searchParams.set("safesearch", "true");
-    endpoint.searchParams.set("per_page", "12");
+    endpoint.searchParams.set("per_page", "30");
 
     try {
       const res = await fetchWithTimeout(endpoint.toString(), {

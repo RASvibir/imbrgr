@@ -80,9 +80,38 @@ describe("Timeline Operations", () => {
     const zoomInStart = computeMotionTransform("zoom-in", 0);
     const zoomInEnd = computeMotionTransform("zoom-in", 1);
     expect(zoomInStart.scale).toBe(1.0);
-    expect(zoomInEnd.scale).toBe(1.25);
+    expect(zoomInEnd.scale).toBeCloseTo(1.35);
 
     const orbit = computeMotionTransform("orbit", 0.5);
     expect(orbit.scale).toBeGreaterThan(1.0);
+  });
+
+  it("eases camera moves: slow at the ends, faster in the middle", () => {
+    const early = computeMotionTransform("zoom-in", 0.1).scale - 1;
+    const mid = computeMotionTransform("zoom-in", 0.55).scale - computeMotionTransform("zoom-in", 0.45).scale;
+    expect(early).toBeLessThan(0.02);
+    expect(mid / 0.1).toBeGreaterThan(early / 0.1);
+  });
+
+  it("never reveals the image edges for any move at any moment", () => {
+    const motions = ["zoom-in", "zoom-out", "pan-right", "pan-left", "orbit", "pulse", "dramatic"] as const;
+    for (const m of motions) {
+      for (let i = 0; i <= 100; i++) {
+        const t = computeMotionTransform(m, i / 100);
+        const room = ((t.scale - 1) / 2) * 100;
+        expect(t.scale).toBeGreaterThanOrEqual(1);
+        expect(Math.abs(t.translateXPercent)).toBeLessThanOrEqual(room + 1e-9);
+        expect(Math.abs(t.translateYPercent)).toBeLessThanOrEqual(room + 1e-9);
+        // 2.5 degrees of rotation on a 16:9 frame needs roughly 1.08x to stay covered.
+        if (t.rotateDeg !== 0) expect(t.scale).toBeGreaterThanOrEqual(1.12);
+      }
+    }
+  });
+
+  it("pans in opposite directions and returns to rest at the ends of zoom-out", () => {
+    expect(computeMotionTransform("pan-right", 0).translateXPercent).toBeGreaterThan(0);
+    expect(computeMotionTransform("pan-right", 1).translateXPercent).toBeLessThan(0);
+    expect(computeMotionTransform("pan-left", 0).translateXPercent).toBeLessThan(0);
+    expect(computeMotionTransform("zoom-out", 1).scale).toBeCloseTo(1.0);
   });
 });

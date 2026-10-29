@@ -138,4 +138,25 @@ describe("assembledBackend", () => {
     ]);
     expect(typeof res === "object" && res.mediaType).toBe("video");
   });
+
+  it("falls back to keywords from the shot's own scene text as a last rung", async () => {
+    vi.stubEnv("TEST_STOCK_CONFIGURED", "true");
+    searchVideoMock.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: "s3",
+      url: "/api/media/file/c.mp4",
+      durationSec: 6,
+      width: 1920,
+      height: 1080,
+    });
+    const res = await assembledBackend.renderShot({
+      prompt: "wide establishing shot, a sizzling cheeseburger on a grill",
+      width: 100,
+      height: 100,
+      seed: 1,
+      mature: false,
+      stockQuery: "xyzzy",
+    });
+    expect(searchVideoMock.mock.calls.map((c) => c[0])).toEqual(["xyzzy", "sizzling cheeseburger grill"]);
+    expect(typeof res === "object" && res.mediaType).toBe("video");
+  });
 });

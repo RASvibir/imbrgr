@@ -150,6 +150,13 @@ describe("stockQueryLadder", () => {
       "sizzling",
     ]);
     expect(stockQueryLadder("burger")).toEqual(["burger"]);
+    expect(stockQueryLadder("sizzling cheeseburger grill", "burger flames")).toEqual([
+      "sizzling cheeseburger grill",
+      "sizzling cheeseburger",
+      "sizzling",
+      "burger flames",
+    ]);
+    expect(stockQueryLadder("burger", "burger")).toEqual(["burger"]);
     expect(stockQueryLadder("  ")).toEqual([]);
   });
 });
