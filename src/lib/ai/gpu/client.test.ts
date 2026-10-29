@@ -67,7 +67,7 @@ describe("gpu client", () => {
 
   it("falls back to defaults for the clip and timeout settings", () => {
     expect(gpuMaxClipSec()).toBe(5);
-    expect(gpuTimeoutMs()).toBe(900_000);
+    expect(gpuTimeoutMs()).toBe(300_000);
     vi.stubEnv("VIDEO_GPU_MAX_CLIP_SEC", "10");
     expect(gpuMaxClipSec()).toBe(10);
   });

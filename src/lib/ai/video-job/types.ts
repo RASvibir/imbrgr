@@ -32,6 +32,9 @@ export type JobShot = {
   startedAt?: number;
   lastFrame?: string;
   seedImage?: string;
+  backend?: "gpu" | "assembled";
+  gpuRequestId?: string;
+  fallbackReason?: string;
 };
 
 export type JobStatus = "queued" | "running" | "done" | "failed";
