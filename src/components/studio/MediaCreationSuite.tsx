@@ -472,6 +472,8 @@ export function MediaCreationSuite({
     for (const clip of visualClips) {
       if (clip.kind === "video") {
         const v = document.createElement("video");
+        // Required so exported frames can be read back without tainting the canvas.
+        v.crossOrigin = "anonymous";
         v.muted = true;
         v.playsInline = true;
         v.src = clip.url;
@@ -482,6 +484,7 @@ export function MediaCreationSuite({
         videoElements.set(clip.id, v);
       } else {
         const img = new Image();
+        img.crossOrigin = "anonymous";
         img.src = clip.url;
         await new Promise<void>((resolve) => {
           img.onload = () => resolve();
