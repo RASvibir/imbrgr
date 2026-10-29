@@ -27,6 +27,10 @@ describe("commentInputSchema", () => {
     expect(commentInputSchema.safeParse({ body: "Delicious smashburger!" }).success).toBe(true);
     expect(commentInputSchema.safeParse({ body: "Nice reply", parentId: "c123" }).success).toBe(true);
     expect(commentInputSchema.safeParse({ body: "" }).success).toBe(false);
+    // The comment form sends parentId: null for top-level comments.
+    const topLevel = commentInputSchema.safeParse({ body: "Top-level comment", parentId: null });
+    expect(topLevel.success).toBe(true);
+    expect(topLevel.success && topLevel.data.parentId).toBeUndefined();
     expect(commentInputSchema.safeParse({ body: "a".repeat(5001) }).success).toBe(false);
   });
 });

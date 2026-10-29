@@ -123,13 +123,15 @@ export function PostDetail({ shortId }: { shortId: string }) {
     const res = await fetch(`/api/posts/${shortId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: commentBody, parentId: replyTo }),
+      body: JSON.stringify(replyTo ? { body: commentBody, parentId: replyTo } : { body: commentBody }),
     });
-    const c = await res.json();
+    const c = await res.json().catch(() => ({}));
     if (res.ok) {
       setComments((list) => [...list, c]);
       setCommentBody("");
       setReplyTo(null);
+    } else {
+      setMsg(c.error || "Could not post comment");
     }
   };
 
