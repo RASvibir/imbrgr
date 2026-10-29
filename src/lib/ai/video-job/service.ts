@@ -125,7 +125,8 @@ export async function stepVideoJob(
       style: input.style,
       width,
       height,
-      seed: input.seed + index,
+      // Stills share one seed so keyframes keep a similar look; chained GPU clips vary it per clip.
+      seed: backend.advanceShot ? input.seed + index : input.seed,
       mature: input.mature,
     };
     let patch: Partial<JobShot>;

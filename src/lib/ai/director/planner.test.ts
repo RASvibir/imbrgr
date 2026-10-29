@@ -194,6 +194,8 @@ describe("brand names and placeholders", () => {
     const sys = buildPlannerMessages({ prompt: "mugs", targetSec: 20 })[0].content;
     expect(sys).toMatch(/Between 3 and 4 shots/);
     expect(sys).toMatch(/subject, action, setting, lighting/);
+    expect(sys).toMatch(/ONE continuous piece/);
+    expect(sys).toMatch(/same main subject words/);
   });
 
   it("passes the cleaned brand name to the provider", async () => {
