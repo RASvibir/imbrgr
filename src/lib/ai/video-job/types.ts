@@ -1,6 +1,8 @@
 import type { CameraMotion } from "@/lib/ai/video-provider";
 import type { VideoMode } from "@/lib/ai/video-limits";
 
+export type ContinueMode = "extend" | "next-shot";
+
 export type JobInput = {
   prompt: string;
   style?: string;
@@ -10,6 +12,8 @@ export type JobInput = {
   motion: CameraMotion;
   seed: number;
   mature: boolean;
+  parentJobId?: string;
+  continueMode?: ContinueMode;
 };
 
 export type JobShot = {
@@ -27,6 +31,7 @@ export type JobShot = {
   remoteId?: string;
   startedAt?: number;
   lastFrame?: string;
+  seedImage?: string;
 };
 
 export type JobStatus = "queued" | "running" | "done" | "failed";
@@ -39,6 +44,7 @@ export type JobView = {
   mature: boolean;
   total: number;
   completed: number;
+  canContinue: boolean;
   error?: string;
   shots?: JobShot[];
 };

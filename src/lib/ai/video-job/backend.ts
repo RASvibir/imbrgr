@@ -1,5 +1,6 @@
 import { generateKeyframe, type KeyframeParams } from "@/lib/ai/video-generate";
 import { selectStockProvider } from "@/lib/ai/stock/provider";
+import { stockQueryLadder } from "./shots";
 import { pollGpuClip, storeGpuResult, submitGpuClip } from "@/lib/ai/gpu/client";
 
 export type RenderShotParams = KeyframeParams & {
@@ -44,19 +45,21 @@ export const assembledBackend: ShotBackend = {
       const stock = selectStockProvider();
       if (stock?.isConfigured()) {
         try {
-          const clip = await stock.searchVideo(params.stockQuery, {
-            aspectRatio: params.aspectRatio,
-            durationSec: params.durationSec,
-          });
-          if (clip) {
-            return {
-              videoUrl: clip.url,
-              imageUrl: clip.thumbnailUrl,
-              mediaType: "video",
-              sourceDurationSec: clip.durationSec,
-              creditName: clip.provider,
-              creditUrl: clip.pageUrl,
-            };
+          for (const query of stockQueryLadder(params.stockQuery)) {
+            const clip = await stock.searchVideo(query, {
+              aspectRatio: params.aspectRatio,
+              durationSec: params.durationSec,
+            });
+            if (clip) {
+              return {
+                videoUrl: clip.url,
+                imageUrl: clip.thumbnailUrl,
+                mediaType: "video",
+                sourceDurationSec: clip.durationSec,
+                creditName: clip.provider,
+                creditUrl: clip.pageUrl,
+              };
+            }
           }
         } catch (err) {
           console.warn("[imbrgr/ai-video] stock search failed, falling back to keyframe", err);

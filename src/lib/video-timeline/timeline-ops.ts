@@ -77,6 +77,44 @@ export function findActiveTextOverlays(texts: TextOverlay[], timeSec: number): T
   return texts.filter((t) => timeSec >= t.startSec && timeSec < t.endSec);
 }
 
+export const UNDERLAY_TAIL_SEC = 0.04;
+
+const ADJACENT_TOLERANCE_SEC = 0.05;
+
+export function effectiveTransitionSec(clip: VisualClip): number {
+  const raw = clip.transitionDurationSec;
+  if (raw == null || !Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.min(raw, Math.max(0, clip.endSec - clip.startSec) / 2);
+}
+
+export function previousAdjacentClip(clips: VisualClip[], clip: VisualClip): VisualClip | null {
+  let best: VisualClip | null = null;
+  for (const other of clips) {
+    if (other.id === clip.id) continue;
+    if (Math.abs(other.endSec - clip.startSec) > ADJACENT_TOLERANCE_SEC) continue;
+    if (!best || other.startSec > best.startSec) best = other;
+  }
+  return best;
+}
+
+export type TransitionState = { alpha: number; underlay: VisualClip | null };
+
+/** Opacity of a clip at a moment, plus the clip whose last frame should be drawn beneath it during a dissolve. */
+export function transitionState(clips: VisualClip[], clip: VisualClip, timeSec: number): TransitionState {
+  const none: TransitionState = { alpha: 1, underlay: null };
+  if (clip.transition !== "fade" && clip.transition !== "dissolve") return none;
+  const dur = effectiveTransitionSec(clip);
+  if (dur <= 0) return none;
+  const into = timeSec - clip.startSec;
+  if (into >= dur) return none;
+  const alpha = Math.max(0, Math.min(1, into / dur));
+  if (clip.transition === "fade") return { alpha, underlay: null };
+  const prev = previousAdjacentClip(clips, clip);
+  if (!prev) return none;
+  if (timeSec >= prev.startSec && timeSec < prev.endSec) return none;
+  return { alpha, underlay: prev };
+}
+
 export type MotionTransform = {
   scale: number;
   translateXPercent: number;

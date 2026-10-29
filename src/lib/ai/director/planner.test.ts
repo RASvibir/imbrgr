@@ -190,6 +190,12 @@ describe("brand names and placeholders", () => {
     expect(withBrand[0].content).toMatch(/Never write bracketed or templated placeholders/);
   });
 
+  it("tells the model the real shot cap and how to write a visualPrompt", () => {
+    const sys = buildPlannerMessages({ prompt: "mugs", targetSec: 20 })[0].content;
+    expect(sys).toMatch(/Between 3 and 4 shots/);
+    expect(sys).toMatch(/subject, action, setting, lighting/);
+  });
+
   it("passes the cleaned brand name to the provider", async () => {
     const p = provider("a", async () => JSON.stringify(goodBoard));
     await planStoryboard({ prompt: "mugs", targetSec: 12, brandName: 'Clay\n"Co"' }, [p]);

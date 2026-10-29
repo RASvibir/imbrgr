@@ -10,6 +10,8 @@ import {
 import { getVideoLimits, type VideoMode } from "@/lib/ai/video-limits";
 import type { VisualClip } from "@/lib/video-timeline/timeline-types";
 
+const CONTINUE_TRANSITION_SEC = 0.25;
+
 type JobState = {
   id: string;
   status: "queued" | "running" | "done" | "failed";
@@ -17,6 +19,7 @@ type JobState = {
   mature: boolean;
   total: number;
   completed: number;
+  canContinue?: boolean;
   error?: string;
   shots?: {
     durationSec: number;
@@ -73,11 +76,23 @@ export function AiVideoGeneratorPanel({
     durationSec: number;
     prompt: string;
     mature?: boolean;
+    jobId: string;
+    canContinue: boolean;
+    continued: boolean;
   } | null>(null);
+  const [continueFrom, setContinueFrom] = useState<{ jobId: string; mode: "extend" | "next-shot" } | null>(null);
 
   const switchClipKind = (kind: VideoMode) => {
     setClipKind(kind);
     setDurationSec(getVideoLimits(kind).defaultSec);
+  };
+
+  const startContinue = (jobId: string, mode: "extend" | "next-shot") => {
+    setContinueFrom({ jobId, mode });
+    if (clipKind !== "video") switchClipKind("video");
+    setMature(false);
+    setError("");
+    if (mode === "next-shot") setPrompt("");
   };
 
   const handleGenerateTextToVideo = async () => {
@@ -100,6 +115,7 @@ export function AiVideoGeneratorPanel({
           aspectRatio,
           safe: !mature,
           mature,
+          ...(continueFrom ? { parentJobId: continueFrom.jobId, continueMode: continueFrom.mode } : {}),
         }),
       });
       const createdData = await created.json();
@@ -141,7 +157,11 @@ export function AiVideoGeneratorPanel({
         durationSec: job.durationSec,
         prompt,
         mature: job.mature,
+        jobId: job.id,
+        canContinue: Boolean(job.canContinue),
+        continued: Boolean(continueFrom),
       });
+      setContinueFrom(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Video generation failed");
     } finally {
@@ -188,7 +208,8 @@ export function AiVideoGeneratorPanel({
         sourceDurationSec: isVideo ? (shot.sourceDurationSec ?? shot.durationSec) : shot.durationSec,
         motion: isVideo ? undefined : shot.motion,
         transition: "dissolve",
-        transitionDurationSec: Math.min(0.5, shot.durationSec / 2),
+        transitionDurationSec:
+          generatedPreview.continued && i === 0 ? CONTINUE_TRANSITION_SEC : Math.min(0.5, shot.durationSec / 2),
         mature: generatedPreview.mature,
       };
       onAddClip(newClip);
@@ -337,12 +358,22 @@ export function AiVideoGeneratorPanel({
               <input
                 type="checkbox"
                 checked={mature}
+                disabled={Boolean(continueFrom)}
                 onChange={(e) => setMature(e.target.checked)}
                 className="rounded border-[var(--border-subtle)]"
               />
               <span>18+ Mature Video</span>
             </label>
           </div>
+
+          {continueFrom ? (
+            <p className="text-xs text-[var(--text-secondary)]" data-testid="continue-banner">
+              Continuing from the last frame of the previous clip ({continueFrom.mode === "extend" ? "Extend" : "Next shot"}).{" "}
+              <button type="button" className="underline" onClick={() => setContinueFrom(null)}>
+                Cancel
+              </button>
+            </p>
+          ) : null}
 
           <button
             type="button"
@@ -415,6 +446,31 @@ export function AiVideoGeneratorPanel({
                     ),
                   )}
                 </p>
+              ) : null}
+              {generatedPreview.canContinue ? (
+                <div className="mt-2">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      data-testid="continue-extend"
+                      onClick={() => startContinue(generatedPreview.jobId, "extend")}
+                      className={`${btnSecondary} py-1.5 text-xs font-medium`}
+                    >
+                      Extend
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="continue-next-shot"
+                      onClick={() => startContinue(generatedPreview.jobId, "next-shot")}
+                      className={`${btnSecondary} py-1.5 text-xs font-medium`}
+                    >
+                      Next shot
+                    </button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+                    Add this clip to the timeline first; a new generation replaces this preview.
+                  </p>
+                </div>
               ) : null}
               <button
                 type="button"
