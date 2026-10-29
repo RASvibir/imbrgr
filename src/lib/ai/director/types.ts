@@ -18,11 +18,15 @@ export const shotSchema = z.object({
   /** Short search phrase for matching stock footage later. */
   stockQuery: z.string().min(2).max(60),
   motion: z.enum(PLAN_MOTIONS),
+  /** What moves in this shot (subject and environment), without re-describing the scene. Used for chained clips. */
+  action: z.string().min(2).max(200).optional(),
 });
 
 export const storyboardSchema = z.object({
   title: z.string().min(1).max(80),
   narration: z.string().min(1).max(1200),
+  /** The recurring subject, setting, palette and lighting, repeated in every shot so the video reads as one piece. */
+  look: z.string().min(3).max(200).optional(),
   shots: z.array(shotSchema).min(1).max(12),
 });
 
@@ -44,7 +48,7 @@ export type PlanResult = {
   provider: string;
 };
 
-export type ChatMessage = { role: "system" | "user"; content: string };
+export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
 export interface PlannerProvider {
   name: string;

@@ -53,6 +53,7 @@ export function repairStoryboard(raw: unknown, params: Pick<PlanParams, "prompt"
       visualPrompt,
       stockQuery: (str(s.stockQuery ?? s.stock_query) || keywords(visualPrompt, 4)).slice(0, 60),
       motion: repairMotion(s.motion ?? s.camera, i),
+      ...(str(s.action) ? { action: str(s.action).slice(0, 200) } : {}),
     };
   });
 
@@ -61,6 +62,7 @@ export function repairStoryboard(raw: unknown, params: Pick<PlanParams, "prompt"
   return {
     title: (str(raw.title) || topic).slice(0, 80),
     narration: narration.slice(0, 1200),
+    ...(str(raw.look) ? { look: str(raw.look).slice(0, 200) } : {}),
     shots,
   };
 }

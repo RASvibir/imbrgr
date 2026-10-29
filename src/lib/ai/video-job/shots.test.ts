@@ -60,7 +60,7 @@ describe("planShots", () => {
 
   it("keeps the closing shot when trimming a long storyboard", () => {
     const shots = planShots(base, storyboard([2, 2, 2, 2, 2, 2]));
-    expect(shots.map((s) => s.visualPrompt)).toEqual(["scene 0", "scene 1", "scene 2", "scene 5"]);
+    expect(shots.map((s) => s.visualPrompt.split(", ").pop())).toEqual(["scene 0", "scene 1", "scene 2", "scene 5"]);
   });
 
   it("falls back to an even split when a shot would drop under 1 s", () => {
@@ -151,5 +151,39 @@ describe("stockQueryLadder", () => {
     ]);
     expect(stockQueryLadder("burger")).toEqual(["burger"]);
     expect(stockQueryLadder("  ")).toEqual([]);
+  });
+});
+
+describe("continuity anchors", () => {
+  const board = { ...storyboard([4, 4, 5]), look: "a neon burger bar at night, magenta and teal light" };
+  const withAction = {
+    ...board,
+    shots: board.shots.map((s, i) => ({ ...s, action: `steam rises ${i}` })),
+  };
+
+  it("puts the shared look and a shot-scale ladder into every still", () => {
+    const shots = planShots(base, board);
+    expect(shots.every((s) => s.visualPrompt.includes("neon burger bar at night"))).toBe(true);
+    expect(shots[0].visualPrompt.startsWith("wide establishing shot")).toBe(true);
+    expect(shots[2].visualPrompt.startsWith("close-up")).toBe(true);
+  });
+
+  it("does not double up a look the scene already contains", () => {
+    const b = { ...board, shots: board.shots.map((s) => ({ ...s, visualPrompt: `${board.look}, grill` })) };
+    const text = planShots(base, b)[0].visualPrompt;
+    expect(text.match(/neon burger bar/g)).toHaveLength(1);
+  });
+
+  it("chained GPU clips only say what moves, first clip carries the full scene", () => {
+    const shots = planGpuShots(base, withAction, 5);
+    expect(shots[0].visualPrompt).toContain("neon burger bar at night");
+    expect(shots[0].visualPrompt).toContain("steam rises 0");
+    expect(shots[1].visualPrompt).toBe("Continuing from the previous frame: steam rises 1, smooth camera pan to the right");
+    expect(shots[1].visualPrompt).not.toContain("neon burger bar");
+  });
+
+  it("works without look or action (small models)", () => {
+    const shots = planGpuShots(base, storyboard([4, 4, 5]), 5);
+    expect(shots[1].visualPrompt).toMatch(/^Continuing from the previous frame, same subject and setting, now scene 1/);
   });
 });

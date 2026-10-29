@@ -54,6 +54,39 @@ describe("director planner (live path)", () => {
     expect(out.provider).toBe("good");
   });
 
+  it("retries once with the specific validation error and accepts the corrected plan", async () => {
+    const broken = { ...goodBoard, shots: [{ ...goodBoard.shots[0], visualPrompt: "" }, ...goodBoard.shots.slice(1)] };
+    const replies = [JSON.stringify(broken), JSON.stringify(goodBoard)];
+    const p = provider("retry", async () => replies.shift() as string);
+    const out = await planStoryboard({ prompt: "harbor sunrise", targetSec: 12 }, [p]);
+    expect(out.provider).toBe("retry");
+    expect(p.complete).toHaveBeenCalledTimes(2);
+    const second = (p.complete as ReturnType<typeof vi.fn>).mock.calls[1][0] as { role: string; content: string }[];
+    expect(second.at(-1)?.content).toMatch(/invalid: shots\.0\.visualPrompt/);
+    expect(second.at(-2)?.role).toBe("assistant");
+  });
+
+  it("gives up on a provider after one retry and falls through", async () => {
+    const broken = JSON.stringify({ ...goodBoard, shots: [{ caption: "x" }] });
+    const bad = provider("bad", async () => broken);
+    const good = provider("good", async () => JSON.stringify(goodBoard));
+    const out = await planStoryboard({ prompt: "harbor sunrise", targetSec: 12 }, [bad, good]);
+    expect(bad.complete).toHaveBeenCalledTimes(2);
+    expect(out.provider).toBe("good");
+  });
+
+  it("keeps look and action through validation, and screens them for safety", async () => {
+    const rich = { ...goodBoard, look: "a calm harbor at dawn, soft gold light", shots: goodBoard.shots.map((x) => ({ ...x, action: "boats drift" })) };
+    const out = await planStoryboard({ prompt: "harbor", targetSec: 12 }, [provider("rich", async () => JSON.stringify(rich))]);
+    expect(out.storyboard.look).toBe("a calm harbor at dawn, soft gold light");
+    expect(out.storyboard.shots.every((x) => x.action === "boats drift")).toBe(true);
+
+    const unsafeLook = { ...rich, look: "nsfw scene" };
+    await expect(planStoryboard({ prompt: "harbor", targetSec: 12 }, [provider("u", async () => JSON.stringify(unsafeLook))])).rejects.toBeInstanceOf(PlannerFailedError);
+    const unsafeAction = { ...rich, shots: rich.shots.map((x) => ({ ...x, action: "nsfw scene" })) };
+    await expect(planStoryboard({ prompt: "harbor", targetSec: 12 }, [provider("a", async () => JSON.stringify(unsafeAction))])).rejects.toBeInstanceOf(PlannerFailedError);
+  });
+
   it("rejects storyboards that trip the safety filter", async () => {
     const unsafe = { ...goodBoard, shots: [{ ...goodBoard.shots[0], visualPrompt: "nsfw scene" }, ...goodBoard.shots.slice(1)] };
     const p = provider("unsafe", async () => JSON.stringify(unsafe));
@@ -196,6 +229,8 @@ describe("brand names and placeholders", () => {
     expect(sys).toMatch(/subject, action, setting, lighting/);
     expect(sys).toMatch(/ONE continuous piece/);
     expect(sys).toMatch(/same main subject words/);
+    expect(sys).toMatch(/"look"/);
+    expect(sys).toMatch(/"action"/);
   });
 
   it("passes the cleaned brand name to the provider", async () => {

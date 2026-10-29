@@ -1,6 +1,6 @@
 import type { Storyboard } from "@/lib/ai/director/types";
 import { planClipChain } from "@/lib/ai/gpu/clip-chain";
-import { composeGpuPrompt } from "./compose";
+import { composeGpuPrompt, composeShotText, shotScaleFor } from "./compose";
 import type { JobInput, JobShot } from "./types";
 
 export const MAX_JOB_SHOTS = 4;
@@ -69,7 +69,11 @@ export function planShots(input: JobInput, storyboard: Storyboard | null): JobSh
   if (durations.some((d) => d < 1)) durations = splitEvenly(total, picked.length);
   return picked.map((s, i) => ({
     durationSec: durations[i],
-    visualPrompt: s.visualPrompt,
+    visualPrompt: composeShotText({
+      visualPrompt: s.visualPrompt,
+      look: storyboard.look,
+      scale: shotScaleFor(i, picked.length),
+    }),
     motion: s.motion,
     caption: s.caption,
     stockQuery: input.mature ? undefined : (s.stockQuery || stockQueryFromPrompt(s.visualPrompt)),
@@ -87,6 +91,9 @@ export function planGpuShots(input: JobInput, storyboard: Storyboard | null, max
       durationSec: clip.durationSec,
       visualPrompt: composeGpuPrompt({
         visualPrompt: shot?.visualPrompt ?? input.prompt,
+        look: storyboard?.look,
+        action: shot?.action,
+        scale: shot ? shotScaleFor(i, chain.clips.length) : undefined,
         motion,
         style: input.style,
         continuation: i > 0 || Boolean(input.parentJobId),

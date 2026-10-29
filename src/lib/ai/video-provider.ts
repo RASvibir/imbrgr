@@ -42,9 +42,9 @@ export type VideoGenResult = {
 };
 
 export const VIDEO_STYLES = [
-  { id: "cinematic", label: "Cinematic Film", promptSuffix: "cinematic lighting, 35mm film, shallow depth of field, 4k" },
+  { id: "cinematic", label: "Cinematic Film", promptSuffix: "cinematic lighting, 35mm film look, shallow depth of field" },
   { id: "cyberpunk", label: "Cyberpunk Neon", promptSuffix: "neon glow, dark rain reflections, volumetric lighting, futuristic city" },
-  { id: "anime", label: "Anime Motion", promptSuffix: "makoto shinkai aesthetic, vibrant anime animation, dynamic camera, studio quality" },
+  { id: "anime", label: "Anime Motion", promptSuffix: "vibrant anime animation, painterly backgrounds, expressive motion, soft glowing light" },
   { id: "hyperlapse", label: "Urban Hyperlapse", promptSuffix: "high-speed hyperlapse, light trails, smooth motion blur, dramatic perspective" },
   { id: "macro", label: "Macro Sizzle", promptSuffix: "extreme macro close-up, sizzling textures, steam droplets, mouth-watering focus" },
   { id: "retro", label: "Retro 80s Synth", promptSuffix: "80s retro aesthetic, chrome reflections, synthwave horizon, sunset glow" },
@@ -74,6 +74,6 @@ export function resolveVideoDimensions(aspectRatio: "16:9" | "9:16" | "1:1" = "1
 
 export function buildCinematicVideoPrompt(basePrompt: string, styleId?: string): string {
   const style = VIDEO_STYLES.find((s) => s.id === styleId);
-  const suffix = style ? `, ${style.promptSuffix}` : ", smooth cinematic motion, high production value";
+  const suffix = style ? `, ${style.promptSuffix}` : ", smooth cinematic motion";
   return `${basePrompt.trim()}${suffix}`;
 }
