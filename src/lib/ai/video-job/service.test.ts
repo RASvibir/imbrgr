@@ -77,6 +77,12 @@ describe("stepVideoJob", () => {
     expect(recordUser).not.toHaveBeenCalled();
   });
 
+  it("renders every still with the same seed so keyframes keep one look", async () => {
+    findUnique.mockResolvedValueOnce(row({ nextShot: 1, status: "running" })).mockResolvedValueOnce(row({ status: "done", nextShot: 2 }));
+    await stepVideoJob("j1", actor, okBackend);
+    expect(okBackend.renderShot).toHaveBeenCalledWith(expect.objectContaining({ prompt: "b", seed: 10 }));
+  });
+
   it("records quota once when the last shot completes", async () => {
     findUnique.mockResolvedValueOnce(row({ nextShot: 1, status: "running" })).mockResolvedValueOnce(row({ status: "done", nextShot: 2 }));
     await stepVideoJob("j1", actor, okBackend);
