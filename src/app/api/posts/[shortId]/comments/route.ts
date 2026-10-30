@@ -6,7 +6,17 @@ import { canViewPost } from "@/lib/media-access";
 import { getActor } from "@/lib/request-identity";
 import { assertUserMayComment } from "@/lib/user-guards";
 import { consumeRateLimit } from "@/lib/rate-limit";
-import { isPromptBlocked, blockedPromptMessage } from "@/lib/prompt-safety";
+import { commentBlockReason, commentBlockedMessage, type CommentErrorCode } from "@/lib/comment-safety";
+
+function reject(
+  code: CommentErrorCode,
+  status: number,
+  error: string,
+  log?: { check: string; postShortId: string; actor: "user" | "guest" },
+) {
+  if (log) console.warn("[imbrgr/comments] rejected", log);
+  return NextResponse.json({ error, code }, { status });
+}
 
 export async function GET(
   req: Request,
@@ -19,7 +29,7 @@ export async function GET(
     include: { media: true },
   });
   if (!post || !canViewPost(post, actor) || post.hiddenByAdmin) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return reject("not_found", 404, "Not found");
   }
 
   const comments = await prisma.comment.findMany({
@@ -38,33 +48,43 @@ export async function POST(
   const session = await auth();
   const actor = await getActor(req);
   const { shortId } = await ctx.params;
+  const actorKind: "user" | "guest" = session?.user?.id ? "user" : "guest";
   const post = await prisma.post.findUnique({
     where: { shortId },
     include: { media: true },
   });
   if (!post || !canViewPost(post, actor) || post.hiddenByAdmin) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return reject("not_found", 404, "Not found");
   }
 
   const userBlock = await assertUserMayComment(session?.user?.id ?? null);
   if (userBlock) {
-    return NextResponse.json({ error: userBlock }, { status: 403 });
+    return reject("forbidden", 403, userBlock, { check: "user_guard", postShortId: shortId, actor: actorKind });
   }
 
   try {
     await consumeRateLimit(`comment:${actor.userId ?? actor.ipHash}`, 30, 60 * 1000);
   } catch {
-    return NextResponse.json({ error: "Slow down — you're posting comments too fast." }, { status: 429 });
+    return reject("rate_limited", 429, "Slow down — you're posting comments too fast.", {
+      check: "rate_limit",
+      postShortId: shortId,
+      actor: actorKind,
+    });
   }
 
   const body = await req.json().catch(() => ({}));
   const parsed = commentInputSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid comment" }, { status: 400 });
+    return reject("invalid", 400, "Invalid comment", { check: "schema", postShortId: shortId, actor: actorKind });
   }
 
-  if (isPromptBlocked(parsed.data.body)) {
-    return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
+  const blockReason = commentBlockReason(parsed.data.body);
+  if (blockReason) {
+    return reject("blocked", 400, commentBlockedMessage, {
+      check: `content_${blockReason}`,
+      postShortId: shortId,
+      actor: actorKind,
+    });
   }
 
   if (parsed.data.parentId) {
@@ -73,7 +93,11 @@ export async function POST(
       select: { id: true, postId: true },
     });
     if (!parent || parent.postId !== post.id) {
-      return NextResponse.json({ error: "Invalid parent comment for this post" }, { status: 400 });
+      return reject("parent", 400, "Invalid parent comment for this post", {
+        check: "parent",
+        postShortId: shortId,
+        actor: actorKind,
+      });
     }
   }
 
