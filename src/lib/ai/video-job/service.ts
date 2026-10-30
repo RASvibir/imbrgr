@@ -4,6 +4,7 @@ import { recordAiGenerationSuccess, recordAnonymousAiSuccess } from "@/lib/ai/us
 import { resolveVideoDimensions } from "@/lib/ai/video-provider";
 import { friendlyError } from "@/lib/user-messages";
 import { gpuTimeoutMs } from "@/lib/ai/gpu/client";
+import { checkGpuDailyCap } from "@/lib/ai/gpu/cap";
 import { assembledBackend, selectBackend, type ShotBackend } from "./backend";
 import type { JobInput, JobShot, JobStatus, JobView } from "./types";
 
@@ -170,6 +171,7 @@ export async function stepVideoJob(
     if (backend.advanceShot) {
       const startedAt = shot.startedAt ?? Date.now();
       if (Date.now() - startedAt > gpuTimeoutMs()) throw new Error("gpu_generation_timeout");
+      if (!shot.remoteId) await checkGpuDailyCap();
       const advance = await backend.advanceShot({
         ...renderParams,
         remoteId: shot.remoteId,
@@ -197,7 +199,8 @@ export async function stepVideoJob(
       await commit(await stillsPatch(backend, renderParams.seed));
     }
   } catch (err) {
-    console.error("[imbrgr/ai-video] shot render failed", { jobId: id, shot: index, backend: backend.name }, err);
+    const capEvent = err instanceof Error && (err.message === "gpu_daily_cap" || err.message === "gpu_cap_check_failed");
+    (capEvent ? console.warn : console.error)("[imbrgr/ai-video] shot render failed", { jobId: id, shot: index, backend: backend.name }, err);
     const reason = err instanceof Error ? err.message : "unknown";
     let recovered = false;
     if (backend.advanceShot && !input.mature) {

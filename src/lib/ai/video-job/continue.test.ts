@@ -6,6 +6,7 @@ const { findUnique, updateMany, create } = vi.hoisted(() => ({
   create: vi.fn(),
 }));
 
+vi.mock("@/lib/ai/gpu/cap", () => ({ checkGpuDailyCap: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/db", () => ({ prisma: { videoJob: { findUnique, updateMany, create } } }));
 vi.mock("@/lib/ai/usage", () => ({
   recordAiGenerationSuccess: vi.fn(),

@@ -8,7 +8,7 @@ export class RateLimitError extends Error {
   }
 }
 
-export async function consumeRateLimit(bucketKey: string, limit: number, windowMs: number): Promise<void> {
+export async function consumeRateLimit(bucketKey: string, limit: number, windowMs: number): Promise<number> {
   const now = new Date();
   const row = await prisma.apiRateLimit.findUnique({ where: { bucketKey } });
   if (!row || row.resetAt <= now) {
@@ -17,13 +17,14 @@ export async function consumeRateLimit(bucketKey: string, limit: number, windowM
       create: { bucketKey, count: 1, resetAt: new Date(now.getTime() + windowMs) },
       update: { count: 1, resetAt: new Date(now.getTime() + windowMs) },
     });
-    return;
+    return 1;
   }
   if (row.count >= limit) {
     throw new RateLimitError("We're plating as fast as we can — pause a moment and try again.");
   }
-  await prisma.apiRateLimit.update({
+  const updated = await prisma.apiRateLimit.update({
     where: { bucketKey },
     data: { count: { increment: 1 } },
   });
+  return updated?.count ?? row.count + 1;
 }
