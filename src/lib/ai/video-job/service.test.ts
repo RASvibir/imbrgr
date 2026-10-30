@@ -15,6 +15,8 @@ vi.mock("@/lib/ai/usage", () => ({
   recordAnonymousAiSuccess: recordAnon,
 }));
 
+vi.mock("@/lib/ai/gpu/cap", () => ({ checkGpuDailyCap: vi.fn().mockResolvedValue(undefined) }));
+
 vi.mock("./backend", async (orig) => {
   const actual = await orig<typeof import("./backend")>();
   return { ...actual, assembledBackend: { ...actual.assembledBackend, renderShot: assembledRender } };
@@ -22,6 +24,7 @@ vi.mock("./backend", async (orig) => {
 
 import { ownerKeyFor, serializeJob, stepVideoJob } from "./service";
 import type { ShotBackend } from "./backend";
+import { checkGpuDailyCap } from "@/lib/ai/gpu/cap";
 
 const input = {
   prompt: "p",
@@ -246,6 +249,39 @@ describe("stepVideoJob with an async backend", () => {
     });
     expect(data.shots[0].remoteId).toBeUndefined();
     expect(recordUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes a first-submit shot to assembled when the daily cap is exhausted", async () => {
+    const advance = vi.fn();
+    vi.mocked(checkGpuDailyCap).mockRejectedValueOnce(new Error("gpu_daily_cap"));
+    assembledRender.mockResolvedValue({ videoUrl: "/stock.mp4", imageUrl: "/t.jpg", mediaType: "video" });
+    findUnique.mockResolvedValueOnce(row()).mockResolvedValueOnce(row({ status: "running" }));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await stepVideoJob("j1", actor, gpu(advance));
+    expect(advance).not.toHaveBeenCalled();
+    const data = updateMany.mock.calls[0][0].data;
+    expect(data.shots[0]).toMatchObject({ backend: "assembled", videoUrl: "/stock.mp4", fallbackReason: "gpu_daily_cap" });
+  });
+
+  it("fails closed to assembled when the cap counter errors", async () => {
+    const advance = vi.fn();
+    vi.mocked(checkGpuDailyCap).mockRejectedValueOnce(new Error("gpu_cap_check_failed"));
+    assembledRender.mockResolvedValue({ videoUrl: "/stock.mp4", imageUrl: "/t.jpg", mediaType: "video" });
+    findUnique.mockResolvedValueOnce(row()).mockResolvedValueOnce(row({ status: "running" }));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await stepVideoJob("j1", actor, gpu(advance));
+    expect(advance).not.toHaveBeenCalled();
+    const data = updateMany.mock.calls[0][0].data;
+    expect(data.shots[0]).toMatchObject({ backend: "assembled", fallbackReason: "gpu_cap_check_failed" });
+  });
+
+  it("does not re-check the cap for a shot already submitted to the GPU", async () => {
+    const advance = vi.fn().mockResolvedValue({ state: "pending", remoteId: "r3" });
+    const shots = [{ durationSec: 4, visualPrompt: "a", motion: "zoom-in", remoteId: "r3", startedAt: Date.now() }];
+    findUnique.mockResolvedValueOnce(row({ shots, status: "running" })).mockResolvedValueOnce(row({ status: "running" }));
+    await stepVideoJob("j1", actor, gpu(advance));
+    expect(checkGpuDailyCap).not.toHaveBeenCalled();
+    expect(advance).toHaveBeenCalledTimes(1);
   });
 
   it("falls back to the assembled backend when the GPU errors", async () => {
