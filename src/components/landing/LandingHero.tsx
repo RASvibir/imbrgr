@@ -136,12 +136,17 @@ export function LandingHero() {
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-[var(--accent-secondary)]/10 blur-3xl" />
 
         <div className="relative z-10 max-w-3xl">
-          {/* Brand lockup — hero-level signal */}
-          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-5">
-            <EmberBurgerHero primary />
+          {/* Brand lockup — hero-level on desktop; compact on mobile so CTAs clear sticky chrome */}
+          <div className="flex items-center gap-3 sm:gap-5">
+            <span className="sm:hidden">
+              <EmberBurgerHero primary compact />
+            </span>
+            <span className="hidden sm:inline-flex">
+              <EmberBurgerHero primary />
+            </span>
             <div>
               <p
-                className="flex items-baseline text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl"
+                className="flex items-baseline text-3xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl"
                 data-testid="home-brand-wordmark"
               >
                 <span className="bg-gradient-to-br from-[var(--accent-primary)] via-[var(--accent-amber)] to-[var(--accent-amber)] bg-clip-text text-transparent">
@@ -151,31 +156,32 @@ export function LandingHero() {
                   gr
                 </span>
               </p>
-              <p className="mt-1 text-sm font-medium tracking-wide text-[var(--text-secondary)] sm:text-base">
+              <p className="mt-0.5 text-xs font-medium tracking-wide text-[var(--text-secondary)] sm:mt-1 sm:text-base">
                 images, served hot
               </p>
             </div>
           </div>
 
-          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10 px-3.5 py-1 text-xs font-semibold text-[var(--accent-primary)]">
+          <div className="mt-3 hidden items-center gap-2 rounded-full border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10 px-3.5 py-1 text-xs font-semibold text-[var(--accent-primary)] sm:mt-5 sm:inline-flex">
             <span>Drop it, see it</span>
             <span className="text-[var(--text-muted)]">•</span>
             <span className="text-[var(--text-secondary)]">Host &amp; share anytime</span>
           </div>
 
           {/* Primary Headline — keeps e2e contract */}
-          <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-[var(--text-primary)] sm:text-4xl lg:text-5xl">
+          <h1 className="mt-3 text-xl font-extrabold tracking-tight text-[var(--text-primary)] sm:mt-4 sm:text-4xl lg:text-5xl">
             Make something fun{" "}
             <span className="cook-count-flame-text block sm:inline">in 10 seconds</span>
           </h1>
 
-          <p className="mt-4 text-base text-[var(--text-secondary)] sm:text-lg">
+          <p className="mt-2 hidden text-base text-[var(--text-secondary)] sm:mt-4 sm:block sm:text-lg">
             Drop an image for instant memes, looping GIFs, and filters cooked on your device —
             then host the result with a shareable link. Upload always works even when AI cooking
             is resting.
           </p>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          {/* Desktop/tablet host CTAs only — mobile uses sticky bar + host-path section */}
+          <div className="mt-4 hidden flex-wrap gap-2 sm:flex">
             <Link
               href="#host-path"
               className={`${btnPrimary} text-sm`}
@@ -215,7 +221,7 @@ export function LandingHero() {
         />
 
         {/* Drop Zone */}
-        <div className="relative z-10 mt-8">
+        <div className="relative z-10 mt-4 sm:mt-8">
           {!file || !imageEl ? (
             <div>
               {/* Desktop / Tablet Large Drop Area */}
