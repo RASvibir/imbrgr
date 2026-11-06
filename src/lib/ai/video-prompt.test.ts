@@ -79,6 +79,27 @@ describe("enrichVideoPromptLocal (zero-token free tier)", () => {
     expect(enrichVideoPromptLocal(withPan, { motion: "orbit" })).toBe(withPan);
   });
 
+  it("detects an injected pulse phrase so enrich does not duplicate it", () => {
+    const withPulse = enrichVideoPromptLocal("sunset burger", { motion: "pulse" });
+    expect(promptHasCameraMove(withPulse)).toBe(true);
+    expect(enrichVideoPromptLocal(withPulse, { motion: "pulse" })).toBe(withPulse);
+    expect(withPulse.match(/scale pulse/gi)?.length ?? 0).toBe(1);
+  });
+
+  it("does not treat windowsill or flower as subject motion", () => {
+    expect(analyzeVideoPromptStructure("cat on a windowsill").hasMotion).toBe(false);
+    expect(analyzeVideoPromptStructure("flower vase on a table").hasMotion).toBe(false);
+    expect(needsVideoPromptEnrichment("cat on a windowsill")).toBe(true);
+    expect(enrichVideoPromptLocal("cat on a windowsill")).toMatch(/natural motion/i);
+  });
+
+  it("does not treat food truck or pan-fried as camera moves", () => {
+    expect(promptHasCameraMove("food truck neon alley")).toBe(false);
+    expect(promptHasCameraMove("pan-fried smashed burger")).toBe(false);
+    const out = enrichVideoPromptLocal("food truck neon alley", { motion: "orbit" });
+    expect(out).toMatch(/orbital camera drift/i);
+  });
+
   it("leaves already-structured prompts alone", () => {
     const rich =
       "barista pouring latte art, creamy swirl forming, sunlit café, soft window light, shallow depth of field";

@@ -13,16 +13,19 @@ export const VIDEO_QUALITY_SUFFIX =
 export const VIDEO_NEGATIVE_CUES =
   "no watermark, no text overlay, no logo, no title card, no jitter, no morphing faces, no flicker, no cutaway";
 
-/** Subject / scene motion — not camera moves. */
+/**
+ * Subject / scene motion — not camera moves.
+ * Avoid open stems that match still nouns (windowsill, flower, risotto, rainbow).
+ */
 const MOTION_MARKERS =
-  /\b(slow[\s-]?motion|motion|moves?|moving|sizzl\w*|steam\w*|dripp\w*|pour\w*|ris\w*|fall\w*|drift\w*|sway\w*|spin\w*|flow\w*|flicker\w*|pulse\w*|ripple\w*|spark\w*|flame\w*|smoke\w*|rain\w*|wind\w*|walk\w*|run\w*|fly\w*|float\w*|rotate\w*|turn\w*|swirl\w*|melt\w*|boil\w*|bubble\w*|paddl\w*|sear\w*|popp\w*)\b/i;
+  /\b(slow[\s-]?motion|motion|moves?|moving|sizzl(?:e|es|ing)|steam(?:s|ing)?|dripp(?:ing|y)?|pours?|pouring|ris(?:e|es|ing|en)|falls?|falling|drifts?|drifting|sways?|swaying|spins?|spinning|flows?|flowing|flickers?|flickering|pulses?|pulsing|ripples?|rippling|sparks?|sparking|flames?|smokes?|smoking|rains?|raining|winds?|windy|walks?|walking|runs?|running|fly|flies|flying|floats?|floating|rotates?|rotating|turns?|turning|swirls?|swirling|melts?|melting|boils?|boiling|bubbles?|bubbling|paddl(?:e|es|ing)|sears?|searing|popping|pops)\b/i;
 
 /**
- * Camera *moves* only. Framing/lens terms (wide, macro, aerial, close-up, establishing)
- * live in FRAMING_MARKERS so a single shared word cannot inflate both dimensions.
+ * Camera *moves* only. Framing/lens terms live in FRAMING_MARKERS.
+ * Avoid bare truck/pan/camera so culinary "food truck" / "pan-fried" do not count as moves.
  */
 const CAMERA_MOVE_MARKERS =
-  /\b(push[\s-]?in|pull[\s-]?back|dolly(?:[\s-]?zoom)?|truck|pan|tilt|orbit|tracking|handheld|steadicam|crane|drone|whip[\s-]?pan|zoom|camera(?:\s+move|\s+drift)?|over[\s-]?shoulder|pov|vertigo)\b/i;
+  /\b(push[\s-]?in|pull[\s-]?back|dolly(?:[\s-]?zoom)?|lateral\s+truck|truck(?:ing)?\s+to\s+the\s+(?:left|right)|(?:camera\s+)?pan(?:ning)?\s+(?:left|right|across|over)|whip[\s-]?pan|tilt(?:ing)?\s+(?:up|down)|orbit(?:al)?|tracking(?:\s+shot)?|handheld|steadicam|crane|drone|zoom(?:[\s-]?in|[\s-]?out)?|over[\s-]?shoulder|pov|vertigo|camera(?:\s+move|\s+drift|\s+orbit|\s+pan|\s+truck|\s+tilt|\s+zoom|\s+pulse)|(?:rhythmic\s+)?(?:camera\s+)?scale[\s-]?pulse|beat[\s-]?pulse)\b/i;
 
 const LIGHTING_MARKERS =
   /\b(light(?:ing)?|lit|glow|rim light|backlit|silhouette|golden hour|blue hour|neon|volumetric|softbox|practicals?|moonlight|sunlight|dusk|dawn|overcast|candle|ember|shadow|sunlit)\b/i;
@@ -38,7 +41,8 @@ export const CAMERA_MOTION_PHRASE: Record<CameraMotion, string> = {
   "pan-right": "smooth lateral truck to the right, constant subject distance",
   "pan-left": "smooth lateral truck to the left, constant subject distance",
   orbit: "gentle orbital camera drift around the subject, level horizon",
-  pulse: "subtle rhythmic scale pulse synced to a soft beat, no hard cuts",
+  // Include "camera" + "scale pulse" so promptHasCameraMove detects an already-injected pulse line.
+  pulse: "subtle rhythmic camera scale pulse synced to a soft beat, no hard cuts",
   dramatic: "controlled dolly-zoom perspective shift with strong contrast, no whip cuts",
 };
 
@@ -52,13 +56,17 @@ export type VideoPromptStructure = {
 };
 
 export function promptHasCameraMove(prompt: string): boolean {
-  return CAMERA_MOVE_MARKERS.test(normalizePromptText(prompt));
+  const p = normalizePromptText(prompt);
+  if (CAMERA_MOVE_MARKERS.test(p)) return true;
+  // Belt-and-suspenders: detect any already-injected selected-motion phrase verbatim.
+  const lower = p.toLowerCase();
+  return Object.values(CAMERA_MOTION_PHRASE).some((phrase) => lower.includes(phrase.toLowerCase()));
 }
 
 export function analyzeVideoPromptStructure(prompt: string): VideoPromptStructure {
   const p = normalizePromptText(prompt);
   const hasMotion = MOTION_MARKERS.test(p);
-  const hasCamera = CAMERA_MOVE_MARKERS.test(p);
+  const hasCamera = promptHasCameraMove(p);
   const hasLighting = LIGHTING_MARKERS.test(p);
   const hasFraming = FRAMING_MARKERS.test(p);
   const score = [hasMotion, hasCamera, hasLighting, hasFraming].filter(Boolean).length;
@@ -89,6 +97,14 @@ export type EnrichVideoOptions = {
    */
   motion?: CameraMotion;
 };
+
+/** Append the selected camera phrase only when the text does not already name a move. */
+export function withCameraMotionPhrase(text: string, motion: CameraMotion): string {
+  const base = normalizePromptText(text);
+  if (!base) return CAMERA_MOTION_PHRASE[motion];
+  if (promptHasCameraMove(base)) return base;
+  return normalizePromptText(`${base}, ${CAMERA_MOTION_PHRASE[motion]}`);
+}
 
 /**
  * Zero-token enricher for free-tier video: fills missing subject motion / lighting / framing

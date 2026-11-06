@@ -20,6 +20,25 @@ describe("composeGpuPrompt", () => {
   it("writes continuation clips as what changes next", () => {
     const out = composeGpuPrompt({ visualPrompt: "flames rise", motion: "zoom-in", continuation: true });
     expect(out).toMatch(/^Continuing from the previous frame, same subject and setting, now flames rise/);
+    expect(out).toContain("push-in");
+  });
+
+  it("does not restack camera language on continuation when the scene already has the move", () => {
+    const scene =
+      "flames rise, slow cinematic push-in toward the focal point, steady framing";
+    const out = composeGpuPrompt({ visualPrompt: scene, motion: "zoom-in", continuation: true });
+    expect(out.match(/push-in/gi)?.length ?? 0).toBe(1);
+  });
+
+  it("does not restack camera on action-only continuation when action already names the move", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "ignored",
+      action: "steam rises, gentle orbital camera drift around the subject, level horizon",
+      motion: "orbit",
+      continuation: true,
+    });
+    expect(out.match(/orbital camera drift/gi)?.length ?? 0).toBe(1);
+    expect(out).not.toContain("push-in");
   });
 });
 

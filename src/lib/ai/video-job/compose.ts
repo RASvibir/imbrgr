@@ -1,5 +1,5 @@
 import { buildCinematicVideoPrompt, type CameraMotion } from "@/lib/ai/video-provider";
-import { CAMERA_MOTION_PHRASE, promptHasCameraMove } from "@/lib/ai/video-prompt";
+import { CAMERA_MOTION_PHRASE, promptHasCameraMove, withCameraMotionPhrase } from "@/lib/ai/video-prompt";
 
 const LADDERS: Record<number, string[]> = {
   2: ["wide establishing shot", "close-up"],
@@ -49,20 +49,20 @@ export type ComposeParams = ShotTextParams & {
  * Deterministic (zero-token) prompt for an image-to-video / text-to-video model.
  * A first clip gets framing, shared look, scene, action, camera and style. A chained clip already has its picture
  * (the previous last frame), so it only says what moves: re-describing the scene is what makes clips drift.
- * Camera language is skipped when the scene already names a move (e.g. from selected-motion enrich).
+ * Camera language is skipped on every path when the text already names a move (including continuation).
  */
 export function composeGpuPrompt(p: ComposeParams): string {
   const camera = CAMERA_MOTION_PHRASE[p.motion];
   const action = p.action?.trim().replace(/[.\s]+$/, "");
-  if (p.continuation && action) return `Continuing from the previous frame: ${action}, ${camera}`;
+  if (p.continuation && action) {
+    const body = `Continuing from the previous frame: ${action}`;
+    return promptHasCameraMove(body) ? body : `${body}, ${camera}`;
+  }
   const scene = composeShotText(p);
   if (p.continuation) {
-    return buildCinematicVideoPrompt(
-      `Continuing from the previous frame, same subject and setting, now ${p.visualPrompt.trim().replace(/[.\s]+$/, "")}, ${camera}`,
-      p.style,
-    );
+    const body = `Continuing from the previous frame, same subject and setting, now ${p.visualPrompt.trim().replace(/[.\s]+$/, "")}`;
+    return buildCinematicVideoPrompt(withCameraMotionPhrase(body, p.motion), p.style);
   }
-  const alreadyHasMove = promptHasCameraMove([scene, action].filter(Boolean).join(", "));
-  const parts = alreadyHasMove ? [scene, action] : [scene, action, camera];
-  return buildCinematicVideoPrompt(parts.filter(Boolean).join(", "), p.style);
+  const parts = [scene, action].filter(Boolean).join(", ");
+  return buildCinematicVideoPrompt(withCameraMotionPhrase(parts, p.motion), p.style);
 }
