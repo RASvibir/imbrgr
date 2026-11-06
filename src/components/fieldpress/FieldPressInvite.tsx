@@ -40,25 +40,30 @@ export function FieldPressInvite({ imageDirectUrl, visibility, title }: Props) {
 
   return (
     <section
-      className="hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3 sm:block"
+      className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3"
       data-testid="fieldpress-invite"
     >
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <p className="text-sm text-[var(--text-secondary)]">Got a story behind this image?</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[var(--text-primary)]">Got a story behind this image?</p>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+            Keep hosting on imbrgr — open FieldPress to write the dispatch around it.
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <a
             href={composeHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg border border-[var(--border-strong)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--surface-hover)]"
+            className="tap-target inline-flex min-h-11 items-center rounded-lg border border-[var(--border-strong)] bg-[var(--surface-base)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--surface-hover)]"
           >
             Write the story on FieldPress
           </a>
           <button
             type="button"
             onClick={dismissFieldPressInvite}
-            className="text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-            aria-label="Dismiss"
+            className="tap-target text-sm text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            aria-label="Dismiss FieldPress invite"
           >
             Dismiss
           </button>

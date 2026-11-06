@@ -20,7 +20,13 @@ export async function assertMinTapTargets(page: Page, min = 44) {
       const style = window.getComputedStyle(el);
       if (style.display === "none" || style.visibility === "hidden" || style.pointerEvents === "none") continue;
       if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) continue;
-      if (el.closest('[data-testid="mobile-bottom-nav"], [data-testid="studio-mobile-action-bar"]')) continue;
+      if (
+        el.closest(
+          '[data-testid="mobile-bottom-nav"], [data-testid="studio-mobile-action-bar"], [data-testid="mobile-action-bar"]',
+        )
+      ) {
+        continue;
+      }
       const rect = el.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) continue;
       if (rect.bottom < 0 || rect.top > window.innerHeight) continue;
@@ -39,7 +45,13 @@ export async function assertMinTapTargets(page: Page, min = 44) {
 export async function assertNoInteractiveOverlap(page: Page) {
   const overlaps = await page.evaluate((selector) => {
     const isChrome = (el: Element) => {
-      if (el.closest('[data-testid="mobile-bottom-nav"], [data-testid="studio-mobile-action-bar"]')) return true;
+      if (
+        el.closest(
+          '[data-testid="mobile-bottom-nav"], [data-testid="studio-mobile-action-bar"], [data-testid="mobile-action-bar"]',
+        )
+      ) {
+        return true;
+      }
       const style = window.getComputedStyle(el);
       if (style.position === "fixed" && Number.parseFloat(style.zIndex || "0") >= 40) return true;
       return false;

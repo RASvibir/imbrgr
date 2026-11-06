@@ -4,15 +4,16 @@ import { friendlyError } from "./user-messages";
 describe("friendlyError", () => {
   it("hides provider and HTTP status", () => {
     expect(friendlyError("pollinations 500")).toBe(
-      "We couldn't finish that image — tweak your description and try again.",
+      "We couldn't finish that image — tweak your description, or upload a photo to host and refine instead.",
     );
     expect(friendlyError("image_gen_http_502")).toBe(
-      "We couldn't finish that image — tweak your description and try again.",
+      "We couldn't finish that image — tweak your description, or upload a photo to host and refine instead.",
     );
   });
 
   it("maps timeouts", () => {
     expect(friendlyError("image_gen_timeout")).toContain("couldn't finish");
+    expect(friendlyError("upstream_timeout")).toMatch(/upload a photo|simpler description/i);
   });
 
   it("hides internal wording that no earlier rule catches", () => {

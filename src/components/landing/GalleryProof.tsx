@@ -76,20 +76,27 @@ export function GalleryProof() {
           Want to share your own creations?
         </h3>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Every tool lets you download, copy embed links, save to your library, or publish directly to the public feed.
+          Upload to host a shareable link, copy embeds, save to your library, or publish to the public feed —
+          even when AI cooking is resting.
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-3">
           <Link
-            href="/studio"
+            href="/#host-path"
             className="tap-target inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--accent-primary)] px-5 text-sm font-semibold text-[var(--on-accent)] shadow-[var(--shadow-ember)] transition hover:bg-[var(--accent-primary-hover)]"
           >
-            Open Creative Studio
+            Upload &amp; host
+          </Link>
+          <Link
+            href="/studio"
+            className="tap-target inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-[var(--surface-sunken)] px-5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+          >
+            Open studio
           </Link>
           <Link
             href="/create"
             className="tap-target inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--border-strong)] bg-[var(--surface-sunken)] px-5 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
           >
-            Explore All Tools
+            Explore tools
           </Link>
         </div>
       </div>

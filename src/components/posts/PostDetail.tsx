@@ -191,10 +191,21 @@ export function PostDetail({ shortId }: { shortId: string }) {
   }, [post, shortId]);
 
   if (notFound) {
-    return <p className="p-8 text-center text-[var(--text-muted)]">This post is private or does not exist.</p>;
+    return (
+      <p className="p-8 text-center text-[var(--text-muted)]" data-testid="post-not-found">
+        This post is private or does not exist.
+      </p>
+    );
   }
   if (!post) {
-    return <p className="text-[var(--text-muted)]">Loading post…</p>;
+    return (
+      <div className="space-y-6 animate-pulse" data-testid="post-loading" aria-busy="true" aria-live="polite">
+        <div className="h-8 w-2/3 rounded-lg bg-[var(--surface-hover)]" />
+        <div className="h-4 w-1/3 rounded bg-[var(--surface-hover)]" />
+        <div className="aspect-[4/3] w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)]" />
+        <p className="text-sm text-[var(--text-muted)]">Loading post…</p>
+      </div>
+    );
   }
 
   const threaded = comments.filter((c) => !c.parentId);
@@ -287,6 +298,23 @@ export function PostDetail({ shortId }: { shortId: string }) {
       {post.description ? <p className="text-[var(--text-secondary)]">{post.description}</p> : null}
 
       <div className="space-y-4">
+        {post.media.length === 0 ? (
+          <div
+            className="rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--surface-sunken)] px-6 py-10 text-center"
+            data-testid="post-empty-media"
+          >
+            <p className="text-sm font-medium text-[var(--text-primary)]">No media on this post yet</p>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
+              If you just uploaded, refresh in a moment — or head back to upload another stack.
+            </p>
+            <Link
+              href="/upload"
+              className="mt-4 inline-flex rounded-lg bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
+            >
+              Stack upload
+            </Link>
+          </div>
+        ) : null}
         {post.media.map((m) => {
           const src = mediaUrl(m.storageKey, m.mimeType);
           const ext = m.mimeType.split("/")[1] || (m.mimeType.startsWith("video/") ? "webm" : "png");
