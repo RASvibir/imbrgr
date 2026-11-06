@@ -1,5 +1,6 @@
 import { generateKeyframe, type KeyframeParams } from "@/lib/ai/video-generate";
 import {
+  clampPollinationsVideoDuration,
   fetchPollinationsVideo,
   pollinationsAssembledEnabled,
 } from "@/lib/ai/video-provider";
@@ -41,16 +42,11 @@ export interface ShotBackend {
   advanceShot?(params: AdvanceShotParams): Promise<ShotAdvance>;
 }
 
-/** Clamp to a range free Pollinations video models typically accept. */
-function pollinationsDurationSec(sec: number | undefined): number {
-  const n = sec == null || !Number.isFinite(sec) ? 5 : sec;
-  return Math.min(Math.max(Math.round(n), 3), 10);
-}
-
 async function tryPollinationsClip(params: RenderShotParams): Promise<RenderShotResult | null> {
+  // Needs sk_ + Pollen; skipped when unset so zero-cost stays stock/stills.
   if (!pollinationsAssembledEnabled() || params.mature) return null;
   try {
-    const durationSec = pollinationsDurationSec(params.durationSec);
+    const durationSec = clampPollinationsVideoDuration(params.durationSec);
     const { buffer, mimeType } = await fetchPollinationsVideo({
       prompt: params.prompt,
       durationSec,
@@ -64,7 +60,7 @@ async function tryPollinationsClip(params: RenderShotParams): Promise<RenderShot
       mediaType: "video",
       sourceDurationSec: durationSec,
       creditName: "pollinations",
-      creditUrl: "https://pollinations.ai",
+      creditUrl: "https://enter.pollinations.ai",
     };
   } catch (err) {
     console.warn("[imbrgr/ai-video] pollinations video failed, falling back", err);
@@ -103,7 +99,7 @@ export const assembledBackend: ShotBackend = {
       }
     }
 
-    // Zero-cost text→video when stock misses (or isn't configured).
+    // Optional low-cost Pollinations MP4 when POLLINATIONS_API_KEY has Pollen.
     const generated = await tryPollinationsClip(params);
     if (generated) return generated;
 

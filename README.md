@@ -78,7 +78,7 @@ Uploads and studio creations default to **public** on the gallery (Home / Hot). 
 
 1. **Prompt enhance** (optional): cache lookup → **Ollama** → **Groq** → **Gemini** for complex prompts (`src/lib/ai/prompt-enhance.ts`). Image and video use separate system prompts / cache namespaces.
 2. **Image generation:** **Pollinations** Flux (`gen.pollinations.ai`); optional **`POLLINATIONS_API_KEY`**; mock path when **`AI_MOCK=true`** (E2E).
-3. **Video (zero-cost assembled path):** stock (optional free Pixabay/Pexels keys) → **Pollinations Gen** text→video (`AI_VIDEO_MODEL`, default Wan fast) → still keyframe + camera motion. Disable Pollinations with **`AI_VIDEO_ASSEMBLED_POLLINATIONS=false`**. Paid/self-host GPU is opt-in later via **`VIDEO_PROVIDER=gpu`**.
+3. **Video (assembled path):** stock (optional free Pixabay/Pexels) → **Pollinations Gen** text→video when **`POLLINATIONS_API_KEY`** (`sk_…`) has Pollen (catalog models are `paid_only`; default **`prunaai/p-video`**) via async jobs → still keyframe + camera motion. True zero-cost without a key is stock/stills. Disable Pollinations with **`AI_VIDEO_ASSEMBLED_POLLINATIONS=false`**. Self-host GPU later via **`VIDEO_PROVIDER=gpu`**.
 4. **Blocked prompts:** `src/lib/prompt-safety.ts` rejects disallowed patterns before generate/edit.
 5. **Daily allowance:** per-user count in `AiGenerationUsage` (limit **`AI_DAILY_LIMIT`** or per-user override); guests use **`AiAnonymousUsage`** keyed by IP hash with **`ANON_AI_DAILY_LIMIT`** / admin site setting.
 6. **Assist:** natural-language image edits (Gemini image route) and quick chips; preview before keep.
