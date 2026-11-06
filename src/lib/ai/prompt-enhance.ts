@@ -3,7 +3,11 @@ import { isComplexPrompt, shouldSkipEnhancement } from "@/lib/ai/prompt-heuristi
 
 export type PromptSource = "ollama" | "groq" | "gemini" | "passthrough" | "skip" | "cache";
 
-const SYSTEM = `Rewrite into one vivid image prompt, max 40 words. Visual details only. No brands, trademarks, or meta text. Output only the prompt.`;
+export type EnhanceKind = "image" | "video";
+
+const IMAGE_SYSTEM = `Rewrite into one vivid image prompt, max 40 words. Visual details only. No brands, trademarks, or meta text. Output only the prompt.`;
+
+const VIDEO_SYSTEM = `Rewrite into one vivid video prompt, max 45 words. Include subject, motion, camera move, and lighting. No brands, trademarks, or meta text. Output only the prompt.`;
 
 async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -31,7 +35,7 @@ function ollamaReachable(): boolean {
   return true;
 }
 
-async function ollamaEnhance(userPrompt: string): Promise<string> {
+async function ollamaEnhance(userPrompt: string, system: string): Promise<string> {
   if (!ollamaReachable()) throw new Error("ollama_skip");
   const host = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
   const model = process.env.OLLAMA_MODEL ?? "llama3.2";
@@ -42,7 +46,7 @@ async function ollamaEnhance(userPrompt: string): Promise<string> {
     stream: false,
     think: false,
     messages: [
-      { role: "system", content: SYSTEM },
+      { role: "system", content: system },
       { role: "user", content: userPrompt },
     ],
     options: { num_predict: 80, temperature: 0.6 },
@@ -59,7 +63,7 @@ async function ollamaEnhance(userPrompt: string): Promise<string> {
   return text.slice(0, 500);
 }
 
-async function groqEnhance(userPrompt: string): Promise<string> {
+async function groqEnhance(userPrompt: string, system: string): Promise<string> {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("no groq key");
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -71,7 +75,7 @@ async function groqEnhance(userPrompt: string): Promise<string> {
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
       messages: [
-        { role: "system", content: SYSTEM },
+        { role: "system", content: system },
         { role: "user", content: userPrompt },
       ],
       max_tokens: 64,
@@ -85,7 +89,7 @@ async function groqEnhance(userPrompt: string): Promise<string> {
   return text.slice(0, 500);
 }
 
-async function geminiEnhance(userPrompt: string): Promise<string> {
+async function geminiEnhance(userPrompt: string, system: string): Promise<string> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("no gemini key");
   const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
@@ -94,7 +98,7 @@ async function geminiEnhance(userPrompt: string): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: `${SYSTEM}\n\nUser: ${userPrompt}` }] }],
+      contents: [{ parts: [{ text: `${system}\n\nUser: ${userPrompt}` }] }],
       generationConfig: { maxOutputTokens: 64, temperature: 0.5 },
     }),
   });
@@ -105,26 +109,37 @@ async function geminiEnhance(userPrompt: string): Promise<string> {
   return text.slice(0, 500);
 }
 
+/** Keep image vs video enhancements from colliding in the shared prompt cache. */
+export function enhanceCacheStyle(style: string | undefined, kind: EnhanceKind): string {
+  if (kind === "video") return `video:${style ?? ""}`;
+  return style ?? "";
+}
+
 export type EnhanceResult = { prompt: string; source: PromptSource };
 
 export type EnhanceOptions = {
   style?: string;
   force?: boolean;
+  kind?: EnhanceKind;
+};
+
+type EnhanceDeps = {
+  ollama?: (p: string) => Promise<string>;
+  groq?: (p: string) => Promise<string>;
+  gemini?: (p: string) => Promise<string>;
+  cacheGet?: typeof getCachedEnhancement;
+  cacheSet?: typeof setCachedEnhancement;
 };
 
 export async function enhancePrompt(
   userPrompt: string,
   options?: EnhanceOptions,
-  deps?: {
-    ollama?: (p: string) => Promise<string>;
-    groq?: (p: string) => Promise<string>;
-    gemini?: (p: string) => Promise<string>;
-    cacheGet?: typeof getCachedEnhancement;
-    cacheSet?: typeof setCachedEnhancement;
-  },
+  deps?: EnhanceDeps,
 ): Promise<EnhanceResult> {
   const trimmed = userPrompt.trim();
-  const style = options?.style;
+  const kind: EnhanceKind = options?.kind ?? "image";
+  const style = enhanceCacheStyle(options?.style, kind);
+  const system = kind === "video" ? VIDEO_SYSTEM : IMAGE_SYSTEM;
 
   if (!options?.force && shouldSkipEnhancement(trimmed)) {
     return { prompt: trimmed, source: "skip" };
@@ -136,9 +151,9 @@ export async function enhancePrompt(
   if (cached) return { ...cached, source: "cache" };
 
   const timeout = Number.parseInt(process.env.AI_ENHANCE_TIMEOUT_MS ?? "12000", 10);
-  const ollamaFn = deps?.ollama ?? ollamaEnhance;
-  const groqFn = deps?.groq ?? groqEnhance;
-  const geminiFn = deps?.gemini ?? geminiEnhance;
+  const ollamaFn = deps?.ollama ?? ((p: string) => ollamaEnhance(p, system));
+  const groqFn = deps?.groq ?? ((p: string) => groqEnhance(p, system));
+  const geminiFn = deps?.gemini ?? ((p: string) => geminiEnhance(p, system));
   const complex = isComplexPrompt(trimmed);
 
   let result: EnhanceResult | null = null;
@@ -174,6 +189,15 @@ export async function enhancePrompt(
 
   await cacheSet(trimmed, style, result.prompt, result.source);
   return result;
+}
+
+/** Same cascade as enhancePrompt, with a motion/camera-focused system prompt. */
+export function enhanceVideoPrompt(
+  userPrompt: string,
+  options?: Omit<EnhanceOptions, "kind">,
+  deps?: EnhanceDeps,
+): Promise<EnhanceResult> {
+  return enhancePrompt(userPrompt, { ...options, kind: "video" }, deps);
 }
 
 /** Gemini only when cheap tiers failed and prompt is complex, or explicit fallback. */

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { enhanceVideoPrompt } from "@/lib/ai/prompt-enhance";
 import { buildCinematicVideoPrompt } from "@/lib/ai/video-provider";
 import { generateAiVideo } from "@/lib/ai/video-generate";
 import { VIDEO_LIMITS, isDurationValid } from "@/lib/ai/video-limits";
@@ -21,6 +22,7 @@ export const maxDuration = 60;
 const schema = z
   .object({
     prompt: z.string().min(3).max(500),
+    enhance: z.boolean().optional(),
     sourceImageUrl: z.string().url().or(z.string().startsWith("data:")).optional(),
     motion: z
       .enum(["zoom-in", "zoom-out", "pan-right", "pan-left", "orbit", "pulse", "dramatic"])
@@ -47,8 +49,17 @@ export async function POST(req: Request) {
   }
 
   const { isPromptBlocked, blockedPromptMessage } = await import("@/lib/prompt-safety");
-  const fullPrompt = buildCinematicVideoPrompt(parsed.data.prompt, parsed.data.style);
-  if (isPromptBlocked(parsed.data.prompt) || isPromptBlocked(fullPrompt)) {
+  let prompt = parsed.data.prompt;
+  if (parsed.data.enhance !== false) {
+    try {
+      const enhanced = await enhanceVideoPrompt(prompt, { style: parsed.data.style });
+      prompt = enhanced.prompt;
+    } catch {
+      /* keep original */
+    }
+  }
+  const fullPrompt = buildCinematicVideoPrompt(prompt, parsed.data.style);
+  if (isPromptBlocked(parsed.data.prompt) || isPromptBlocked(prompt) || isPromptBlocked(fullPrompt)) {
     return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
   }
 
@@ -95,6 +106,7 @@ export async function POST(req: Request) {
   try {
     const video = await generateAiVideo({
       ...parsed.data,
+      prompt,
       safe: !matureRequested,
       mature: matureRequested,
     });

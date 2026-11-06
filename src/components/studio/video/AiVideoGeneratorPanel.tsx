@@ -108,6 +108,7 @@ export function AiVideoGeneratorPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
+          enhance: true,
           style: selectedStyle,
           motion: selectedMotion,
           mode: clipKind,

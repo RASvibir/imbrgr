@@ -1,5 +1,11 @@
 import { generateKeyframe, type KeyframeParams } from "@/lib/ai/video-generate";
+import {
+  clampPollinationsVideoDuration,
+  fetchPollinationsVideo,
+  pollinationsAssembledEnabled,
+} from "@/lib/ai/video-provider";
 import { selectStockProvider } from "@/lib/ai/stock/provider";
+import { newStorageKey, putObject } from "@/lib/storage";
 import { stockQueryFromPrompt, stockQueryLadder } from "./shots";
 import { pollGpuClip, storeGpuResult, submitGpuClip } from "@/lib/ai/gpu/client";
 
@@ -36,6 +42,32 @@ export interface ShotBackend {
   advanceShot?(params: AdvanceShotParams): Promise<ShotAdvance>;
 }
 
+async function tryPollinationsClip(params: RenderShotParams): Promise<RenderShotResult | null> {
+  // Needs sk_ + Pollen; skipped when unset so zero-cost stays stock/stills.
+  if (!pollinationsAssembledEnabled() || params.mature) return null;
+  try {
+    const durationSec = clampPollinationsVideoDuration(params.durationSec);
+    const { buffer, mimeType } = await fetchPollinationsVideo({
+      prompt: params.prompt,
+      durationSec,
+      aspectRatio: params.aspectRatio,
+      seed: params.seed,
+      safe: true,
+    });
+    const stored = await putObject(newStorageKey("mp4"), buffer, mimeType);
+    return {
+      videoUrl: stored.url,
+      mediaType: "video",
+      sourceDurationSec: durationSec,
+      creditName: "pollinations",
+      creditUrl: "https://enter.pollinations.ai",
+    };
+  } catch (err) {
+    console.warn("[imbrgr/ai-video] pollinations video failed, falling back", err);
+    return null;
+  }
+}
+
 export const assembledBackend: ShotBackend = {
   name: "assembled-stills",
   tier: 1,
@@ -62,10 +94,14 @@ export const assembledBackend: ShotBackend = {
             }
           }
         } catch (err) {
-          console.warn("[imbrgr/ai-video] stock search failed, falling back to keyframe", err);
+          console.warn("[imbrgr/ai-video] stock search failed, falling back", err);
         }
       }
     }
+
+    // Optional low-cost Pollinations MP4 when POLLINATIONS_API_KEY has Pollen.
+    const generated = await tryPollinationsClip(params);
+    if (generated) return generated;
 
     const imageUrl = await generateKeyframe(params);
     return {
