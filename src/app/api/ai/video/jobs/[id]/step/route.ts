@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { serializeJob, stepVideoJob } from "@/lib/ai/video-job/service";
 import { getActor } from "@/lib/request-identity";
 
-export const maxDuration = 60;
+/** Pollinations free video can take ~90s; keep headroom under the platform cap. */
+export const maxDuration = 120;
 
 /** Renders the next shot of a job and returns its state. Safe to call repeatedly until done or failed. */
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {

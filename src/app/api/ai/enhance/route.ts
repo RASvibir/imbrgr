@@ -6,6 +6,7 @@ import { enhancePrompt } from "@/lib/ai/prompt-enhance";
 const schema = z.object({
   prompt: z.string().min(3).max(500),
   style: z.string().max(40).optional(),
+  kind: z.enum(["image", "video"]).optional(),
 });
 
 export async function POST(req: Request) {
@@ -14,6 +15,9 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid prompt" }, { status: 400 });
-  const result = await enhancePrompt(parsed.data.prompt, { style: parsed.data.style });
+  const result = await enhancePrompt(parsed.data.prompt, {
+    style: parsed.data.style,
+    kind: parsed.data.kind,
+  });
   return NextResponse.json(result);
 }

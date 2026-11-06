@@ -1,5 +1,10 @@
 import { generateKeyframe, type KeyframeParams } from "@/lib/ai/video-generate";
+import {
+  fetchPollinationsVideo,
+  pollinationsAssembledEnabled,
+} from "@/lib/ai/video-provider";
 import { selectStockProvider } from "@/lib/ai/stock/provider";
+import { newStorageKey, putObject } from "@/lib/storage";
 import { stockQueryFromPrompt, stockQueryLadder } from "./shots";
 import { pollGpuClip, storeGpuResult, submitGpuClip } from "@/lib/ai/gpu/client";
 
@@ -36,6 +41,37 @@ export interface ShotBackend {
   advanceShot?(params: AdvanceShotParams): Promise<ShotAdvance>;
 }
 
+/** Clamp to a range free Pollinations video models typically accept. */
+function pollinationsDurationSec(sec: number | undefined): number {
+  const n = sec == null || !Number.isFinite(sec) ? 5 : sec;
+  return Math.min(Math.max(Math.round(n), 3), 10);
+}
+
+async function tryPollinationsClip(params: RenderShotParams): Promise<RenderShotResult | null> {
+  if (!pollinationsAssembledEnabled() || params.mature) return null;
+  try {
+    const durationSec = pollinationsDurationSec(params.durationSec);
+    const { buffer, mimeType } = await fetchPollinationsVideo({
+      prompt: params.prompt,
+      durationSec,
+      aspectRatio: params.aspectRatio,
+      seed: params.seed,
+      safe: true,
+    });
+    const stored = await putObject(newStorageKey("mp4"), buffer, mimeType);
+    return {
+      videoUrl: stored.url,
+      mediaType: "video",
+      sourceDurationSec: durationSec,
+      creditName: "pollinations",
+      creditUrl: "https://pollinations.ai",
+    };
+  } catch (err) {
+    console.warn("[imbrgr/ai-video] pollinations video failed, falling back", err);
+    return null;
+  }
+}
+
 export const assembledBackend: ShotBackend = {
   name: "assembled-stills",
   tier: 1,
@@ -62,10 +98,14 @@ export const assembledBackend: ShotBackend = {
             }
           }
         } catch (err) {
-          console.warn("[imbrgr/ai-video] stock search failed, falling back to keyframe", err);
+          console.warn("[imbrgr/ai-video] stock search failed, falling back", err);
         }
       }
     }
+
+    // Zero-cost text→video when stock misses (or isn't configured).
+    const generated = await tryPollinationsClip(params);
+    if (generated) return generated;
 
     const imageUrl = await generateKeyframe(params);
     return {

@@ -76,12 +76,13 @@ Uploads and studio creations default to **public** on the gallery (Home / Hot). 
 
 ### AI pipeline (studio)
 
-1. **Prompt enhance** (optional checkbox): cache lookup → **Ollama** → **Groq** → **Gemini** for complex prompts (`src/lib/ai/prompt-enhance.ts`); skipped for very short prompts.
+1. **Prompt enhance** (optional): cache lookup → **Ollama** → **Groq** → **Gemini** for complex prompts (`src/lib/ai/prompt-enhance.ts`). Image and video use separate system prompts / cache namespaces.
 2. **Image generation:** **Pollinations** Flux (`gen.pollinations.ai`); optional **`POLLINATIONS_API_KEY`**; mock path when **`AI_MOCK=true`** (E2E).
-3. **Blocked prompts:** `src/lib/prompt-safety.ts` rejects disallowed patterns before generate/edit.
-4. **Daily allowance:** per-user count in `AiGenerationUsage` (limit **`AI_DAILY_LIMIT`** or per-user override); guests use **`AiAnonymousUsage`** keyed by IP hash with **`ANON_AI_DAILY_LIMIT`** / admin site setting.
-5. **Assist:** natural-language image edits (Gemini image route) and quick chips; preview before keep.
-6. Hourly caps also apply via **`UPLOAD_RATE_LIMIT_PER_HOUR`** and **`AI_RATE_LIMIT_PER_HOUR`**.
+3. **Video (zero-cost assembled path):** stock (optional free Pixabay/Pexels keys) → **Pollinations Gen** text→video (`AI_VIDEO_MODEL`, default Wan fast) → still keyframe + camera motion. Disable Pollinations with **`AI_VIDEO_ASSEMBLED_POLLINATIONS=false`**. Paid/self-host GPU is opt-in later via **`VIDEO_PROVIDER=gpu`**.
+4. **Blocked prompts:** `src/lib/prompt-safety.ts` rejects disallowed patterns before generate/edit.
+5. **Daily allowance:** per-user count in `AiGenerationUsage` (limit **`AI_DAILY_LIMIT`** or per-user override); guests use **`AiAnonymousUsage`** keyed by IP hash with **`ANON_AI_DAILY_LIMIT`** / admin site setting.
+6. **Assist:** natural-language image edits (Gemini image route) and quick chips; preview before keep.
+7. Hourly caps also apply via **`UPLOAD_RATE_LIMIT_PER_HOUR`** and **`AI_RATE_LIMIT_PER_HOUR`**.
 
 ### Admin console
 
@@ -89,7 +90,7 @@ Uploads and studio creations default to **public** on the gallery (Home / Hot). 
 
 ### Environment variables (names only)
 
-See the table below for descriptions. Never commit values. Common names: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, `STORAGE_DRIVER`, `BLOB_READ_WRITE_TOKEN`, `NEXT_PUBLIC_SITE_URL`, `USER_STORAGE_QUOTA_BYTES`, `ANON_STORAGE_QUOTA_BYTES`, `AI_DAILY_LIMIT`, `ANON_AI_DAILY_LIMIT`, `POLLINATIONS_API_KEY`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_IMAGE_MODEL`, `UPLOAD_RATE_LIMIT_PER_HOUR`, `AI_RATE_LIMIT_PER_HOUR`, `SUPERADMIN_USERNAMES`, `AI_MOCK`, `AI_ENHANCE_TIMEOUT_MS`.
+See the table below for descriptions. Never commit values. Common names: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AUTH_SECRET`, `STORAGE_DRIVER`, `BLOB_READ_WRITE_TOKEN`, `NEXT_PUBLIC_SITE_URL`, `USER_STORAGE_QUOTA_BYTES`, `ANON_STORAGE_QUOTA_BYTES`, `AI_DAILY_LIMIT`, `ANON_AI_DAILY_LIMIT`, `POLLINATIONS_API_KEY`, `POLLINATIONS_GEN_URL`, `AI_VIDEO_MODEL`, `AI_VIDEO_ASSEMBLED_POLLINATIONS`, `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `GEMINI_IMAGE_MODEL`, `UPLOAD_RATE_LIMIT_PER_HOUR`, `AI_RATE_LIMIT_PER_HOUR`, `SUPERADMIN_USERNAMES`, `AI_MOCK`, `AI_ENHANCE_TIMEOUT_MS`.
 
 ## Features
 

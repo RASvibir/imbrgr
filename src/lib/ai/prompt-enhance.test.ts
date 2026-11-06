@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { enhancePrompt, shouldUseGeminiFallback } from "./prompt-enhance";
+import {
+  enhanceCacheStyle,
+  enhancePrompt,
+  enhanceVideoPrompt,
+  shouldUseGeminiFallback,
+} from "./prompt-enhance";
 import { isComplexPrompt, shouldSkipEnhancement } from "./prompt-heuristics";
 
 describe("prompt heuristics", () => {
@@ -89,5 +94,28 @@ describe("shouldUseGeminiFallback", () => {
   it("requires complex + cheap failure", () => {
     expect(shouldUseGeminiFallback(true, true)).toBe(true);
     expect(shouldUseGeminiFallback(false, true)).toBe(false);
+  });
+});
+
+describe("enhanceVideoPrompt", () => {
+  it("namespaces cache style away from image enhancements", () => {
+    expect(enhanceCacheStyle("cinematic", "image")).toBe("cinematic");
+    expect(enhanceCacheStyle("cinematic", "video")).toBe("video:cinematic");
+    expect(enhanceCacheStyle(undefined, "video")).toBe("video:");
+  });
+
+  it("uses the video kind path", async () => {
+    let seenStyle: string | undefined;
+    const result = await enhanceVideoPrompt("sunset burger", { style: "cinematic" }, {
+      ollama: async () => "slow push-in on sizzling burger, golden hour",
+      cacheGet: async (_p, style) => {
+        seenStyle = style;
+        return null;
+      },
+      cacheSet: async () => undefined,
+    });
+    expect(seenStyle).toBe("video:cinematic");
+    expect(result.source).toBe("ollama");
+    expect(result.prompt).toContain("burger");
   });
 });

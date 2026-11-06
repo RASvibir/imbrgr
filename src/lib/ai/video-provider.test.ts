@@ -3,6 +3,8 @@ import sharp from "sharp";
 import { generateAiVideo } from "@/lib/ai/video-generate";
 import {
   buildCinematicVideoPrompt,
+  pollinationsAssembledEnabled,
+  pollinationsVideoUrl,
   resolveVideoDimensions,
   CAMERA_MOTIONS,
   VIDEO_STYLES,
@@ -31,6 +33,30 @@ describe("AI Video Provider", () => {
     expect(VIDEO_STYLES.length).toBeGreaterThanOrEqual(5);
     expect(CAMERA_MOTIONS.map((m) => m.id)).toContain("zoom-in");
     expect(CAMERA_MOTIONS.map((m) => m.id)).toContain("pan-right");
+  });
+
+  it("builds a Pollinations Gen video URL", () => {
+    const url = pollinationsVideoUrl({
+      prompt: "neon burger rain",
+      durationSec: 5,
+      aspectRatio: "16:9",
+      seed: 42,
+      safe: true,
+    });
+    expect(url).toContain("/video/");
+    expect(url).toContain("duration=5");
+    expect(url).toContain("aspectRatio=16%3A9");
+    expect(url).toContain("seed=42");
+    expect(url).toContain("safe=true");
+  });
+
+  it("disables Pollinations assembled path in test/mock", () => {
+    expect(pollinationsAssembledEnabled({ NODE_ENV: "test" })).toBe(false);
+    expect(pollinationsAssembledEnabled({ AI_MOCK: "true", NODE_ENV: "development" })).toBe(false);
+    expect(pollinationsAssembledEnabled({ NODE_ENV: "development", AI_VIDEO_ASSEMBLED_POLLINATIONS: "false" })).toBe(
+      false,
+    );
+    expect(pollinationsAssembledEnabled({ NODE_ENV: "development" })).toBe(true);
   });
 
   it("generates synthetic video result in test mode", async () => {
