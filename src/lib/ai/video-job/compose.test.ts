@@ -8,6 +8,15 @@ describe("composeGpuPrompt", () => {
     expect(out).toContain("smooth continuous motion");
   });
 
+  it("does not stack a second camera move when the scene already names one", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "a burger on a grill, gentle orbital camera drift around the subject",
+      motion: "zoom-in",
+    });
+    expect(out).toMatch(/orbital camera drift/i);
+    expect(out).not.toMatch(/push-in/i);
+  });
+
   it("writes continuation clips as what changes next", () => {
     const out = composeGpuPrompt({ visualPrompt: "flames rise", motion: "zoom-in", continuation: true });
     expect(out).toMatch(/^Continuing from the previous frame, same subject and setting, now flames rise/);

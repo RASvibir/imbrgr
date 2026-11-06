@@ -100,28 +100,31 @@ describe("shouldUseGeminiFallback", () => {
 describe("enhanceVideoPrompt", () => {
   it("namespaces cache style away from image enhancements", () => {
     expect(enhanceCacheStyle("cinematic", "image")).toBe("cinematic");
-    expect(enhanceCacheStyle("cinematic", "video")).toBe("video:cinematic");
-    expect(enhanceCacheStyle(undefined, "video")).toBe("video:");
+    expect(enhanceCacheStyle("cinematic", "video")).toBe("video:cinematic:");
+    expect(enhanceCacheStyle("cinematic", "video", "orbit")).toBe("video:cinematic:orbit");
+    expect(enhanceCacheStyle(undefined, "video")).toBe("video::");
   });
 
   it("uses the video kind path", async () => {
     let seenStyle: string | undefined;
-    const result = await enhanceVideoPrompt("sunset burger", { style: "cinematic" }, {
+    const result = await enhanceVideoPrompt("sunset burger", { style: "cinematic", motion: "orbit" }, {
       ollama: async () =>
-        "sizzling burger on a grill at sunset, steam rising, slow push-in, golden hour rim light, macro lens",
+        "sizzling burger on a grill at sunset, steam rising, golden hour rim light, macro lens",
       cacheGet: async (_p, style) => {
         seenStyle = style;
         return null;
       },
       cacheSet: async () => undefined,
     });
-    expect(seenStyle).toBe("video:cinematic");
+    expect(seenStyle).toBe("video:cinematic:orbit");
     expect(result.source).toBe("ollama");
     expect(result.prompt).toContain("burger");
+    expect(result.prompt).toMatch(/orbital camera drift/i);
+    expect(result.prompt).not.toMatch(/push-in/i);
   });
 
   it("falls back to local cinematic enrich when cheap LLMs fail", async () => {
-    const result = await enhanceVideoPrompt("sunset burger", {}, {
+    const result = await enhanceVideoPrompt("sunset burger", { motion: "pan-right" }, {
       ollama: async () => {
         throw new Error("down");
       },
@@ -135,10 +138,11 @@ describe("enhanceVideoPrompt", () => {
     expect(result.source).toBe("local");
     expect(result.prompt.toLowerCase()).toContain("sunset");
     expect(result.prompt.length).toBeGreaterThan("sunset burger".length);
-    expect(result.prompt).toMatch(/push-in|camera|motion|lighting|depth/i);
+    expect(result.prompt).toMatch(/truck to the right|motion|lighting|depth/i);
+    expect(result.prompt).not.toMatch(/push-in/i);
   });
 
-  it("fills missing motion language after a thin LLM rewrite", async () => {
+  it("fills missing subject motion after a thin LLM rewrite without inventing push-in", async () => {
     const result = await enhanceVideoPrompt("cat window", {}, {
       ollama: async () => "fluffy cat on a sunny windowsill",
       cacheGet: async () => null,
@@ -146,6 +150,7 @@ describe("enhanceVideoPrompt", () => {
     });
     expect(result.source).toBe("ollama");
     expect(result.prompt.toLowerCase()).toContain("cat");
-    expect(result.prompt).toMatch(/push-in|motion|lighting|depth|camera/i);
+    expect(result.prompt).toMatch(/motion|lighting|depth/i);
+    expect(result.prompt).not.toMatch(/push-in/i);
   });
 });

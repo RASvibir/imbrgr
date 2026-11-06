@@ -52,38 +52,34 @@ export const VIDEO_STYLES = [
   {
     id: "cinematic",
     label: "Cinematic Film",
-    promptSuffix:
-      "cinematic color grade, 35mm film grain, shallow depth of field, motivated practical lighting, deliberate camera move",
+    // Look/grade only — camera moves come from the Camera Motion control.
+    promptSuffix: "cinematic color grade, 35mm film grain, shallow depth of field, motivated practical lighting",
   },
   {
     id: "cyberpunk",
     label: "Cyberpunk Neon",
-    promptSuffix:
-      "neon glow and wet asphalt reflections, volumetric light shafts, futuristic night city, slow tracking through rain",
+    promptSuffix: "neon glow and wet asphalt reflections, volumetric light shafts, futuristic night city, rain-soaked streets",
   },
   {
     id: "anime",
     label: "Anime Motion",
     promptSuffix:
-      "vibrant anime motion, painterly backgrounds, expressive secondary motion, soft glowing rim light, clean cel shading",
+      "vibrant anime look, painterly backgrounds, expressive secondary motion, soft glowing rim light, clean cel shading",
   },
   {
     id: "hyperlapse",
     label: "Urban Hyperlapse",
-    promptSuffix:
-      "smooth urban hyperlapse, light trails, controlled motion blur, dramatic vanishing-point perspective, time compressed",
+    promptSuffix: "urban night energy, light trails, controlled motion blur, dramatic vanishing-point perspective, time-compressed feel",
   },
   {
     id: "macro",
     label: "Macro Sizzle",
-    promptSuffix:
-      "extreme macro close-up, sizzling textures and rising steam, droplet detail, mouth-watering focus rack, warm key light",
+    promptSuffix: "extreme macro close-up, sizzling textures and rising steam, droplet detail, mouth-watering focus, warm key light",
   },
   {
     id: "retro",
     label: "Retro 80s Synth",
-    promptSuffix:
-      "80s retro synthwave look, chrome reflections, neon grid horizon, sunset glow, gentle camera drift",
+    promptSuffix: "80s retro synthwave look, chrome reflections, neon grid horizon, sunset glow",
   },
 ] as const;
 

@@ -3,6 +3,7 @@ import {
   analyzeVideoPromptStructure,
   enrichVideoPromptLocal,
   needsVideoPromptEnrichment,
+  promptHasCameraMove,
   VIDEO_ENHANCE_SYSTEM,
   VIDEO_PROMPT_EXAMPLES,
 } from "./video-prompt";
@@ -14,6 +15,7 @@ const THIN_FIXTURES = [
   "city at night",
   "pouring coffee",
   "cinematic neon street",
+  "aerial neon city",
 ] as const;
 
 describe("video prompt structure analysis", () => {
@@ -28,10 +30,23 @@ describe("video prompt structure analysis", () => {
     expect(s.score).toBe(4);
   });
 
+  it("does not double-count shared framing terms as camera moves", () => {
+    const aerial = analyzeVideoPromptStructure("aerial neon city");
+    expect(aerial.hasFraming).toBe(true);
+    expect(aerial.hasLighting).toBe(true);
+    expect(aerial.hasCamera).toBe(false);
+    expect(aerial.hasMotion).toBe(false);
+    expect(aerial.score).toBe(2);
+    expect(needsVideoPromptEnrichment("aerial neon city")).toBe(true);
+
+    const macro = analyzeVideoPromptStructure("macro neon burger");
+    expect(macro.hasFraming).toBe(true);
+    expect(macro.hasCamera).toBe(false);
+  });
+
   it("flags thin prompts as needing enrichment", () => {
     for (const prompt of THIN_FIXTURES) {
       expect(needsVideoPromptEnrichment(prompt), prompt).toBe(true);
-      expect(analyzeVideoPromptStructure(prompt).score, prompt).toBeLessThan(3);
     }
   });
 });
@@ -46,23 +61,42 @@ describe("enrichVideoPromptLocal (zero-token free tier)", () => {
     }
   });
 
+  it("does not invent a default push-in when no motion is selected", () => {
+    const out = enrichVideoPromptLocal("sunset burger");
+    expect(out).not.toMatch(/push-in/i);
+    expect(promptHasCameraMove(out)).toBe(false);
+  });
+
+  it("respects selected Camera Motion instead of stacking a conflicting move", () => {
+    const out = enrichVideoPromptLocal("sunset burger", { motion: "orbit" });
+    expect(out).toMatch(/orbital camera drift/i);
+    expect(out).not.toMatch(/push-in/i);
+    expect(promptHasCameraMove(out)).toBe(true);
+  });
+
+  it("does not overwrite camera language the user already wrote", () => {
+    const withPan = "burger on a grill, steam rising, neon alley, smooth pan right, warm light, macro";
+    expect(enrichVideoPromptLocal(withPan, { motion: "orbit" })).toBe(withPan);
+  });
+
   it("leaves already-structured prompts alone", () => {
     const rich =
-      "barista pouring latte art, creamy swirl forming, sunlit café, gentle tilt-down, soft window light, shallow depth of field";
+      "barista pouring latte art, creamy swirl forming, sunlit café, soft window light, shallow depth of field";
     expect(enrichVideoPromptLocal(rich)).toBe(rich);
   });
 });
 
 describe("video prompt examples + system prompt fixtures", () => {
-  it("ships example starters that themselves clear the quality bar", () => {
+  it("ships example starters that themselves clear the quality bar without baking a camera move", () => {
     expect(VIDEO_PROMPT_EXAMPLES.length).toBeGreaterThanOrEqual(3);
     for (const ex of VIDEO_PROMPT_EXAMPLES) {
       expect(analyzeVideoPromptStructure(ex.prompt).score, ex.label).toBeGreaterThanOrEqual(3);
+      expect(promptHasCameraMove(ex.prompt), ex.label).toBe(false);
     }
   });
 
-  it("keeps the enhance system prompt structured for free models", () => {
-    expect(VIDEO_ENHANCE_SYSTEM).toMatch(/camera move/i);
+  it("keeps the enhance system prompt from inventing conflicting camera moves", () => {
+    expect(VIDEO_ENHANCE_SYSTEM).toMatch(/Do NOT invent a camera move/i);
     expect(VIDEO_ENHANCE_SYSTEM).toMatch(/lighting/i);
     expect(VIDEO_ENHANCE_SYSTEM).toMatch(/max 55 words/i);
     expect(VIDEO_ENHANCE_SYSTEM).toMatch(/Output only the prompt/i);
