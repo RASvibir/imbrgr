@@ -571,9 +571,16 @@ export function ImageStudio({
           </div>
         ) : null}
         {!kitchenOpen ? (
-          <p className="mt-2 text-xs text-[var(--text-muted)]">
-            The kitchen&apos;s resting — try again later or{" "}
-            <Link href="/auth/signin" className="text-[var(--accent-primary)]">sign in</Link>.
+          <p className="mt-2 text-xs text-[var(--text-muted)]" data-testid="kitchen-resting-hint">
+            {COPY.kitchenRestingHint}{" "}
+            <Link href="/upload" className="text-[var(--accent-primary)] hover:underline">
+              Stack upload
+            </Link>
+            {" · "}
+            <Link href="/auth/signin" className="text-[var(--accent-primary)] hover:underline">
+              sign in
+            </Link>
+            .
           </p>
         ) : null}
         {!signedIn ? (

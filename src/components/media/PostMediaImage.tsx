@@ -91,6 +91,32 @@ export function PostMediaImage({
           ) : null}
         </div>
       ) : null}
+
+      {failed && !shouldBlur ? (
+        <div
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-[var(--surface-sunken)]/95 p-4 text-center"
+          data-testid="post-media-load-error"
+        >
+          <p className="text-sm font-medium text-[var(--text-primary)]">Couldn&apos;t load this image</p>
+          <button
+            type="button"
+            className="tap-target rounded-lg border border-[var(--border-strong)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-primary)] hover:bg-[var(--surface-hover)]"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setFailed(false);
+              setLoaded(false);
+              const img = imgRef.current;
+              if (img) {
+                const next = src.includes("?") ? `${src}&_retry=${Date.now()}` : `${src}?_retry=${Date.now()}`;
+                img.src = next;
+              }
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      ) : null}
     </span>
   );
 }

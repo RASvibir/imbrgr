@@ -6,11 +6,14 @@ test.describe("Landing Preview (/landing-preview)", () => {
     expect(res?.status()).toBe(200);
 
     await expect(page.getByTestId("landing-preview-page")).toBeVisible();
+    await expect(page.getByTestId("home-brand-wordmark")).toContainText("imbrgr");
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "Make something fun in 10 seconds",
     );
     await expect(page.getByTestId("hero-dropzone")).toBeVisible();
     await expect(page.getByTestId("hero-sample-button")).toBeVisible();
+    await expect(page.getByTestId("host-path-section")).toBeVisible();
+    await expect(page.getByTestId("home-studio-prompt")).toBeVisible();
   });
 
   test("generates procedural sample burger and displays instant result rail", async ({

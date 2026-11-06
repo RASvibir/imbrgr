@@ -5,7 +5,7 @@ export function ThreeStepStrip() {
     {
       num: "01",
       title: "Pick or Drop",
-      desc: "Drop an image to see results instantly, or pick a blank canvas to build from scratch.",
+      desc: "Drop an image for instant local results, or upload to host it with a shareable link.",
       icon: "📥",
     },
     {

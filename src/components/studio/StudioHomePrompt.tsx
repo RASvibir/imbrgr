@@ -329,6 +329,14 @@ export function StudioHomePrompt() {
         </div>
       )}
 
+      <p className="mt-2 text-xs text-[var(--text-muted)]" data-testid="home-host-hint">
+        {COPY.hostPathHint} Prefer a multi-image gallery post?{" "}
+        <Link href="/upload" className="font-medium text-[var(--accent-primary)] hover:underline">
+          Stack upload
+        </Link>
+        .
+      </p>
+
       {uploading ? (
         <p className="mt-2 text-sm text-[var(--text-muted)]" role="status" data-testid="home-upload-progress">
           Plating your upload…

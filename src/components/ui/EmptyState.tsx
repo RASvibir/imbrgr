@@ -22,7 +22,7 @@ export function EmptyState({
       className="flex flex-col items-center px-4 py-12 text-center sm:py-16"
       data-testid="empty-state"
     >
-      {showMark ? <EmberBurgerHero compact={compactMark} className="mb-6" /> : null}
+      {showMark ? <EmberBurgerHero primary compact={compactMark} className="mb-6" /> : null}
       <h2 className="text-xl font-semibold text-[var(--text-primary)] sm:text-2xl">{title}</h2>
       {description ? (
         <p className="mt-2 max-w-md text-sm leading-relaxed text-[var(--text-secondary)] sm:text-base">

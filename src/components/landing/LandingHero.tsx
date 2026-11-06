@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { EmberBurgerHero } from "@/components/brand/EmberBurgerHero";
 import { createSampleBurgerFile } from "@/lib/landing/sample-image";
@@ -9,6 +10,7 @@ import { ResultRail } from "./ResultRail";
 export function LandingHero() {
   const [file, setFile] = useState<File | null>(null);
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoadingSample, setIsLoadingSample] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -16,24 +18,38 @@ export function LandingHero() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
-  const processSelectedFile = useCallback((selectedFile: File) => {
-    if (!selectedFile.type.startsWith("image/")) {
-      setErrorMsg("Please choose an image file (PNG, JPEG, WebP, GIF)");
-      return;
-    }
-    setErrorMsg(null);
+  useEffect(() => {
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [objectUrl]);
 
-    const url = URL.createObjectURL(selectedFile);
-    const img = new Image();
-    img.onload = () => {
-      setFile(selectedFile);
-      setImageEl(img);
-    };
-    img.onerror = () => {
-      setErrorMsg("Failed to read image. Please try a different file.");
-    };
-    img.src = url;
-  }, []);
+  const processSelectedFile = useCallback(
+    (selectedFile: File) => {
+      if (!selectedFile.type.startsWith("image/")) {
+        setErrorMsg("Please choose an image file (PNG, JPEG, WebP, GIF)");
+        return;
+      }
+      setErrorMsg(null);
+
+      const url = URL.createObjectURL(selectedFile);
+      const img = new Image();
+      img.onload = () => {
+        setObjectUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return url;
+        });
+        setFile(selectedFile);
+        setImageEl(img);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        setErrorMsg("Failed to read image. Please try a different file.");
+      };
+      img.src = url;
+    },
+    [],
+  );
 
   // Clipboard paste listener
   useEffect(() => {
@@ -100,6 +116,10 @@ export function LandingHero() {
   const handleClear = () => {
     setFile(null);
     setImageEl(null);
+    setObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
@@ -111,207 +131,235 @@ export function LandingHero() {
       data-testid="home-hero"
     >
       <div data-testid="landing-hero" className="contents">
-      {/* Decorative ember background glow */}
-      <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-[var(--accent-primary)]/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-[var(--accent-secondary)]/10 blur-3xl" />
+        {/* Decorative ember background glow */}
+        <div className="pointer-events-none absolute -top-24 -right-24 h-96 w-96 rounded-full bg-[var(--accent-primary)]/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-[var(--accent-secondary)]/10 blur-3xl" />
 
-      <div className="relative z-10 max-w-3xl">
-        {/* Brand chip */}
-        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10 px-3.5 py-1 text-xs font-semibold text-[var(--accent-primary)]">
-          <span>🔥</span>
-          <span>Drop it, see it</span>
-          <span className="text-[var(--text-muted)]">•</span>
-          <span className="text-[var(--text-secondary)]">All on device</span>
+        <div className="relative z-10 max-w-3xl">
+          {/* Brand lockup — hero-level signal */}
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-5">
+            <EmberBurgerHero primary />
+            <div>
+              <p
+                className="flex items-baseline text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl"
+                data-testid="home-brand-wordmark"
+              >
+                <span className="bg-gradient-to-br from-[var(--accent-primary)] via-[var(--accent-amber)] to-[var(--accent-amber)] bg-clip-text text-transparent">
+                  imbr
+                </span>
+                <span className="bg-gradient-to-r from-[var(--accent-secondary)] to-[var(--accent-magenta)] bg-clip-text text-transparent">
+                  gr
+                </span>
+              </p>
+              <p className="mt-1 text-sm font-medium tracking-wide text-[var(--text-secondary)] sm:text-base">
+                images, served hot
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[var(--accent-primary)]/30 bg-[var(--accent-primary)]/10 px-3.5 py-1 text-xs font-semibold text-[var(--accent-primary)]">
+            <span>Drop it, see it</span>
+            <span className="text-[var(--text-muted)]">•</span>
+            <span className="text-[var(--text-secondary)]">Host &amp; share anytime</span>
+          </div>
+
+          {/* Primary Headline — keeps e2e contract */}
+          <h1 className="mt-4 text-2xl font-extrabold tracking-tight text-[var(--text-primary)] sm:text-4xl lg:text-5xl">
+            Make something fun{" "}
+            <span className="cook-count-flame-text block sm:inline">in 10 seconds</span>
+          </h1>
+
+          <p className="mt-4 text-base text-[var(--text-secondary)] sm:text-lg">
+            Drop an image for instant memes, looping GIFs, and filters cooked on your device —
+            then host the result with a shareable link. Upload always works even when AI cooking
+            is resting.
+          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link
+              href="#host-path"
+              className={`${btnPrimary} text-sm`}
+              data-testid="hero-host-cta"
+            >
+              Upload &amp; host
+            </Link>
+            <Link
+              href="/upload"
+              className={`${btnSecondary} text-sm`}
+              data-testid="hero-stack-upload-cta"
+            >
+              Multi-image stack
+            </Link>
+          </div>
         </div>
 
-        {/* Primary Headline */}
-        <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[var(--text-primary)] sm:text-5xl lg:text-6xl">
-          Make something fun{" "}
-          <span className="cook-count-flame-text block sm:inline">
-            in 10 seconds
-          </span>
-        </h1>
+        {/* Hidden file inputs */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileInputChange}
+          data-testid="hero-file-input"
+          aria-label="Upload photo"
+        />
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFileInputChange}
+          data-testid="hero-camera-input"
+          aria-label="Take or choose photo"
+        />
 
-        <p className="mt-4 text-base text-[var(--text-secondary)] sm:text-lg">
-          No confusing menus or empty canvases. Drop an image below to see instant
-          memes, looping GIFs, collages, and burger effects cooked right on your
-          content.
-        </p>
-      </div>
+        {/* Drop Zone */}
+        <div className="relative z-10 mt-8">
+          {!file || !imageEl ? (
+            <div>
+              {/* Desktop / Tablet Large Drop Area */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest("button") === null) {
+                    fileInputRef.current?.click();
+                  }
+                }}
+                className={`group relative hidden sm:flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all ${
+                  isDragging
+                    ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 shadow-[var(--shadow-ember)]"
+                    : "border-[var(--border-strong)] bg-[var(--surface-sunken)] hover:border-[var(--accent-primary)] hover:bg-[var(--surface-hover)]"
+                }`}
+                data-testid="hero-dropzone"
+              >
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--surface-raised)] text-2xl shadow-md transition-transform group-hover:scale-110">
+                  <EmberBurgerHero compact />
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-[var(--text-primary)]">
+                  Drag &amp; drop an image, paste, or click to browse
+                </h3>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Supports PNG, JPG, WebP, GIF • Instant previews stay on your device
+                </p>
 
-      {/* Hidden file inputs */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileInputChange}
-        data-testid="hero-file-input"
-        aria-label="Upload photo"
-      />
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleFileInputChange}
-        data-testid="hero-camera-input"
-        aria-label="Take or choose photo"
-      />
-
-      {/* Drop Zone */}
-      <div className="relative z-10 mt-8">
-        {!file || !imageEl ? (
-          <div>
-            {/* Desktop / Tablet Large Drop Area */}
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={(e) => {
-                // If the user clicked outside the buttons, open file selector
-                if ((e.target as HTMLElement).closest("button") === null) {
-                  fileInputRef.current?.click();
-                }
-              }}
-              className={`group relative hidden sm:flex min-h-[220px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all ${
-                isDragging
-                  ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/10 shadow-[var(--shadow-ember)]"
-                  : "border-[var(--border-strong)] bg-[var(--surface-sunken)] hover:border-[var(--accent-primary)] hover:bg-[var(--surface-hover)]"
-              }`}
-              data-testid="hero-dropzone"
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--surface-raised)] text-2xl shadow-md transition-transform group-hover:scale-110">
-                <EmberBurgerHero compact />
+                <div className="mt-5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={btnPrimary}
+                    data-testid="hero-browse-button"
+                  >
+                    Choose an image
+                  </button>
+                  <span className="text-xs text-[var(--text-muted)]">or</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleUseSample();
+                    }}
+                    disabled={isLoadingSample}
+                    className={btnSecondary}
+                    data-testid="hero-sample-button"
+                  >
+                    {isLoadingSample ? "Cooking sample…" : "Use a sample"}
+                  </button>
+                </div>
               </div>
-              <h3 className="mt-4 text-base font-semibold text-[var(--text-primary)]">
-                Drag &amp; drop an image, paste, or click to browse
-              </h3>
-              <p className="mt-1 text-xs text-[var(--text-muted)]">
-                Supports PNG, JPG, WebP, GIF • Works 100% locally in your browser
-              </p>
 
-              <div className="mt-5 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className={btnPrimary}
-                  data-testid="hero-browse-button"
-                >
-                  Choose an image
-                </button>
-                <span className="text-xs text-[var(--text-muted)]">or</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void handleUseSample();
-                  }}
-                  disabled={isLoadingSample}
-                  className={btnSecondary}
-                  data-testid="hero-sample-button"
-                >
-                  {isLoadingSample ? "Cooking sample…" : "✨ Use a sample"}
-                </button>
+              {/* Mobile Collapsed Action View */}
+              <div
+                className="flex sm:hidden flex-col gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-5"
+                data-testid="hero-mobile-upload"
+              >
+                <div className="flex items-center gap-3">
+                  <EmberBurgerHero compact className="shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+                      Pick a photo to start
+                    </h3>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      See 5 instant results on your image
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => cameraInputRef.current?.click()}
+                    className={btnPrimary}
+                    data-testid="hero-mobile-camera-button"
+                  >
+                    Camera / Photos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleUseSample()}
+                    disabled={isLoadingSample}
+                    className={btnSecondary}
+                    data-testid="hero-mobile-sample-button"
+                  >
+                    {isLoadingSample ? "Cooking…" : "Sample"}
+                  </button>
+                </div>
               </div>
             </div>
-
-            {/* Mobile Collapsed Action View (Screen < 640px) */}
-            <div
-              className="flex sm:hidden flex-col gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-5"
-              data-testid="hero-mobile-upload"
-            >
-              <div className="flex items-center gap-3">
-                <EmberBurgerHero compact className="shrink-0" />
+          ) : (
+            /* Active Image State */
+            <div className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-black/40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imageEl.src}
+                    alt="Source photo preview"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                    Pick a photo to start
-                  </h3>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    See 5 instant results on your image
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent-primary)]">
+                    Active Source
+                  </p>
+                  <p className="truncate text-sm font-medium text-[var(--text-primary)] max-w-xs">
+                    {file.name}
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="mt-3 flex items-center gap-2 sm:mt-0">
                 <button
                   type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className={btnPrimary}
-                  data-testid="hero-mobile-camera-button"
-                >
-                  📷 Camera / Photos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleUseSample()}
-                  disabled={isLoadingSample}
+                  onClick={() => fileInputRef.current?.click()}
                   className={btnSecondary}
-                  data-testid="hero-mobile-sample-button"
                 >
-                  {isLoadingSample ? "Cooking…" : "✨ Sample"}
+                  Change photo
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="tap-target inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-semibold text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
+                  aria-label="Remove photo"
+                >
+                  Remove
                 </button>
               </div>
             </div>
-          </div>
-        ) : (
-          /* Active Image State */
-          <div className="flex flex-col rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative h-14 w-14 overflow-hidden rounded-xl border border-[var(--border-strong)] bg-black/40">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imageEl.src}
-                  alt="Source photo preview"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent-primary)]">
-                  Active Source
-                </p>
-                <p className="truncate text-sm font-medium text-[var(--text-primary)] max-w-xs">
-                  {file.name}
-                </p>
-              </div>
-            </div>
+          )}
 
-            <div className="mt-3 flex items-center gap-2 sm:mt-0">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className={btnSecondary}
-              >
-                Change photo
-              </button>
-              <button
-                type="button"
-                onClick={handleClear}
-                className="tap-target inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-xs font-semibold text-[var(--text-muted)] transition hover:text-[var(--text-primary)]"
-                aria-label="Remove photo"
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        )}
+          {errorMsg ? (
+            <p className="mt-3 text-sm font-medium text-[var(--danger)]" role="alert">
+              {errorMsg}
+            </p>
+          ) : null}
+        </div>
 
-        {/* Error message */}
-        {errorMsg ? (
-          <p
-            className="mt-3 text-sm font-medium text-[var(--danger)]"
-            role="alert"
-          >
-            {errorMsg}
-          </p>
+        {file && imageEl ? (
+          <ResultRail file={file} imageEl={imageEl} onClear={handleClear} />
         ) : null}
-      </div>
-
-      {/* Result Rail */}
-      {file && imageEl ? (
-        <ResultRail file={file} imageEl={imageEl} onClear={handleClear} />
-      ) : null}
       </div>
     </section>
   );

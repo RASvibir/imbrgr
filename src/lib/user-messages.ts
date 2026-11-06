@@ -27,7 +27,7 @@ export function friendlyError(raw: string | undefined | null): string {
     return "We couldn't apply that change — try different words or try again in a moment.";
   }
   if (lower.includes("not configured")) {
-    return "Image magic isn't available here yet — try a quick chip or manual edit.";
+    return "Image magic isn't available here yet — upload a photo instead, or try a quick chip / manual edit.";
   }
   if (
     lower.includes("generation failed") ||
@@ -37,10 +37,10 @@ export function friendlyError(raw: string | undefined | null): string {
     lower.includes("image_edit") ||
     /\b(4|5)\d{2}\b/.test(lower)
   ) {
-    return "We couldn't finish that image — tweak your description and try again.";
+    return "We couldn't finish that image — tweak your description, or upload a photo to host and refine instead.";
   }
   if (lower.includes("upstream_timeout") || lower.includes("timeout")) {
-    return "That took too long to finish — try a simpler description or try again in a moment.";
+    return "That took too long to finish — try a simpler description, upload a photo, or try again in a moment.";
   }
   if (lower.includes("invalid") && lower.includes("prompt")) {
     return "Tell us a bit more about what you want to see (a few words at least).";
@@ -79,4 +79,7 @@ export const COPY = {
   librarySavedToFolder: (name: string) => `Saved to folder “${name}”.`,
   guestDeleteHint:
     "Save this secret code somewhere safe — you'll need it to remove this guest upload later.",
+  kitchenRestingHint:
+    "The kitchen's resting — upload a photo to host and refine, or try again later.",
+  hostPathHint: "Upload always works even when AI cooking is offline.",
 } as const;
