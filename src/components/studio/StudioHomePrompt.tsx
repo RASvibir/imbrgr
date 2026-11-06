@@ -226,7 +226,7 @@ export function StudioHomePrompt() {
               onPaste={onPaste}
               placeholder={
                 mode === "video"
-                  ? "Describe an AI video (e.g. 'burger sizzling in neon rain'), or drop clips…"
+                  ? "Subject + motion + camera (e.g. 'burger sizzling, slow push-in, neon rain'), or drop clips…"
                   : "Describe an image, or drop one in to edit"
               }
               disabled={uploading}

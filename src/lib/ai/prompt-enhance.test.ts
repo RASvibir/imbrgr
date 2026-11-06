@@ -107,7 +107,8 @@ describe("enhanceVideoPrompt", () => {
   it("uses the video kind path", async () => {
     let seenStyle: string | undefined;
     const result = await enhanceVideoPrompt("sunset burger", { style: "cinematic" }, {
-      ollama: async () => "slow push-in on sizzling burger, golden hour",
+      ollama: async () =>
+        "sizzling burger on a grill at sunset, steam rising, slow push-in, golden hour rim light, macro lens",
       cacheGet: async (_p, style) => {
         seenStyle = style;
         return null;
@@ -117,5 +118,34 @@ describe("enhanceVideoPrompt", () => {
     expect(seenStyle).toBe("video:cinematic");
     expect(result.source).toBe("ollama");
     expect(result.prompt).toContain("burger");
+  });
+
+  it("falls back to local cinematic enrich when cheap LLMs fail", async () => {
+    const result = await enhanceVideoPrompt("sunset burger", {}, {
+      ollama: async () => {
+        throw new Error("down");
+      },
+      groq: async () => {
+        throw new Error("down");
+      },
+      gemini: async () => "should not run",
+      cacheGet: async () => null,
+      cacheSet: async () => undefined,
+    });
+    expect(result.source).toBe("local");
+    expect(result.prompt.toLowerCase()).toContain("sunset");
+    expect(result.prompt.length).toBeGreaterThan("sunset burger".length);
+    expect(result.prompt).toMatch(/push-in|camera|motion|lighting|depth/i);
+  });
+
+  it("fills missing motion language after a thin LLM rewrite", async () => {
+    const result = await enhanceVideoPrompt("cat window", {}, {
+      ollama: async () => "fluffy cat on a sunny windowsill",
+      cacheGet: async () => null,
+      cacheSet: async () => undefined,
+    });
+    expect(result.source).toBe("ollama");
+    expect(result.prompt.toLowerCase()).toContain("cat");
+    expect(result.prompt).toMatch(/push-in|motion|lighting|depth|camera/i);
   });
 });

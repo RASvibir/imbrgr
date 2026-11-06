@@ -26,6 +26,8 @@ describe("AI Video Provider", () => {
     const prompt = buildCinematicVideoPrompt("flame-grilled burger", "cyberpunk");
     expect(prompt).toContain("flame-grilled burger");
     expect(prompt).toContain("neon glow");
+    expect(prompt).toContain("smooth continuous motion");
+    expect(prompt).toContain("no watermark");
   });
 
   it("exposes known camera motions and video styles", () => {

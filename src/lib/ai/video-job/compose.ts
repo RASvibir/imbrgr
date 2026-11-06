@@ -1,13 +1,13 @@
 import { buildCinematicVideoPrompt, type CameraMotion } from "@/lib/ai/video-provider";
 
 const MOTION_PHRASE: Record<CameraMotion, string> = {
-  "zoom-in": "slow push-in toward the subject",
-  "zoom-out": "slow pull-back revealing the scene",
-  "pan-right": "smooth camera pan to the right",
-  "pan-left": "smooth camera pan to the left",
-  orbit: "camera orbiting around the subject",
-  pulse: "gentle rhythmic pulse of light and scale",
-  dramatic: "bold dramatic camera move with strong contrast",
+  "zoom-in": "slow cinematic push-in toward the focal point, steady framing",
+  "zoom-out": "smooth pull-back revealing the wider scene, locked horizon",
+  "pan-right": "smooth lateral truck to the right, constant subject distance",
+  "pan-left": "smooth lateral truck to the left, constant subject distance",
+  orbit: "gentle orbital camera drift around the subject, level horizon",
+  pulse: "subtle rhythmic scale pulse synced to a soft beat, no hard cuts",
+  dramatic: "controlled dolly-zoom perspective shift with strong contrast, no whip cuts",
 };
 
 const LADDERS: Record<number, string[]> = {

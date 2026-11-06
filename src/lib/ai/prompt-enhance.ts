@@ -1,13 +1,25 @@
 import { getCachedEnhancement, setCachedEnhancement } from "@/lib/ai/prompt-cache";
 import { isComplexPrompt, shouldSkipEnhancement } from "@/lib/ai/prompt-heuristics";
+import {
+  enrichVideoPromptLocal,
+  needsVideoPromptEnrichment,
+  VIDEO_ENHANCE_SYSTEM,
+} from "@/lib/ai/video-prompt";
 
-export type PromptSource = "ollama" | "groq" | "gemini" | "passthrough" | "skip" | "cache";
+export type PromptSource =
+  | "ollama"
+  | "groq"
+  | "gemini"
+  | "passthrough"
+  | "skip"
+  | "cache"
+  | "local";
 
 export type EnhanceKind = "image" | "video";
 
 const IMAGE_SYSTEM = `Rewrite into one vivid image prompt, max 40 words. Visual details only. No brands, trademarks, or meta text. Output only the prompt.`;
 
-const VIDEO_SYSTEM = `Rewrite into one vivid video prompt, max 45 words. Include subject, motion, camera move, and lighting. No brands, trademarks, or meta text. Output only the prompt.`;
+const VIDEO_SYSTEM = VIDEO_ENHANCE_SYSTEM;
 
 async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -41,6 +53,7 @@ async function ollamaEnhance(userPrompt: string, system: string): Promise<string
   const model = process.env.OLLAMA_MODEL ?? "llama3.2";
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (process.env.OLLAMA_API_KEY) headers.Authorization = `Bearer ${process.env.OLLAMA_API_KEY}`;
+  const videoish = system === VIDEO_SYSTEM;
   const body: Record<string, unknown> = {
     model,
     stream: false,
@@ -49,7 +62,7 @@ async function ollamaEnhance(userPrompt: string, system: string): Promise<string
       { role: "system", content: system },
       { role: "user", content: userPrompt },
     ],
-    options: { num_predict: 80, temperature: 0.6 },
+    options: { num_predict: videoish ? 120 : 80, temperature: videoish ? 0.55 : 0.6 },
   };
   const res = await fetch(`${host.replace(/\/$/, "")}/api/chat`, {
     method: "POST",
@@ -78,7 +91,7 @@ async function groqEnhance(userPrompt: string, system: string): Promise<string> 
         { role: "system", content: system },
         { role: "user", content: userPrompt },
       ],
-      max_tokens: 64,
+      max_tokens: system === VIDEO_SYSTEM ? 110 : 64,
       temperature: 0.5,
     }),
   });
@@ -99,7 +112,10 @@ async function geminiEnhance(userPrompt: string, system: string): Promise<string
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: `${system}\n\nUser: ${userPrompt}` }] }],
-      generationConfig: { maxOutputTokens: 64, temperature: 0.5 },
+      generationConfig: {
+        maxOutputTokens: system === VIDEO_SYSTEM ? 110 : 64,
+        temperature: 0.5,
+      },
     }),
   });
   if (!res.ok) throw new Error(`gemini ${res.status}`);
@@ -141,12 +157,24 @@ export async function enhancePrompt(
   const style = enhanceCacheStyle(options?.style, kind);
   const system = kind === "video" ? VIDEO_SYSTEM : IMAGE_SYSTEM;
 
+  const cacheGet = deps?.cacheGet ?? getCachedEnhancement;
+  const cacheSet = deps?.cacheSet ?? setCachedEnhancement;
+
+  // Video: skip LLM only when the prompt already has motion/camera/lighting structure.
+  // Image: keep the existing length/detail heuristic.
   if (!options?.force && shouldSkipEnhancement(trimmed)) {
+    if (kind === "video" && needsVideoPromptEnrichment(trimmed)) {
+      const prompt = enrichVideoPromptLocal(trimmed);
+      const result: EnhanceResult = {
+        prompt,
+        source: prompt === trimmed ? "skip" : "local",
+      };
+      await cacheSet(trimmed, style, result.prompt, result.source);
+      return result;
+    }
     return { prompt: trimmed, source: "skip" };
   }
 
-  const cacheGet = deps?.cacheGet ?? getCachedEnhancement;
-  const cacheSet = deps?.cacheSet ?? setCachedEnhancement;
   const cached = await cacheGet(trimmed, style);
   if (cached) return { ...cached, source: "cache" };
 
@@ -184,7 +212,14 @@ export async function enhancePrompt(
   }
 
   if (!result) {
-    result = { prompt: trimmed, source: "passthrough" };
+    if (kind === "video" && needsVideoPromptEnrichment(trimmed)) {
+      result = { prompt: enrichVideoPromptLocal(trimmed), source: "local" };
+    } else {
+      result = { prompt: trimmed, source: "passthrough" };
+    }
+  } else if (kind === "video" && needsVideoPromptEnrichment(result.prompt)) {
+    // Cheap models sometimes omit camera/motion — fill gaps without rewriting the subject.
+    result = { ...result, prompt: enrichVideoPromptLocal(result.prompt) };
   }
 
   await cacheSet(trimmed, style, result.prompt, result.source);

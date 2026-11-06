@@ -7,6 +7,7 @@ import {
   VIDEO_STYLES,
   type CameraMotion,
 } from "@/lib/ai/video-provider";
+import { VIDEO_PROMPT_EXAMPLES } from "@/lib/ai/video-prompt";
 import { getVideoLimits, type VideoMode } from "@/lib/ai/video-limits";
 import type { VisualClip } from "@/lib/video-timeline/timeline-types";
 
@@ -270,12 +271,31 @@ export function AiVideoGeneratorPanel({
               AI Video Prompt
             </label>
             <textarea
-              rows={2}
+              rows={3}
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="e.g. Sizzling smashed cheeseburger in cyberpunk neon rain, slow motion, shallow depth of field..."
+              placeholder="Subject + action, setting, camera move, lighting — e.g. smashed burger searing, neon alley rain, slow push-in, warm rim light…"
               className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-2.5 text-sm outline-none focus:border-[var(--accent-primary)]"
+              data-testid="ai-video-prompt-input"
             />
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              Tip: name what moves and how the camera travels. Short ideas are auto-expanded before render.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5" data-testid="ai-video-prompt-examples">
+              {VIDEO_PROMPT_EXAMPLES.map((ex) => (
+                <button
+                  key={ex.label}
+                  type="button"
+                  onClick={() => {
+                    setPrompt(ex.prompt);
+                    setError("");
+                  }}
+                  className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                >
+                  {ex.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
