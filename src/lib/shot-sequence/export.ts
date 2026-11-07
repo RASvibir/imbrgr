@@ -65,7 +65,7 @@ function sortedBeats(beats: ShotBeat[]): ShotBeat[] {
 
 /**
  * Fit a look-locked prompt into the director storyboard visualPrompt max (300).
- * Prefer keeping continuity (look / kit / style) over the raw beat prompt tail.
+ * Prefer keeping kit (+ style/action) intact; truncate look before those when space is tight.
  */
 export function fitStoryboardVisualPrompt(
   beat: ShotBeat,
@@ -75,23 +75,25 @@ export function fitStoryboardVisualPrompt(
     stylePresetSuffix?: string | null;
   },
 ): string {
-  const continuityParts: string[] = [];
-  const look = opts?.look?.trim();
-  if (look) continuityParts.push(`continuity look: ${look}`);
+  const minBase = 80;
+  const fixedParts: string[] = [];
   const kit = opts?.kitFragment?.trim();
-  if (kit) continuityParts.push(kit);
+  if (kit) fixedParts.push(kit);
   const style = opts?.stylePresetSuffix?.trim();
-  if (style) continuityParts.push(style);
-  if (beat.action?.trim()) continuityParts.push(`action: ${beat.action.trim()}`);
+  if (style) fixedParts.push(style);
+  if (beat.action?.trim()) fixedParts.push(`action: ${beat.action.trim()}`);
+  const fixed = fixedParts.join(". ");
 
-  const continuity = continuityParts.join(". ");
-  // Reserve room for continuity; keep at least ~80 chars of the beat prompt.
-  const continuityBudget = Math.min(continuity.length, STORYBOARD_VISUAL_MAX - 80);
-  const continuityTrimmed = continuity.slice(0, Math.max(0, continuityBudget));
-  const sep = continuityTrimmed ? 2 : 0;
-  const baseBudget = STORYBOARD_VISUAL_MAX - continuityTrimmed.length - sep;
+  const lookRaw = opts?.look?.trim() ? `continuity look: ${opts.look.trim()}` : "";
+  // Reserve kit/style/action first so a long look cannot push them off the end.
+  const roomForLook = Math.max(0, STORYBOARD_VISUAL_MAX - minBase - (fixed ? fixed.length + 2 : 0));
+  const lookTrimmed = lookRaw.slice(0, roomForLook);
+  const continuity = [lookTrimmed, fixed].filter(Boolean).join(". ");
+
+  const sep = continuity ? 2 : 0;
+  const baseBudget = STORYBOARD_VISUAL_MAX - continuity.length - sep;
   const base = beat.visualPrompt.trim().slice(0, Math.max(0, baseBudget));
-  return [base, continuityTrimmed].filter(Boolean).join(". ").slice(0, STORYBOARD_VISUAL_MAX);
+  return [base, continuity].filter(Boolean).join(". ").slice(0, STORYBOARD_VISUAL_MAX);
 }
 
 function studioHandoffHref(prompt: string, motion: ShotBeat["motion"]): string {

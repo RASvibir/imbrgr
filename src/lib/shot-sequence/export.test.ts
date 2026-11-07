@@ -42,6 +42,22 @@ describe("shot sequence export", () => {
     expect(prompt).toContain("cinematic lighting");
   });
 
+  it("reserves kit before truncating a long look", () => {
+    const beat: ShotBeat = {
+      ...source.beats[0]!,
+      visualPrompt: "a runner on the path",
+    };
+    const prompt = fitStoryboardVisualPrompt(beat, {
+      look: "L".repeat(400),
+      kitFragment: "kit Runner lock must survive",
+      stylePresetSuffix: "cinematic lighting",
+    });
+    expect(prompt.length).toBeLessThanOrEqual(300);
+    expect(prompt).toContain("kit Runner lock must survive");
+    expect(prompt).toContain("cinematic lighting");
+    expect(prompt).toContain("continuity look:");
+  });
+
   it("exports a clip pack with handoff and durations", () => {
     const pack = toClipPack(source);
     expect(pack.format).toBe("clip-pack");

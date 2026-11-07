@@ -6,6 +6,7 @@ import { getActor } from "@/lib/request-identity";
 import { ownsSequenceRow } from "@/lib/shot-sequence/access";
 import { exportSequence } from "@/lib/shot-sequence/export";
 import { kitPromptForSequence } from "@/lib/shot-sequence/resolve-kit";
+import { resolveSequenceVideoStyleId } from "@/lib/shot-sequence/resolve-video-style";
 import { parseBeats } from "@/lib/shot-sequence/serialize";
 import { exportFormatSchema } from "@/lib/shot-sequence/types";
 
@@ -29,8 +30,7 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   const kit = await kitPromptForSequence(row.kitShortId);
-  // Prefer kit style when present so exported stylePreset matches renderPrompt suffix.
-  const styleId = kit.stylePreset || row.stylePreset || null;
+  const styleId = resolveSequenceVideoStyleId(row.stylePreset, kit.stylePreset);
   const style = VIDEO_STYLES.find((s) => s.id === styleId);
   const payload = exportSequence(
     {
