@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef } from "react";
+import { CAMERA_MOTIONS, type CameraMotion } from "@/lib/ai/video-provider";
 import { formatTimecode } from "@/lib/video-timeline/timeline-ops";
 import type {
   AudioClip,
@@ -22,6 +23,10 @@ type Props = {
   onDeleteClip: (clipId: string) => void;
   onTrimClip: (clipId: string, newStartSec: number, newEndSec: number) => void;
   onUpdateTransition: (clipId: string, transition: TransitionType) => void;
+  onUpdateClipMotion?: (
+    clipId: string,
+    patch: { motion?: CameraMotion; motionLoop?: boolean },
+  ) => void;
 };
 
 const PIXELS_PER_SECOND = 60;
@@ -39,6 +44,7 @@ export function VideoTimelineTrackView({
   onDeleteClip,
   onTrimClip,
   onUpdateTransition,
+  onUpdateClipMotion,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const duration = Math.max(totalDurationSec, 4);
@@ -95,7 +101,7 @@ export function VideoTimelineTrackView({
           </button>
 
           {selectedClip ? (
-            <div className="flex items-center gap-1.5 border-l border-[var(--border-subtle)] pl-2">
+            <div className="flex flex-wrap items-center gap-1.5 border-l border-[var(--border-subtle)] pl-2">
               <span className="text-[11px] text-[var(--text-muted)]">Transition:</span>
               <select
                 value={selectedClip.transition ?? "none"}
@@ -109,6 +115,38 @@ export function VideoTimelineTrackView({
                 <option value="zoom">Zoom</option>
                 <option value="glitch">Glitch</option>
               </select>
+              {selectedClip.kind === "image" && onUpdateClipMotion ? (
+                <>
+                  <span className="text-[11px] text-[var(--text-muted)]">Motion:</span>
+                  <select
+                    value={selectedClip.motion ?? "zoom-in"}
+                    onChange={(e) =>
+                      onUpdateClipMotion(selectedClip.id, {
+                        motion: e.target.value as CameraMotion,
+                      })
+                    }
+                    className="rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-0.5 text-[11px]"
+                    data-testid="clip-motion-select"
+                  >
+                    {CAMERA_MOTIONS.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="flex items-center gap-1 text-[11px] text-[var(--text-secondary)]">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(selectedClip.motionLoop)}
+                      onChange={(e) =>
+                        onUpdateClipMotion(selectedClip.id, { motionLoop: e.target.checked })
+                      }
+                      data-testid="clip-motion-loop"
+                    />
+                    Loop
+                  </label>
+                </>
+              ) : null}
             </div>
           ) : null}
         </div>

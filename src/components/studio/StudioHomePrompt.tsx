@@ -284,6 +284,24 @@ export function StudioHomePrompt() {
             📹 Camera Sweep
           </Link>
           <Link
+            href="/studio?tab=video&preset=idle"
+            className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2.5 py-1 text-[var(--text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
+          >
+            Soft Idle
+          </Link>
+          <Link
+            href="/studio?tab=video&preset=pan-loop"
+            className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2.5 py-1 text-[var(--text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
+          >
+            Pan Loop
+          </Link>
+          <Link
+            href="/studio?tab=video&preset=zoom-loop"
+            className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2.5 py-1 text-[var(--text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]"
+          >
+            Zoom Loop
+          </Link>
+          <Link
             href="/studio?tab=video"
             className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2.5 py-1 font-semibold text-[var(--accent-primary)] hover:border-[var(--accent-primary)]"
           >

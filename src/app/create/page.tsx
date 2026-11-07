@@ -18,6 +18,31 @@ const PRESETS = [
     description: "Dynamic Ken Burns zoom & motion sweeps",
   },
   {
+    label: "🧍 Soft Idle Plate",
+    href: "/studio?tab=video&preset=idle",
+    description: "Subject idle breathing with a looping still-plate camera",
+  },
+  {
+    label: "🚶 Walk Cycle Clip",
+    href: "/studio?tab=video&preset=walk",
+    description: "Natural walking subject motion for AI video",
+  },
+  {
+    label: "🙌 Expressive Gesture",
+    href: "/studio?tab=video&preset=emote",
+    description: "Clear face and hand expression preset",
+  },
+  {
+    label: "↔️ Pan Loop Plate",
+    href: "/studio?tab=video&preset=pan-loop",
+    description: "Repeating lateral sweep for still plates",
+  },
+  {
+    label: "🔍 Zoom Loop Plate",
+    href: "/studio?tab=video&preset=zoom-loop",
+    description: "Repeating push and pull for still plates",
+  },
+  {
     label: "📼 80s VHS Glitch Reel",
     href: "/studio?tab=video&preset=vhs",
     description: "Analog tape scanlines & chromatic aberration",

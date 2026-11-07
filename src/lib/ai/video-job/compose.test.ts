@@ -73,4 +73,57 @@ describe("composeGpuPrompt with anchors", () => {
       ),
     ).toBe(true);
   });
+
+  it("uses characterMotion as action when the scene has no subject motion", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "hero in a raincoat",
+      motion: "zoom-in",
+      characterMotion: "walk",
+    });
+    expect(out).toMatch(/walks forward with a natural looping gait/i);
+    expect(out.match(/natural looping gait/gi)?.length ?? 0).toBe(1);
+  });
+
+  it("still applies characterMotion when the scene has unrelated motion words", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "hero in a raincoat, steam rising, rain streaking past",
+      motion: "zoom-in",
+      characterMotion: "walk",
+    });
+    expect(out).toMatch(/walks forward with a natural looping gait/i);
+  });
+
+  it("does not duplicate characterMotion when enhance already injected the phrase", () => {
+    const enhanced =
+      "hero in a raincoat, subject walks forward with a natural looping gait, steady pace, arms swinging lightly";
+    const out = composeGpuPrompt({
+      visualPrompt: enhanced,
+      motion: "zoom-in",
+      characterMotion: "walk",
+    });
+    expect(out.match(/natural looping gait/gi)?.length ?? 0).toBe(1);
+  });
+
+  it("uses characterMotion alone on continuation when there is no next-shot text", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "   ",
+      motion: "orbit",
+      characterMotion: "emote",
+      continuation: true,
+    });
+    expect(out).toMatch(/^Continuing from the previous frame: subject performs a clear expressive gesture/);
+  });
+
+  it("keeps next-shot visualPrompt on continuation and folds in characterMotion", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "waves crash harder against the pier",
+      motion: "orbit",
+      characterMotion: "walk",
+      continuation: true,
+    });
+    expect(out).toMatch(
+      /^Continuing from the previous frame, same subject and setting, now waves crash harder against the pier/,
+    );
+    expect(out).toMatch(/walks forward with a natural looping gait/i);
+  });
 });

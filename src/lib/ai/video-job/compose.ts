@@ -1,5 +1,11 @@
+import { CHARACTER_MOTION_PHRASE, type CharacterMotion } from "@/lib/ai/character-motion";
 import { buildCinematicVideoPrompt, type CameraMotion } from "@/lib/ai/video-provider";
-import { CAMERA_MOTION_PHRASE, promptHasCameraMove, withCameraMotionPhrase } from "@/lib/ai/video-prompt";
+import {
+  CAMERA_MOTION_PHRASE,
+  promptHasCameraMove,
+  promptHasCharacterMotionPhrase,
+  withCameraMotionPhrase,
+} from "@/lib/ai/video-prompt";
 
 const LADDERS: Record<number, string[]> = {
   2: ["wide establishing shot", "close-up"],
@@ -41,6 +47,8 @@ export type ComposeParams = ShotTextParams & {
   style?: string;
   /** What moves in this shot; chained clips use it instead of the scene text. */
   action?: string;
+  /** Subject motion preset used when `action` is omitted. */
+  characterMotion?: CharacterMotion;
   /** True when the clip starts from the previous clip's last frame. */
   continuation?: boolean;
 };
@@ -50,19 +58,51 @@ export type ComposeParams = ShotTextParams & {
  * A first clip gets framing, shared look, scene, action, camera and style. A chained clip already has its picture
  * (the previous last frame), so it only says what moves: re-describing the scene is what makes clips drift.
  * Camera language is skipped on every path when the text already names a move (including continuation).
+ * Subject-motion presets de-dupe only against that preset's phrase — steam/rain/etc. do not block them.
+ * Continuation always keeps the caller's visualPrompt (next-shot / extend text); characterMotion is folded in.
  */
 export function composeGpuPrompt(p: ComposeParams): string {
   const camera = CAMERA_MOTION_PHRASE[p.motion];
-  const action = p.action?.trim().replace(/[.\s]+$/, "");
-  if (p.continuation && action) {
-    const body = `Continuing from the previous frame: ${action}`;
+  const explicitAction = p.action?.trim().replace(/[.\s]+$/, "") || undefined;
+
+  if (p.continuation && explicitAction) {
+    const body = `Continuing from the previous frame: ${explicitAction}`;
     return promptHasCameraMove(body) ? body : `${body}, ${camera}`;
   }
-  const scene = composeShotText(p);
+
   if (p.continuation) {
-    const body = `Continuing from the previous frame, same subject and setting, now ${p.visualPrompt.trim().replace(/[.\s]+$/, "")}`;
+    const next = p.visualPrompt.trim().replace(/[.\s]+$/, "");
+    // Fold selected subject preset into the next-shot text; never drop the user's follow-up.
+    let moving = next;
+    if (p.characterMotion) {
+      const phrase = CHARACTER_MOTION_PHRASE[p.characterMotion];
+      if (!moving) moving = phrase;
+      else if (!promptHasCharacterMotionPhrase(moving, p.characterMotion)) {
+        moving = `${moving}, ${phrase}`;
+      }
+    }
+    if (!moving) {
+      const body = `Continuing from the previous frame, same subject and setting`;
+      return buildCinematicVideoPrompt(withCameraMotionPhrase(body, p.motion), p.style);
+    }
+    // Preset-only (no next-shot text): short action form. Otherwise keep the "now …" continuity line.
+    if (!next && p.characterMotion) {
+      const body = `Continuing from the previous frame: ${moving}`;
+      return promptHasCameraMove(body) ? body : `${body}, ${camera}`;
+    }
+    const body = `Continuing from the previous frame, same subject and setting, now ${moving}`;
     return buildCinematicVideoPrompt(withCameraMotionPhrase(body, p.motion), p.style);
   }
+
+  const scene = composeShotText(p);
+  // First clip: skip only when this exact preset phrase was already injected (e.g. by enhance).
+  const fromPreset =
+    !explicitAction &&
+    p.characterMotion &&
+    !promptHasCharacterMotionPhrase(scene, p.characterMotion)
+      ? CHARACTER_MOTION_PHRASE[p.characterMotion]
+      : undefined;
+  const action = explicitAction || fromPreset;
   const parts = [scene, action].filter(Boolean).join(", ");
   return buildCinematicVideoPrompt(withCameraMotionPhrase(parts, p.motion), p.style);
 }

@@ -1,4 +1,9 @@
-import { computeMotionTransform, transitionState, UNDERLAY_TAIL_SEC } from "@/lib/video-timeline/timeline-ops";
+import {
+  clipMotionProgress,
+  computeMotionTransform,
+  transitionState,
+  UNDERLAY_TAIL_SEC,
+} from "@/lib/video-timeline/timeline-ops";
 import type { TextOverlay, VisualClip } from "@/lib/video-timeline/timeline-types";
 
 export type DrawableSource = {
@@ -85,8 +90,10 @@ async function drawClipLayer(
   if (!src) return;
 
   const { width, height } = scene;
-  const clipDur = Math.max(0.1, clip.endSec - clip.startSec);
-  const progress = Math.max(0, Math.min(1, (timeSec - clip.startSec) / clipDur));
+  const progress = clipMotionProgress(timeSec, clip.startSec, clip.endSec, {
+    loop: clip.motionLoop,
+    loopPeriodSec: clip.motionLoopPeriodSec,
+  });
   const motion = computeMotionTransform(clip.motion, progress);
 
   ctx.save();

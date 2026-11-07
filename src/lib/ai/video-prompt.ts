@@ -3,6 +3,10 @@
  * Used when LLM enhance is unavailable/skipped, and as structure checks for eval fixtures.
  */
 
+import {
+  CHARACTER_MOTION_PHRASE,
+  type CharacterMotion,
+} from "@/lib/ai/character-motion";
 import { normalizePromptText } from "@/lib/ai/prompt-heuristics";
 import type { CameraMotion } from "@/lib/ai/video-provider";
 
@@ -65,7 +69,8 @@ export function promptHasCameraMove(prompt: string): boolean {
 
 export function analyzeVideoPromptStructure(prompt: string): VideoPromptStructure {
   const p = normalizePromptText(prompt);
-  const hasMotion = MOTION_MARKERS.test(p);
+  // Use promptHasSubjectMotion so injected idle/walk/emote phrases count as motion.
+  const hasMotion = promptHasSubjectMotion(p);
   const hasCamera = promptHasCameraMove(p);
   const hasLighting = LIGHTING_MARKERS.test(p);
   const hasFraming = FRAMING_MARKERS.test(p);
@@ -96,6 +101,11 @@ export type EnrichVideoOptions = {
    * When omitted, no camera move is invented (compose / render may add it later).
    */
   motion?: CameraMotion;
+  /**
+   * Studio Subject Motion preset (idle / walk / emote). When set, replaces the generic
+   * "gentle natural motion" filler and is appended when the prompt lacks subject motion.
+   */
+  characterMotion?: CharacterMotion;
 };
 
 /** Append the selected camera phrase only when the text does not already name a move. */
@@ -106,6 +116,38 @@ export function withCameraMotionPhrase(text: string, motion: CameraMotion): stri
   return normalizePromptText(`${base}, ${CAMERA_MOTION_PHRASE[motion]}`);
 }
 
+/** True when the text already contains this preset's phrase (verbatim), not any motion word. */
+export function promptHasCharacterMotionPhrase(
+  prompt: string,
+  characterMotion: CharacterMotion,
+): boolean {
+  const lower = normalizePromptText(prompt).toLowerCase();
+  if (!lower) return false;
+  return lower.includes(CHARACTER_MOTION_PHRASE[characterMotion].toLowerCase());
+}
+
+/**
+ * Append the selected subject-motion preset only when that preset's phrase is not already present.
+ * Unlike promptHasSubjectMotion, unrelated scene motion (steam, rain) does not block the control.
+ */
+export function withCharacterMotionPhrase(text: string, characterMotion: CharacterMotion): string {
+  const base = normalizePromptText(text);
+  const phrase = CHARACTER_MOTION_PHRASE[characterMotion];
+  if (!base) return phrase;
+  if (promptHasCharacterMotionPhrase(base, characterMotion)) return base;
+  return normalizePromptText(`${base}, ${phrase}`);
+}
+
+export function promptHasSubjectMotion(prompt: string): boolean {
+  const p = normalizePromptText(prompt);
+  if (MOTION_MARKERS.test(p)) return true;
+  // Belt-and-suspenders: detect any already-injected subject-motion preset phrase.
+  const lower = p.toLowerCase();
+  return Object.values(CHARACTER_MOTION_PHRASE).some((phrase) =>
+    lower.includes(phrase.toLowerCase()),
+  );
+}
+
 /**
  * Zero-token enricher for free-tier video: fills missing subject motion / lighting / framing
  * without inventing a conflicting camera move. Keeps the user's words first.
@@ -113,13 +155,27 @@ export function withCameraMotionPhrase(text: string, motion: CameraMotion): stri
 export function enrichVideoPromptLocal(prompt: string, options?: EnrichVideoOptions): string {
   const base = normalizePromptText(prompt);
   if (!base) return base;
-  if (!needsVideoPromptEnrichment(base) && !(options?.motion && !promptHasCameraMove(base))) {
+  const needsCharacter =
+    Boolean(options?.characterMotion) &&
+    !promptHasCharacterMotionPhrase(base, options!.characterMotion!);
+  if (
+    !needsVideoPromptEnrichment(base) &&
+    !(options?.motion && !promptHasCameraMove(base)) &&
+    !needsCharacter
+  ) {
     return base;
   }
 
   const structure = analyzeVideoPromptStructure(base);
   const extras: string[] = [];
-  if (!structure.hasMotion) extras.push(DEFAULT_MOTION);
+  // Selected subject preset is phrase-specific; generic filler only when no motion at all.
+  if (options?.characterMotion) {
+    if (!promptHasCharacterMotionPhrase(base, options.characterMotion)) {
+      extras.push(CHARACTER_MOTION_PHRASE[options.characterMotion]);
+    }
+  } else if (!structure.hasMotion) {
+    extras.push(DEFAULT_MOTION);
+  }
   if (!structure.hasLighting) extras.push(DEFAULT_LIGHTING);
   if (!structure.hasFraming) extras.push(DEFAULT_FRAMING);
   // Only inject camera language when the caller named the selected motion.

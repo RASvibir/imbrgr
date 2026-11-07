@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import {
+  CHARACTER_MOTIONS,
+  type CharacterMotion,
+} from "@/lib/ai/character-motion";
+import {
   CAMERA_MOTIONS,
   VIDEO_STYLES,
   type CameraMotion,
@@ -41,6 +45,8 @@ type Props = {
   availableAssets: { id: string; name: string; url: string; kind: "image" | "video" | "gif"; mature?: boolean }[];
   initialPrompt?: string;
   initialMotion?: CameraMotion;
+  initialCharacterMotion?: CharacterMotion;
+  initialMotionLoop?: boolean;
   initialStyle?: string;
 };
 
@@ -49,12 +55,18 @@ export function AiVideoGeneratorPanel({
   availableAssets,
   initialPrompt,
   initialMotion,
+  initialCharacterMotion,
+  initialMotionLoop,
   initialStyle,
 }: Props) {
   const [mode, setMode] = useState<"text" | "image">("text");
   const [prompt, setPrompt] = useState(() => initialPrompt ?? "");
   const [selectedStyle, setSelectedStyle] = useState<string>(() => initialStyle ?? "cinematic");
   const [selectedMotion, setSelectedMotion] = useState<CameraMotion>(() => initialMotion ?? "zoom-in");
+  const [selectedCharacterMotion, setSelectedCharacterMotion] = useState<CharacterMotion | "">(
+    () => initialCharacterMotion ?? "",
+  );
+  const [motionLoop, setMotionLoop] = useState<boolean>(() => Boolean(initialMotionLoop));
   const [clipKind, setClipKind] = useState<VideoMode>("video");
   const [durationSec, setDurationSec] = useState<number>(getVideoLimits("video").defaultSec);
   const limits = getVideoLimits(clipKind);
@@ -113,6 +125,7 @@ export function AiVideoGeneratorPanel({
           enhance: true,
           style: selectedStyle,
           motion: selectedMotion,
+          ...(selectedCharacterMotion ? { characterMotion: selectedCharacterMotion } : {}),
           mode: clipKind,
           durationSec,
           aspectRatio,
@@ -180,13 +193,15 @@ export function AiVideoGeneratorPanel({
       trackId: "visual-1",
       assetId: `asset-${Date.now()}`,
       url: assetUrl,
-      name: `${assetName} (${selectedMotion})`,
+      name: `${assetName} (${selectedMotion}${motionLoop ? " loop" : ""})`,
       kind: "image",
       startSec: 0,
       endSec: durationSec,
       sourceStartSec: 0,
       sourceDurationSec: durationSec,
       motion: selectedMotion,
+      motionLoop,
+      characterMotion: selectedCharacterMotion || undefined,
       transition: "fade",
       transitionDurationSec: 0.5,
     };
@@ -210,6 +225,8 @@ export function AiVideoGeneratorPanel({
         sourceStartSec: 0,
         sourceDurationSec: isVideo ? (shot.sourceDurationSec ?? shot.durationSec) : shot.durationSec,
         motion: isVideo ? undefined : shot.motion,
+        motionLoop: isVideo ? undefined : motionLoop,
+        characterMotion: isVideo ? undefined : selectedCharacterMotion || undefined,
         transition: "dissolve",
         transitionDurationSec:
           generatedPreview.continued && i === 0 ? CONTINUE_TRANSITION_SEC : Math.min(0.5, shot.durationSec / 2),
@@ -337,6 +354,7 @@ export function AiVideoGeneratorPanel({
                 value={selectedMotion}
                 onChange={(e) => setSelectedMotion(e.target.value as CameraMotion)}
                 className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-1.5 text-xs"
+                data-testid="ai-video-camera-motion"
               >
                 {CAMERA_MOTIONS.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -360,6 +378,38 @@ export function AiVideoGeneratorPanel({
                 data-testid="video-duration-slider"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-semibold text-[var(--text-muted)]">
+                Subject Motion
+              </label>
+              <select
+                value={selectedCharacterMotion}
+                onChange={(e) =>
+                  setSelectedCharacterMotion((e.target.value || "") as CharacterMotion | "")
+                }
+                className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-1.5 text-xs"
+                data-testid="ai-video-character-motion"
+              >
+                <option value="">None (prompt only)</option>
+                {CHARACTER_MOTIONS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <label className="flex items-end gap-2 pb-1.5 text-xs text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={motionLoop}
+                onChange={(e) => setMotionLoop(e.target.checked)}
+                data-testid="ai-video-motion-loop"
+              />
+              Loop still-plate camera
+            </label>
           </div>
 
           <div className="flex items-center justify-between">
@@ -540,6 +590,15 @@ export function AiVideoGeneratorPanel({
               ))}
             </div>
           </div>
+
+          <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+            <input
+              type="checkbox"
+              checked={motionLoop}
+              onChange={(e) => setMotionLoop(e.target.checked)}
+            />
+            Loop camera move on the plate
+          </label>
 
           <div>
             <label className="block text-xs font-semibold text-[var(--text-muted)]">

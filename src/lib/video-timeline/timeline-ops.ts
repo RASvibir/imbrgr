@@ -129,6 +129,31 @@ function ease(p: number): number {
 }
 
 /**
+ * Normalize clip-local time into 0–1 camera progress.
+ * With `loop`, progress ping-pongs so pan/zoom plates repeat without a hard cut reset.
+ */
+export function clipMotionProgress(
+  timeSec: number,
+  startSec: number,
+  endSec: number,
+  options?: { loop?: boolean; loopPeriodSec?: number },
+): number {
+  const clipDur = Math.max(0.1, endSec - startSec);
+  const elapsed = Math.max(0, timeSec - startSec);
+  if (!options?.loop) {
+    return Math.max(0, Math.min(1, elapsed / clipDur));
+  }
+  const periodRaw = options.loopPeriodSec;
+  const period =
+    periodRaw != null && Number.isFinite(periodRaw) && periodRaw > 0
+      ? periodRaw
+      : Math.min(clipDur, 4);
+  const t = (elapsed % period) / period;
+  // Ping-pong 0→1→0 so Ken Burns ends meet without a snap.
+  return t <= 0.5 ? t * 2 : (1 - t) * 2;
+}
+
+/**
  * Camera move for a still image. Every move keeps scale high enough that translation and rotation never reveal
  * the image edges: |translate| <= (scale - 1) / 2 * 100 percent.
  */

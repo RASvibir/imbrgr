@@ -1,3 +1,4 @@
+import type { CharacterMotion } from "@/lib/ai/character-motion";
 import type { CameraMotion } from "@/lib/ai/video-provider";
 import type { VideoMode } from "@/lib/ai/video-limits";
 
@@ -10,6 +11,7 @@ export type JobInput = {
   mode: VideoMode;
   durationSec: number;
   motion: CameraMotion;
+  characterMotion?: CharacterMotion;
   seed: number;
   mature: boolean;
   parentJobId?: string;

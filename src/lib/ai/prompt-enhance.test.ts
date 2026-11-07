@@ -100,9 +100,12 @@ describe("shouldUseGeminiFallback", () => {
 describe("enhanceVideoPrompt", () => {
   it("namespaces cache style away from image enhancements", () => {
     expect(enhanceCacheStyle("cinematic", "image")).toBe("cinematic");
-    expect(enhanceCacheStyle("cinematic", "video")).toBe("video:cinematic:");
-    expect(enhanceCacheStyle("cinematic", "video", "orbit")).toBe("video:cinematic:orbit");
-    expect(enhanceCacheStyle(undefined, "video")).toBe("video::");
+    expect(enhanceCacheStyle("cinematic", "video")).toBe("video:cinematic::");
+    expect(enhanceCacheStyle("cinematic", "video", "orbit")).toBe("video:cinematic:orbit:");
+    expect(enhanceCacheStyle("cinematic", "video", "orbit", "walk")).toBe(
+      "video:cinematic:orbit:walk",
+    );
+    expect(enhanceCacheStyle(undefined, "video")).toBe("video:::");
   });
 
   it("uses the video kind path", async () => {
@@ -116,7 +119,7 @@ describe("enhanceVideoPrompt", () => {
       },
       cacheSet: async () => undefined,
     });
-    expect(seenStyle).toBe("video:cinematic:orbit");
+    expect(seenStyle).toBe("video:cinematic:orbit:");
     expect(result.source).toBe("ollama");
     expect(result.prompt).toContain("burger");
     expect(result.prompt).toMatch(/orbital camera drift/i);

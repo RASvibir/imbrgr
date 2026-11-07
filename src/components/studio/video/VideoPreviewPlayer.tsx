@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import {
   formatTimecode,
+  clipMotionProgress,
   computeMotionTransform,
   transitionState,
   UNDERLAY_TAIL_SEC,
@@ -127,8 +128,10 @@ export function VideoPreviewPlayer({
     const activeClips = visualClips.filter((c) => time >= c.startSec && time < c.endSec);
 
     const drawVisual = (clip: VisualClip, clipTime: number, alpha: number) => {
-      const clipDuration = Math.max(0.1, clip.endSec - clip.startSec);
-      const clipProgress = Math.max(0, Math.min(1, (clipTime - clip.startSec) / clipDuration));
+      const clipProgress = clipMotionProgress(clipTime, clip.startSec, clip.endSec, {
+        loop: clip.motionLoop,
+        loopPeriodSec: clip.motionLoopPeriodSec,
+      });
       const motionTransform = computeMotionTransform(clip.motion, clipProgress);
 
       ctx.save();
