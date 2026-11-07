@@ -100,6 +100,13 @@ describe("enrichVideoPromptLocal (zero-token free tier)", () => {
     expect(out).toMatch(/orbital camera drift/i);
   });
 
+  it("detects hyphenated pan/tilt moves so enrich does not stack another camera", () => {
+    expect(promptHasCameraMove("burger sizzle, pan-left, neon night")).toBe(true);
+    expect(promptHasCameraMove("burger sizzle, tilt-up, neon night")).toBe(true);
+    const withPanLeft = "burger on a grill, steam rising, neon alley, pan-left, warm light, macro";
+    expect(enrichVideoPromptLocal(withPanLeft, { motion: "orbit" })).toBe(withPanLeft);
+  });
+
   it("leaves already-structured prompts alone", () => {
     const rich =
       "barista pouring latte art, creamy swirl forming, sunlit café, soft window light, shallow depth of field";

@@ -25,7 +25,7 @@ const MOTION_MARKERS =
  * Avoid bare truck/pan/camera so culinary "food truck" / "pan-fried" do not count as moves.
  */
 const CAMERA_MOVE_MARKERS =
-  /\b(push[\s-]?in|pull[\s-]?back|dolly(?:[\s-]?zoom)?|lateral\s+truck|truck(?:ing)?\s+to\s+the\s+(?:left|right)|(?:camera\s+)?pan(?:ning)?\s+(?:left|right|across|over)|whip[\s-]?pan|tilt(?:ing)?\s+(?:up|down)|orbit(?:al)?|tracking(?:\s+shot)?|handheld|steadicam|crane|drone|zoom(?:[\s-]?in|[\s-]?out)?|over[\s-]?shoulder|pov|vertigo|camera(?:\s+move|\s+drift|\s+orbit|\s+pan|\s+truck|\s+tilt|\s+zoom|\s+pulse)|(?:rhythmic\s+)?(?:camera\s+)?scale[\s-]?pulse|beat[\s-]?pulse)\b/i;
+  /\b(push[\s-]?in|pull[\s-]?back|dolly(?:[\s-]?zoom)?|lateral\s+truck|truck(?:ing)?(?:\s+to\s+the\s+|\s+|-)(?:left|right)|(?:camera[\s-])?pan(?:ning)?[\s-]+(?:left|right|across|over)|whip[\s-]?pan|tilt(?:ing)?[\s-]+(?:up|down)|orbit(?:al)?|tracking(?:\s+shot)?|handheld|steadicam|crane|drone|zoom(?:[\s-]?in|[\s-]?out)?|over[\s-]?shoulder|pov|vertigo|camera(?:\s+move|\s+drift|\s+orbit|\s+pan|\s+truck|\s+tilt|\s+zoom|\s+pulse)|(?:rhythmic\s+)?(?:camera\s+)?scale[\s-]?pulse|beat[\s-]?pulse)\b/i;
 
 const LIGHTING_MARKERS =
   /\b(light(?:ing)?|lit|glow|rim light|backlit|silhouette|golden hour|blue hour|neon|volumetric|softbox|practicals?|moonlight|sunlight|dusk|dawn|overcast|candle|ember|shadow|sunlit)\b/i;
