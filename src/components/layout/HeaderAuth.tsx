@@ -68,6 +68,9 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
           <Link href="/brands" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
             Brands
           </Link>
+          <Link href="/settings/manual" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
+            Manual
+          </Link>
           <Link href="/settings" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
             Settings
           </Link>
@@ -86,9 +89,14 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
           </button>
         </>
       ) : (
-        <Link href="/auth/signin" className={`${headerNavLinkPrimaryClass} hidden lg:inline-flex`}>
-          Sign in
-        </Link>
+        <>
+          <Link href="/settings/manual" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
+            Manual
+          </Link>
+          <Link href="/auth/signin" className={`${headerNavLinkPrimaryClass} hidden lg:inline-flex`}>
+            Sign in
+          </Link>
+        </>
       )}
     </nav>
   );

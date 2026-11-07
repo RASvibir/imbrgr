@@ -218,6 +218,16 @@ export function MobileBottomNav() {
               FieldPress ↗
             </a>
           </li>
+          <li>
+            <Link
+              href="/settings/manual"
+              className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+              data-testid="mobile-nav-user-manual"
+            >
+              User Manual
+            </Link>
+          </li>
           {session?.user ? (
             <>
               <li>
