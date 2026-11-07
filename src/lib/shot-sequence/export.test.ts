@@ -26,20 +26,52 @@ describe("shot sequence export", () => {
     expect(board.look).toContain("a runner at dawn");
   });
 
-  it("keeps look lock when beat prompt is long", () => {
-    const longBeat: ShotBeat = {
+  it("never drops the beat when kit+style overrun the budget", () => {
+    const beat: ShotBeat = {
       ...source.beats[0]!,
-      visualPrompt: "x".repeat(400),
+      visualPrompt: "a runner on the coastal path at dawn",
     };
-    const prompt = fitStoryboardVisualPrompt(longBeat, {
+    const prompt = fitStoryboardVisualPrompt(beat, {
+      look: "L".repeat(400),
+      kitFragment: "K".repeat(280),
+      stylePresetSuffix: "S".repeat(280),
+    });
+    expect(prompt.length).toBeLessThanOrEqual(300);
+    expect(prompt.startsWith("a runner on the coastal path at dawn")).toBe(true);
+    expect(prompt).toContain("a runner on the coastal path at dawn");
+  });
+
+  it("appends kit before look/style when the beat leaves room", () => {
+    const beat: ShotBeat = {
+      ...source.beats[0]!,
+      visualPrompt: "a runner on the path",
+    };
+    const prompt = fitStoryboardVisualPrompt(beat, {
       look: "shared coastal dawn palette",
       kitFragment: "kit Runner lock",
       stylePresetSuffix: "cinematic lighting",
     });
     expect(prompt.length).toBeLessThanOrEqual(300);
-    expect(prompt).toContain("continuity look: shared coastal dawn palette");
+    expect(prompt).toContain("a runner on the path");
     expect(prompt).toContain("kit Runner lock");
+    expect(prompt).toContain("continuity look: shared coastal dawn palette");
     expect(prompt).toContain("cinematic lighting");
+    expect(prompt.indexOf("kit Runner lock")).toBeLessThan(prompt.indexOf("continuity look:"));
+  });
+
+  it("truncates look before dropping kit when space is tight", () => {
+    const beat: ShotBeat = {
+      ...source.beats[0]!,
+      visualPrompt: "short beat",
+    };
+    const prompt = fitStoryboardVisualPrompt(beat, {
+      look: "L".repeat(400),
+      kitFragment: "kit Runner lock must survive",
+      stylePresetSuffix: "cinematic lighting",
+    });
+    expect(prompt.length).toBeLessThanOrEqual(300);
+    expect(prompt).toContain("short beat");
+    expect(prompt).toContain("kit Runner lock must survive");
   });
 
   it("exports a clip pack with handoff and durations", () => {

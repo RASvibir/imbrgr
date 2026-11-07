@@ -65,7 +65,7 @@ function sortedBeats(beats: ShotBeat[]): ShotBeat[] {
 
 /**
  * Fit a look-locked prompt into the director storyboard visualPrompt max (300).
- * Prefer keeping continuity (look / kit / style) over the raw beat prompt tail.
+ * Priority: shot description (beat) first — never omitted — then kit, then look/style.
  */
 export function fitStoryboardVisualPrompt(
   beat: ShotBeat,
@@ -75,23 +75,27 @@ export function fitStoryboardVisualPrompt(
     stylePresetSuffix?: string | null;
   },
 ): string {
-  const continuityParts: string[] = [];
-  const look = opts?.look?.trim();
-  if (look) continuityParts.push(`continuity look: ${look}`);
-  const kit = opts?.kitFragment?.trim();
-  if (kit) continuityParts.push(kit);
-  const style = opts?.stylePresetSuffix?.trim();
-  if (style) continuityParts.push(style);
-  if (beat.action?.trim()) continuityParts.push(`action: ${beat.action.trim()}`);
+  const beatText = beat.visualPrompt.trim();
+  const kitText = opts?.kitFragment?.trim() || "";
+  const lookText = opts?.look?.trim() ? `continuity look: ${opts.look.trim()}` : "";
+  const styleText = opts?.stylePresetSuffix?.trim() || "";
 
-  const continuity = continuityParts.join(". ");
-  // Reserve room for continuity; keep at least ~80 chars of the beat prompt.
-  const continuityBudget = Math.min(continuity.length, STORYBOARD_VISUAL_MAX - 80);
-  const continuityTrimmed = continuity.slice(0, Math.max(0, continuityBudget));
-  const sep = continuityTrimmed ? 2 : 0;
-  const baseBudget = STORYBOARD_VISUAL_MAX - continuityTrimmed.length - sep;
-  const base = beat.visualPrompt.trim().slice(0, Math.max(0, baseBudget));
-  return [base, continuityTrimmed].filter(Boolean).join(". ").slice(0, STORYBOARD_VISUAL_MAX);
+  // Beat alone may fill the budget; extras only append into leftover room.
+  let result = beatText.slice(0, STORYBOARD_VISUAL_MAX);
+  if (!result) return "".slice(0, STORYBOARD_VISUAL_MAX);
+
+  const append = (extra: string) => {
+    const room = STORYBOARD_VISUAL_MAX - result.length;
+    if (!extra || room < 3) return;
+    const take = extra.slice(0, room - 2);
+    if (!take) return;
+    result = `${result}. ${take}`;
+  };
+
+  append(kitText);
+  append(lookText);
+  append(styleText);
+  return result.slice(0, STORYBOARD_VISUAL_MAX);
 }
 
 function studioHandoffHref(prompt: string, motion: ShotBeat["motion"]): string {
