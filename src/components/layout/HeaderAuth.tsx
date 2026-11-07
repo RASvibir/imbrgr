@@ -56,6 +56,9 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
               Admin
             </Link>
           ) : null}
+          <Link href="/sequences" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
+            Sequences
+          </Link>
           <Link href="/library" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
             Library
           </Link>
