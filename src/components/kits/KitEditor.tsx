@@ -63,25 +63,30 @@ export function KitEditor({ mode, shortId }: Props) {
 
   const loadKit = useCallback(async () => {
     if (!shortId) return;
-    const res = await fetch(`/api/kits/${shortId}`);
-    const data = await res.json();
-    if (!res.ok) {
-      setErr(friendlyError(data.error ?? "Could not load kit"));
-      return;
+    try {
+      const res = await fetch(`/api/kits/${shortId}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(friendlyError(data.error ?? "Could not load kit"));
+        return;
+      }
+      const kit = data.kit as KitDetail;
+      setKitShortId(kit.shortId);
+      setName(kit.name);
+      setDescription(kit.description ?? "");
+      setStyleLock(kit.styleLock ?? "");
+      setStylePreset(kit.stylePreset ?? "");
+      setPalette({
+        primary: kit.palette?.primary ?? "",
+        secondary: kit.palette?.secondary ?? "",
+        accents: kit.palette?.accents ?? [],
+      });
+      setRefs(kit.refs ?? []);
+    } catch {
+      setErr("Could not load kit");
+    } finally {
+      setLoaded(true);
     }
-    const kit = data.kit as KitDetail;
-    setKitShortId(kit.shortId);
-    setName(kit.name);
-    setDescription(kit.description ?? "");
-    setStyleLock(kit.styleLock ?? "");
-    setStylePreset(kit.stylePreset ?? "");
-    setPalette({
-      primary: kit.palette?.primary ?? "",
-      secondary: kit.palette?.secondary ?? "",
-      accents: kit.palette?.accents ?? [],
-    });
-    setRefs(kit.refs ?? []);
-    setLoaded(true);
   }, [shortId]);
 
   const loadLibrary = useCallback(async () => {
@@ -202,6 +207,19 @@ export function KitEditor({ mode, shortId }: Props) {
 
   if (!loaded) {
     return <p className="p-8 text-center text-[var(--text-muted)]">Loading kit…</p>;
+  }
+
+  if (err && mode === "edit" && !name) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6" data-testid="kit-editor">
+        <p className="text-sm text-[var(--danger)]" role="alert">
+          {err}
+        </p>
+        <Link href="/kits" className="mt-4 inline-block text-sm text-[var(--accent-primary)] hover:underline">
+          ← All kits
+        </Link>
+      </div>
+    );
   }
 
   return (

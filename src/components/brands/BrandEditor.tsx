@@ -63,27 +63,32 @@ export function BrandEditor({ mode, shortId }: Props) {
 
   const loadBrand = useCallback(async () => {
     if (!shortId) return;
-    const res = await fetch(`/api/brands/${shortId}`);
-    const data = await res.json();
-    if (!res.ok) {
-      setErr(friendlyError(data.error ?? "Could not load brand kit"));
-      return;
+    try {
+      const res = await fetch(`/api/brands/${shortId}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(friendlyError(data.error ?? "Could not load brand kit"));
+        return;
+      }
+      const brand = data.brand as BrandDetail;
+      setBrandShortId(brand.shortId);
+      setName(brand.name);
+      setDescription(brand.description ?? "");
+      setStyleLock(brand.styleLock ?? "");
+      setTypographyLock(brand.typographyLock ?? "");
+      setStylePreset(brand.stylePreset ?? "");
+      setLogoSafeZone(brand.logoSafeZone ?? "BOTTOM_RIGHT");
+      setPalette({
+        primary: brand.palette?.primary ?? "",
+        secondary: brand.palette?.secondary ?? "",
+        accents: brand.palette?.accents ?? [],
+      });
+      setLogo(brand.logo);
+    } catch {
+      setErr("Could not load brand kit");
+    } finally {
+      setLoaded(true);
     }
-    const brand = data.brand as BrandDetail;
-    setBrandShortId(brand.shortId);
-    setName(brand.name);
-    setDescription(brand.description ?? "");
-    setStyleLock(brand.styleLock ?? "");
-    setTypographyLock(brand.typographyLock ?? "");
-    setStylePreset(brand.stylePreset ?? "");
-    setLogoSafeZone(brand.logoSafeZone ?? "BOTTOM_RIGHT");
-    setPalette({
-      primary: brand.palette?.primary ?? "",
-      secondary: brand.palette?.secondary ?? "",
-      accents: brand.palette?.accents ?? [],
-    });
-    setLogo(brand.logo);
-    setLoaded(true);
   }, [shortId]);
 
   const loadLibrary = useCallback(async () => {
@@ -194,6 +199,19 @@ export function BrandEditor({ mode, shortId }: Props) {
 
   if (!loaded) {
     return <p className="p-8 text-center text-[var(--text-muted)]">Loading brand kit…</p>;
+  }
+
+  if (err && mode === "edit" && !name) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6" data-testid="brand-editor">
+        <p className="text-sm text-[var(--danger)]" role="alert">
+          {err}
+        </p>
+        <Link href="/brands" className="mt-4 inline-block text-sm text-[var(--accent-primary)] hover:underline">
+          All brand kits
+        </Link>
+      </div>
+    );
   }
 
   return (
