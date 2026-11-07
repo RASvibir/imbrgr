@@ -929,7 +929,10 @@ export function MediaCreationSuite({
                               endSec: start + durationSec,
                               sourceStartSec: 0,
                               sourceDurationSec: durationSec,
-                              motion: kind === "image" ? "zoom-in" : undefined,
+                              motion: kind === "image" ? stillPlateMotion : undefined,
+                              motionLoop: kind === "image" ? stillPlateLoop : undefined,
+                              characterMotion:
+                                kind === "image" ? studioPreset.characterMotion : undefined,
                               transition: "fade",
                               transitionDurationSec: 0.5,
                             },

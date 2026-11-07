@@ -104,14 +104,26 @@ describe("composeGpuPrompt with anchors", () => {
     expect(out.match(/natural looping gait/gi)?.length ?? 0).toBe(1);
   });
 
-  it("uses characterMotion on continuation without restating the scene", () => {
+  it("uses characterMotion alone on continuation when there is no next-shot text", () => {
     const out = composeGpuPrompt({
-      visualPrompt: "long scene text with steam rising",
+      visualPrompt: "   ",
       motion: "orbit",
       characterMotion: "emote",
       continuation: true,
     });
     expect(out).toMatch(/^Continuing from the previous frame: subject performs a clear expressive gesture/);
-    expect(out).not.toContain("long scene text");
+  });
+
+  it("keeps next-shot visualPrompt on continuation and folds in characterMotion", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "waves crash harder against the pier",
+      motion: "orbit",
+      characterMotion: "walk",
+      continuation: true,
+    });
+    expect(out).toMatch(
+      /^Continuing from the previous frame, same subject and setting, now waves crash harder against the pier/,
+    );
+    expect(out).toMatch(/walks forward with a natural looping gait/i);
   });
 });
