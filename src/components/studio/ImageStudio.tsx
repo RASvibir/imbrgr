@@ -71,6 +71,7 @@ export function ImageStudio({
   remixFromShortId,
   initialPreset,
   initialMode,
+  initialKitShortId,
 }: {
   defaultTab?: string;
   initialPrompt?: string;
@@ -79,6 +80,7 @@ export function ImageStudio({
   remixFromShortId?: string;
   initialPreset?: string;
   initialMode?: string;
+  initialKitShortId?: string | null;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -107,6 +109,7 @@ export function ImageStudio({
   const [prompt, setPrompt] = useState(() => initialPrompt ?? "");
   const [enhance, setEnhance] = useState(true);
   const [style, setStyle] = useState("");
+  const [kitShortId, setKitShortId] = useState<string | null>(() => initialKitShortId ?? null);
   const [aspect, setAspect] = useState<keyof typeof ASPECT_PRESETS>("1:1");
   const [variations, setVariations] = useState(1);
   const [kitchenOpen, setKitchenOpen] = useState(true);
@@ -313,6 +316,7 @@ export function ImageStudio({
           variations,
           visibility: settings.visibility,
           keepOriginal,
+          kitShortId: kitShortId || undefined,
         }),
       });
       const data = await res.json();
@@ -717,6 +721,11 @@ export function ImageStudio({
             onVariationsChange={setVariations}
             visibility={settings.visibility ?? "PUBLIC"}
             onVisibilityChange={(v) => setSettings((s) => ({ ...s, visibility: v }))}
+            kitShortId={kitShortId}
+            onKitChange={(id, kit) => {
+              setKitShortId(id);
+              if (kit?.stylePreset && !style) setStyle(kit.stylePreset);
+            }}
             signedIn={signedIn}
             busy={busy}
             onGenerate={generate}

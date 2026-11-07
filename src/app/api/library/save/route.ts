@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { newShortId } from "@/lib/ids";
 import { libraryOwnerWhere, ownsLibraryRow } from "@/lib/library-access";
+import { LIBRARY_ASSET_KINDS } from "@/lib/library-kinds";
 import { isMediaOwner } from "@/lib/media-access";
 import { getActor } from "@/lib/request-identity";
 import { normalizeVisibility } from "@/lib/visibility";
@@ -13,6 +14,7 @@ const schema = z.object({
   folderName: z.string().min(1).max(80).optional(),
   visibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]).optional(),
   label: z.string().max(200).optional(),
+  kind: z.enum(LIBRARY_ASSET_KINDS).optional(),
 });
 
 export async function POST(req: Request) {
@@ -50,7 +52,12 @@ export async function POST(req: Request) {
   if (existing) {
     const updated = await prisma.librarySave.update({
       where: { id: existing.id },
-      data: { visibility, label: parsed.data.label ?? existing.label, savedAt: new Date() },
+      data: {
+        visibility,
+        label: parsed.data.label ?? existing.label,
+        kind: parsed.data.kind ?? existing.kind,
+        savedAt: new Date(),
+      },
       include: { folder: { select: { shortId: true, name: true } } },
     });
     return NextResponse.json({ save: updated, created: false });
@@ -63,6 +70,7 @@ export async function POST(req: Request) {
       folderId,
       visibility,
       label: parsed.data.label,
+      kind: parsed.data.kind ?? "GENERAL",
       ...owner,
     },
     include: { folder: { select: { shortId: true, name: true } } },

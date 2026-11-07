@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { libraryOwnerWhere } from "@/lib/library-access";
 import { STUDIO_AUTO_LIBRARY_LABEL } from "@/lib/library-constants";
+import { parseLibraryAssetKind } from "@/lib/library-kinds";
 import { getActor } from "@/lib/request-identity";
 import { mediaUrl } from "@/lib/urls";
 
@@ -9,6 +10,7 @@ export async function GET(req: Request) {
   const actor = await getActor(req, { persist: false });
   const { searchParams } = new URL(req.url);
   const folderShortId = searchParams.get("folder");
+  const kind = parseLibraryAssetKind(searchParams.get("kind"));
 
   let folderId: string | undefined;
   if (folderShortId) {
@@ -23,6 +25,7 @@ export async function GET(req: Request) {
     where: {
       ...libraryOwnerWhere(actor),
       ...(folderId ? { folderId } : {}),
+      ...(kind && kind !== "GENERAL" ? { kind } : {}),
     },
     orderBy: { savedAt: "desc" },
     take: 96,
@@ -52,10 +55,12 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     folders,
+    kind: kind && kind !== "GENERAL" ? kind : null,
     saves: saves.map((s) => ({
       shortId: s.shortId,
       savedAt: s.savedAt,
       visibility: s.visibility,
+      kind: s.kind,
       label: s.label === STUDIO_AUTO_LIBRARY_LABEL ? null : s.label,
       autoSaved: s.label === STUDIO_AUTO_LIBRARY_LABEL,
       folder: s.folder,

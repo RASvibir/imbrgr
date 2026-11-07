@@ -18,6 +18,8 @@ import {
   titleFromAiPrompt,
 } from "@/lib/ai/gallery-post";
 import { prisma } from "@/lib/db";
+import { ownsKitRow } from "@/lib/kit-access";
+import { applyKitToPrompt, buildKitPromptExtras } from "@/lib/kit-prompt";
 import { syncStudioAutoLibrarySave, parseStudioKeepOriginal } from "@/lib/library-auto-save";
 import { processAndStoreUpload } from "@/lib/media-save";
 import { getActor } from "@/lib/request-identity";
@@ -39,6 +41,7 @@ const schema = z.object({
   variations: z.number().int().min(1).max(4).optional(),
   visibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]).optional(),
   keepOriginal: z.boolean().optional(),
+  kitShortId: z.string().min(4).max(32).optional(),
 });
 
 export async function POST(req: Request) {
@@ -63,17 +66,48 @@ export async function POST(req: Request) {
     } else {
       await assertCanGenerateAiForAnonymous(actor.ipHash, needed);
     }
+    let kit: {
+      name: string;
+      styleLock: string | null;
+      paletteJson: unknown;
+      stylePreset: string | null;
+    } | null = null;
     let prompt = parsed.data.prompt;
+    if (parsed.data.kitShortId) {
+      const loaded = await prisma.characterKit.findUnique({
+        where: { shortId: parsed.data.kitShortId },
+        select: {
+          userId: true,
+          voterKey: true,
+          name: true,
+          styleLock: true,
+          paletteJson: true,
+          stylePreset: true,
+        },
+      });
+      if (!loaded || !ownsKitRow(loaded, actor)) {
+        return NextResponse.json({ error: "Character kit not found" }, { status: 404 });
+      }
+      kit = loaded;
+    }
+
+    const kitStylePreset = kit ? buildKitPromptExtras(kit).stylePreset : undefined;
+    const effectiveStyle = parsed.data.style || kitStylePreset;
+    // Enhance the user's prompt first; kit locks are applied afterward so
+    // style lock / palette / kit name are not stripped by enhancePrompt.
     if (parsed.data.enhance) {
       try {
-        const enhanced = await enhancePrompt(prompt, { style: parsed.data.style });
+        const enhanced = await enhancePrompt(prompt, { style: effectiveStyle });
         prompt = enhanced.prompt;
       } catch {
         /* use original prompt */
       }
     }
+    if (kit) {
+      prompt = applyKitToPrompt(prompt, kit);
+    }
 
-    const fullPrompt = buildFluxPrompt(prompt, parsed.data.style);
+    const fullPrompt = buildFluxPrompt(prompt, effectiveStyle);
     if (isPromptBlocked(prompt) || isPromptBlocked(fullPrompt)) {
       return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
     }

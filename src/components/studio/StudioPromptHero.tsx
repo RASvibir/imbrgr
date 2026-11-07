@@ -1,5 +1,6 @@
 "use client";
 
+import { CharacterKitSelector, type KitOption } from "@/components/kits/CharacterKitSelector";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
 import { STYLES } from "@/lib/ai/styles";
 import { VISIBILITY_OPTIONS, type Visibility } from "@/lib/visibility";
@@ -19,6 +20,8 @@ type Props = {
   onVariationsChange: (v: number) => void;
   visibility: Visibility;
   onVisibilityChange: (v: Visibility) => void;
+  kitShortId: string | null;
+  onKitChange: (shortId: string | null, kit?: KitOption | null) => void;
   signedIn: boolean;
   busy: boolean;
   onGenerate: () => void;
@@ -37,6 +40,8 @@ export function StudioPromptHero({
   onVariationsChange,
   visibility,
   onVisibilityChange,
+  kitShortId,
+  onKitChange,
   signedIn,
   busy,
   onGenerate,
@@ -44,6 +49,10 @@ export function StudioPromptHero({
   const canSubmit = prompt.trim().length >= 3 && !busy;
   return (
     <section className="rounded-2xl border border-[var(--border-subtle)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--surface-sunken)] p-5 sm:p-8 shadow-[var(--shadow-ember)]">
+      <div className="mb-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Character kit</p>
+        <CharacterKitSelector value={kitShortId} onChange={onKitChange} className="mt-1" />
+      </div>
       <label className="block">
         <textarea
           value={prompt}

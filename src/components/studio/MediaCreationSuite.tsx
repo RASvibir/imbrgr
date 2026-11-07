@@ -26,6 +26,7 @@ import type {
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
 import type { CameraMotion } from "@/lib/ai/video-provider";
 
+import { MyImagesPanel } from "@/components/library/MyImagesPanel";
 import { AiVideoGeneratorPanel } from "./video/AiVideoGeneratorPanel";
 import { VideoPluginsPanel } from "./video/VideoPluginsPanel";
 import { VideoTextOverlayPanel } from "./video/VideoTextOverlayPanel";
@@ -82,6 +83,7 @@ export function MediaCreationSuite({
   const [activeToolboxTab, setActiveToolboxTab] = useState<ToolboxTab>(
     () => initialToolboxTab ?? (initialPreset === "timeline" ? "assets" : "ai"),
   );
+  const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
 
   // Project state
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
@@ -852,6 +854,66 @@ export function MediaCreationSuite({
                     onChange={(e) => void onFiles(e.target.files)}
                   />
                 </label>
+                <button
+                  type="button"
+                  className={`${btnSecondary} w-full text-xs`}
+                  data-testid="video-assets-from-library"
+                  onClick={() => setLibraryPickerOpen((o) => !o)}
+                >
+                  {libraryPickerOpen ? "Hide library" : "Add from asset library"}
+                </button>
+                {libraryPickerOpen ? (
+                  <div
+                    className="max-h-80 overflow-y-auto rounded-xl border border-[var(--border-subtle)] p-2"
+                    data-testid="video-library-picker"
+                  >
+                    <MyImagesPanel
+                      compact
+                      onPickMedia={(media) => {
+                        const isVideo = media.mimeType.startsWith("video/");
+                        const isGif = media.mimeType === "image/gif";
+                        const kind = isVideo ? "video" : isGif ? "gif" : "image";
+                        const id = `asset-lib-${media.shortId}-${Date.now()}`;
+                        const durationSec = isVideo ? 5 : 3;
+                        const name = media.title?.trim() || `Library ${media.shortId}`;
+                        setImportedAssets((prev) => [
+                          ...prev,
+                          {
+                            id,
+                            file: new File([], name),
+                            url: media.previewUrl,
+                            name,
+                            kind,
+                            durationSec,
+                          },
+                        ]);
+                        setVisualClips((prev) => {
+                          const start = prev.length > 0 ? prev[prev.length - 1].endSec : 0;
+                          return [
+                            ...prev,
+                            {
+                              id: `clip-${id}`,
+                              trackId: "visual-1",
+                              assetId: id,
+                              url: media.previewUrl,
+                              name,
+                              kind,
+                              startSec: start,
+                              endSec: start + durationSec,
+                              sourceStartSec: 0,
+                              sourceDurationSec: durationSec,
+                              motion: kind === "image" ? "zoom-in" : undefined,
+                              transition: "fade",
+                              transitionDurationSec: 0.5,
+                            },
+                          ];
+                        });
+                        setLibraryPickerOpen(false);
+                        setStatus(`Added ${name} from library`);
+                      }}
+                    />
+                  </div>
+                ) : null}
 
                 {importedAssets.length > 0 ? (
                   <div className="space-y-2">
