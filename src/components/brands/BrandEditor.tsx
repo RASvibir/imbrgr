@@ -60,6 +60,7 @@ export function BrandEditor({ mode, shortId }: Props) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(mode === "create");
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const loadBrand = useCallback(async () => {
     if (!shortId) return;
@@ -68,6 +69,7 @@ export function BrandEditor({ mode, shortId }: Props) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setErr(friendlyError(data.error ?? "Could not load brand kit"));
+        setLoadFailed(true);
         return;
       }
       const brand = data.brand as BrandDetail;
@@ -84,8 +86,10 @@ export function BrandEditor({ mode, shortId }: Props) {
         accents: brand.palette?.accents ?? [],
       });
       setLogo(brand.logo);
+      setLoadFailed(false);
     } catch {
       setErr("Could not load brand kit");
+      setLoadFailed(true);
     } finally {
       setLoaded(true);
     }
@@ -201,11 +205,11 @@ export function BrandEditor({ mode, shortId }: Props) {
     return <p className="p-8 text-center text-[var(--text-muted)]">Loading brand kit…</p>;
   }
 
-  if (err && mode === "edit" && !name) {
+  if (loadFailed) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6" data-testid="brand-editor">
         <p className="text-sm text-[var(--danger)]" role="alert">
-          {err}
+          {err || "Could not load brand kit"}
         </p>
         <Link href="/brands" className="mt-4 inline-block text-sm text-[var(--accent-primary)] hover:underline">
           All brand kits
