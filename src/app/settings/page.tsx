@@ -123,6 +123,22 @@ export default function SettingsPage() {
         <Link href={`/u/${profile.username}`} className="text-[var(--accent-primary)]">View public profile</Link>
       </p>
 
+      <section
+        className="mt-6 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4"
+        data-testid="settings-user-manual-card"
+      >
+        <h2 className="font-semibold">User Manual</h2>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">
+          Short guide to hosting, Studio, library, kits, brands, sequences, animation presets, guests, and sharing.
+        </p>
+        <Link
+          href="/settings/manual"
+          className="tap-target mt-3 inline-flex rounded-xl bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--on-accent)]"
+        >
+          Open User Manual
+        </Link>
+      </section>
+
       <div className="mt-6">
         <StorageMeter />
       </div>

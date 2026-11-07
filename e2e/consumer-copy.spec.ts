@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = [
   "/tools/gif",
   "/tools/collage",
   "/tools/filters",
+  "/settings/manual",
 ];
 
 async function expectCleanPage(page: Page, path: string) {
