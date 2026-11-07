@@ -35,7 +35,14 @@ type FolderRow = {
   _count: { saves: number };
 };
 
-const KIND_FILTERS: LibraryAssetKind[] = ["GENERAL", "CHARACTER", "PROP", "BACKGROUND", "OTHER"];
+const KIND_FILTERS: LibraryAssetKind[] = [
+  "GENERAL",
+  "CHARACTER",
+  "PROP",
+  "BACKGROUND",
+  "LOGO",
+  "OTHER",
+];
 
 export function MyImagesPanel({
   initialFolderShortId,

@@ -18,6 +18,13 @@ import {
   titleFromAiPrompt,
 } from "@/lib/ai/gallery-post";
 import { prisma } from "@/lib/db";
+import { ownsBrandRow } from "@/lib/brand-access";
+import {
+  applyBrandToPrompt,
+  BRAND_CONSTRAINT_MODES,
+  buildBrandPromptExtras,
+  parseBrandConstraintMode,
+} from "@/lib/brand-prompt";
 import { ownsKitRow } from "@/lib/kit-access";
 import { applyKitToPrompt, buildKitPromptExtras } from "@/lib/kit-prompt";
 import { syncStudioAutoLibrarySave, parseStudioKeepOriginal } from "@/lib/library-auto-save";
@@ -42,6 +49,8 @@ const schema = z.object({
   visibility: z.enum(["PUBLIC", "UNLISTED", "PRIVATE"]).optional(),
   keepOriginal: z.boolean().optional(),
   kitShortId: z.string().min(4).max(32).optional(),
+  brandKitShortId: z.string().min(4).max(32).optional(),
+  brandMode: z.enum(BRAND_CONSTRAINT_MODES).optional(),
 });
 
 export async function POST(req: Request) {
@@ -72,7 +81,17 @@ export async function POST(req: Request) {
       paletteJson: unknown;
       stylePreset: string | null;
     } | null = null;
+    let brand: {
+      name: string;
+      styleLock: string | null;
+      paletteJson: unknown;
+      typographyLock: string | null;
+      stylePreset: string | null;
+      logoSafeZone: string;
+    } | null = null;
+    let effectiveBrandMode = parseBrandConstraintMode(parsed.data.brandMode);
     let prompt = parsed.data.prompt;
+
     if (parsed.data.kitShortId) {
       const loaded = await prisma.characterKit.findUnique({
         where: { shortId: parsed.data.kitShortId },
@@ -91,10 +110,38 @@ export async function POST(req: Request) {
       kit = loaded;
     }
 
+    if (parsed.data.brandKitShortId || effectiveBrandMode !== "none") {
+      if (parsed.data.brandKitShortId) {
+        const loaded = await prisma.brandKit.findUnique({
+          where: { shortId: parsed.data.brandKitShortId },
+          select: {
+            userId: true,
+            voterKey: true,
+            name: true,
+            styleLock: true,
+            paletteJson: true,
+            typographyLock: true,
+            stylePreset: true,
+            logoSafeZone: true,
+          },
+        });
+        if (!loaded || !ownsBrandRow(loaded, actor)) {
+          return NextResponse.json({ error: "Brand kit not found" }, { status: 404 });
+        }
+        brand = loaded;
+      }
+      if (effectiveBrandMode === "none" && parsed.data.brandKitShortId) {
+        effectiveBrandMode = "on_brand";
+      }
+    }
+
     const kitStylePreset = kit ? buildKitPromptExtras(kit).stylePreset : undefined;
-    const effectiveStyle = parsed.data.style || kitStylePreset;
-    // Enhance the user's prompt first; kit locks are applied afterward so
-    // style lock / palette / kit name are not stripped by enhancePrompt.
+    const brandStylePreset =
+      effectiveBrandMode !== "none" ? buildBrandPromptExtras(brand, effectiveBrandMode).stylePreset : undefined;
+    const effectiveStyle = parsed.data.style || kitStylePreset || brandStylePreset;
+
+    // Enhance the user's prompt first; kit/brand locks are applied afterward so
+    // palette / type / style / character locks are not stripped by enhancePrompt.
     if (parsed.data.enhance) {
       try {
         const enhanced = await enhancePrompt(prompt, { style: effectiveStyle });
@@ -105,6 +152,9 @@ export async function POST(req: Request) {
     }
     if (kit) {
       prompt = applyKitToPrompt(prompt, kit);
+    }
+    if (effectiveBrandMode !== "none") {
+      prompt = applyBrandToPrompt(prompt, brand, effectiveBrandMode);
     }
 
     const fullPrompt = buildFluxPrompt(prompt, effectiveStyle);

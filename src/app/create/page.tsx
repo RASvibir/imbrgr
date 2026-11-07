@@ -43,9 +43,14 @@ const PRESETS = [
     description: "Reusable refs, palettes, and style locks for consistent characters",
   },
   {
+    label: "🎨 Brand Kits",
+    href: "/brands",
+    description: "Palette, typography, and logo-safe layouts for on-brand art",
+  },
+  {
     label: "🗄️ Asset Library",
     href: "/library",
-    description: "Organize characters, props, and backgrounds for reuse",
+    description: "Organize characters, props, logos, and backgrounds for reuse",
   },
 ];
 

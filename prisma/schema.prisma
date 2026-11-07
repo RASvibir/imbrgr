@@ -48,6 +48,7 @@ model User {
   libraryFolders    LibraryFolder[]
   librarySaves      LibrarySave[]
   characterKits     CharacterKit[]
+  brandKits         BrandKit[]
   videoJobs         VideoJob[]
   shotSequences     ShotSequence[]
 }
@@ -145,6 +146,7 @@ model Media {
   librarySaves   LibrarySave[]
   kitCovers      CharacterKit[]    @relation("KitCover")
   kitRefs        CharacterKitRef[]
+  brandLogos     BrandKit[]        @relation("BrandLogo")
   storageKey     String
   mimeType       String
   byteSize       Int
@@ -174,6 +176,7 @@ enum LibraryAssetKind {
   CHARACTER
   PROP
   BACKGROUND
+  LOGO
   OTHER
 }
 
@@ -252,6 +255,35 @@ model CharacterKitRef {
 
   @@unique([kitId, mediaId])
   @@index([mediaId])
+}
+
+/// User brand identity for on-brand generation (palette, type, logo-safe layout).
+model BrandKit {
+  id              String   @id @default(cuid())
+  shortId         String   @unique
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voterKey        String?
+  name            String
+  description     String?  @db.Text
+  /// Brand look always appended when locking style
+  styleLock       String?  @db.Text
+  /// JSON: { primary?, secondary?, accents?: string[] } hex colors
+  paletteJson     Json?
+  /// Typography / lettering guidance for type-lock mode
+  typographyLock  String?  @db.Text
+  /// Optional STYLES key used as default look
+  stylePreset     String?
+  /// Where to keep clear space for a logo mark
+  logoSafeZone    String   @default("BOTTOM_RIGHT")
+  logoMediaId     String?
+  logoMedia       Media?   @relation("BrandLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  visibility      String   @default("PRIVATE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([voterKey])
 }
 
 model Tag {

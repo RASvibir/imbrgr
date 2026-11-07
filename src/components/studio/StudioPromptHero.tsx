@@ -1,7 +1,9 @@
 "use client";
 
+import { BrandKitSelector, type BrandKitOption } from "@/components/brands/BrandKitSelector";
 import { CharacterKitSelector, type KitOption } from "@/components/kits/CharacterKitSelector";
 import { ASPECT_PRESETS } from "@/lib/ai/image-prompt";
+import type { BrandConstraintMode } from "@/lib/brand-prompt";
 import { STYLES } from "@/lib/ai/styles";
 import { VISIBILITY_OPTIONS, type Visibility } from "@/lib/visibility";
 import { btnPrimary } from "@/lib/ui/button-classes";
@@ -22,6 +24,10 @@ type Props = {
   onVisibilityChange: (v: Visibility) => void;
   kitShortId: string | null;
   onKitChange: (shortId: string | null, kit?: KitOption | null) => void;
+  brandKitShortId: string | null;
+  brandMode: BrandConstraintMode;
+  onBrandKitChange: (shortId: string | null, brand?: BrandKitOption | null) => void;
+  onBrandModeChange: (mode: BrandConstraintMode) => void;
   signedIn: boolean;
   busy: boolean;
   onGenerate: () => void;
@@ -42,6 +48,10 @@ export function StudioPromptHero({
   onVisibilityChange,
   kitShortId,
   onKitChange,
+  brandKitShortId,
+  brandMode,
+  onBrandKitChange,
+  onBrandModeChange,
   signedIn,
   busy,
   onGenerate,
@@ -49,9 +59,23 @@ export function StudioPromptHero({
   const canSubmit = prompt.trim().length >= 3 && !busy;
   return (
     <section className="rounded-2xl border border-[var(--border-subtle)] bg-gradient-to-b from-[var(--surface-raised)] to-[var(--surface-sunken)] p-5 sm:p-8 shadow-[var(--shadow-ember)]">
-      <div className="mb-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Character kit</p>
-        <CharacterKitSelector value={kitShortId} onChange={onKitChange} className="mt-1" />
+      <div className="mb-3 space-y-3">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Character kit</p>
+          <CharacterKitSelector value={kitShortId} onChange={onKitChange} className="mt-1" />
+        </div>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">
+            Brand constraints
+          </p>
+          <BrandKitSelector
+            brandKitShortId={brandKitShortId}
+            brandMode={brandMode}
+            onBrandKitChange={onBrandKitChange}
+            onBrandModeChange={onBrandModeChange}
+            className="mt-1"
+          />
+        </div>
       </div>
       <label className="block">
         <textarea
