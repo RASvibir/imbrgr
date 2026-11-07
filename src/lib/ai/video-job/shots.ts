@@ -99,6 +99,7 @@ export function planGpuShots(input: JobInput, storyboard: Storyboard | null, max
         visualPrompt: shot?.visualPrompt ?? input.prompt,
         look: storyboard?.look,
         action: shot?.action,
+        characterMotion: input.characterMotion,
         scale: shot ? shotScaleFor(i, chain.clips.length) : undefined,
         motion,
         style: input.style,

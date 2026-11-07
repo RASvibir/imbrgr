@@ -27,6 +27,7 @@ const schema = z
     motion: z
       .enum(["zoom-in", "zoom-out", "pan-right", "pan-left", "orbit", "pulse", "dramatic"])
       .optional(),
+    characterMotion: z.enum(["idle", "walk", "emote"]).optional(),
     mode: z.enum(["gif", "video"]).optional(),
     durationSec: z.number().min(VIDEO_LIMITS.gif.minSec).max(VIDEO_LIMITS.video.maxSec).optional(),
     aspectRatio: z.enum(["16:9", "9:16", "1:1"]).optional(),
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
       const enhanced = await enhanceVideoPrompt(prompt, {
         style: parsed.data.style,
         motion: parsed.data.motion,
+        characterMotion: parsed.data.characterMotion,
       });
       prompt = enhanced.prompt;
     } catch {
@@ -117,6 +119,7 @@ export async function POST(req: Request) {
     mode,
     durationSec: clampVideoDuration(mode, parsed.data.durationSec),
     motion: parsed.data.motion ?? "zoom-in",
+    characterMotion: parsed.data.characterMotion,
     seed: parsed.data.seed ?? Math.floor(Math.random() * 2_147_483_647),
     mature: matureRequested,
     parentJobId: parsed.data.parentJobId,

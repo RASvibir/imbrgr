@@ -1,3 +1,4 @@
+import { CHARACTER_MOTION_PHRASE, type CharacterMotion } from "@/lib/ai/character-motion";
 import { buildCinematicVideoPrompt, type CameraMotion } from "@/lib/ai/video-provider";
 import { CAMERA_MOTION_PHRASE, promptHasCameraMove, withCameraMotionPhrase } from "@/lib/ai/video-prompt";
 
@@ -41,6 +42,8 @@ export type ComposeParams = ShotTextParams & {
   style?: string;
   /** What moves in this shot; chained clips use it instead of the scene text. */
   action?: string;
+  /** Subject motion preset used when `action` is omitted. */
+  characterMotion?: CharacterMotion;
   /** True when the clip starts from the previous clip's last frame. */
   continuation?: boolean;
 };
@@ -53,7 +56,9 @@ export type ComposeParams = ShotTextParams & {
  */
 export function composeGpuPrompt(p: ComposeParams): string {
   const camera = CAMERA_MOTION_PHRASE[p.motion];
-  const action = p.action?.trim().replace(/[.\s]+$/, "");
+  const action =
+    p.action?.trim().replace(/[.\s]+$/, "") ||
+    (p.characterMotion ? CHARACTER_MOTION_PHRASE[p.characterMotion] : undefined);
   if (p.continuation && action) {
     const body = `Continuing from the previous frame: ${action}`;
     return promptHasCameraMove(body) ? body : `${body}, ${camera}`;

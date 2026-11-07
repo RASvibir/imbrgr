@@ -3,6 +3,7 @@
  * Inspired by OpenCut / pacNcap timeline paradigms.
  */
 
+import type { CharacterMotion } from "@/lib/ai/character-motion";
 import type { CameraMotion } from "@/lib/ai/video-provider";
 import type { PerformanceMode } from "@/lib/video-plugins/plugin-types";
 
@@ -30,6 +31,12 @@ export type VisualClip = {
   sourceStartSec: number; // Trim in-point from source
   sourceDurationSec: number; // Total length of source
   motion?: CameraMotion;
+  /** When true, Ken Burns progress ping-pongs for seamless still-plate loops. */
+  motionLoop?: boolean;
+  /** Optional subject-motion tag (metadata / AI prompt intent). */
+  characterMotion?: CharacterMotion;
+  /** Loop period in seconds for motionLoop; defaults to min(clip duration, 4). */
+  motionLoopPeriodSec?: number;
   transition?: TransitionType;
   transitionDurationSec?: number;
   mature?: boolean;

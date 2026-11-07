@@ -74,6 +74,12 @@ describe("enrichVideoPromptLocal (zero-token free tier)", () => {
     expect(promptHasCameraMove(out)).toBe(true);
   });
 
+  it("uses character motion presets instead of generic subject motion", () => {
+    const out = enrichVideoPromptLocal("hero in a raincoat", { characterMotion: "walk" });
+    expect(out).toMatch(/walking forward|looping gait/i);
+    expect(out).not.toMatch(/gentle natural motion/i);
+  });
+
   it("does not overwrite camera language the user already wrote", () => {
     const withPan = "burger on a grill, steam rising, neon alley, smooth pan right, warm light, macro";
     expect(enrichVideoPromptLocal(withPan, { motion: "orbit" })).toBe(withPan);

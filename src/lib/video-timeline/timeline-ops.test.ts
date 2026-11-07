@@ -5,6 +5,7 @@ import {
   trimClip,
   calculateTimelineDuration,
   findActiveVisualClips,
+  clipMotionProgress,
   computeMotionTransform,
 } from "@/lib/video-timeline/timeline-ops";
 import type { VisualClip } from "@/lib/video-timeline/timeline-types";
@@ -113,5 +114,15 @@ describe("Timeline Operations", () => {
     expect(computeMotionTransform("pan-right", 1).translateXPercent).toBeLessThan(0);
     expect(computeMotionTransform("pan-left", 0).translateXPercent).toBeLessThan(0);
     expect(computeMotionTransform("zoom-out", 1).scale).toBeCloseTo(1.0);
+  });
+
+  it("ping-pongs looped plate progress so pan/zoom plates do not snap", () => {
+    expect(clipMotionProgress(0, 0, 8, { loop: true, loopPeriodSec: 4 })).toBe(0);
+    expect(clipMotionProgress(1, 0, 8, { loop: true, loopPeriodSec: 4 })).toBeCloseTo(0.5);
+    expect(clipMotionProgress(2, 0, 8, { loop: true, loopPeriodSec: 4 })).toBeCloseTo(1);
+    expect(clipMotionProgress(3, 0, 8, { loop: true, loopPeriodSec: 4 })).toBeCloseTo(0.5);
+    expect(clipMotionProgress(4, 0, 8, { loop: true, loopPeriodSec: 4 })).toBeCloseTo(0);
+    // One-shot path still maps linearly across the clip.
+    expect(clipMotionProgress(2, 0, 8)).toBeCloseTo(0.25);
   });
 });

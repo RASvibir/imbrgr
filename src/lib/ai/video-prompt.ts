@@ -3,6 +3,10 @@
  * Used when LLM enhance is unavailable/skipped, and as structure checks for eval fixtures.
  */
 
+import {
+  CHARACTER_MOTION_PHRASE,
+  type CharacterMotion,
+} from "@/lib/ai/character-motion";
 import { normalizePromptText } from "@/lib/ai/prompt-heuristics";
 import type { CameraMotion } from "@/lib/ai/video-provider";
 
@@ -96,6 +100,11 @@ export type EnrichVideoOptions = {
    * When omitted, no camera move is invented (compose / render may add it later).
    */
   motion?: CameraMotion;
+  /**
+   * Studio Subject Motion preset (idle / walk / emote). When set, replaces the generic
+   * "gentle natural motion" filler and is appended when the prompt lacks subject motion.
+   */
+  characterMotion?: CharacterMotion;
 };
 
 /** Append the selected camera phrase only when the text does not already name a move. */
@@ -106,6 +115,19 @@ export function withCameraMotionPhrase(text: string, motion: CameraMotion): stri
   return normalizePromptText(`${base}, ${CAMERA_MOTION_PHRASE[motion]}`);
 }
 
+/** Append subject-motion phrase when the text does not already describe physical action. */
+export function withCharacterMotionPhrase(text: string, characterMotion: CharacterMotion): string {
+  const base = normalizePromptText(text);
+  const phrase = CHARACTER_MOTION_PHRASE[characterMotion];
+  if (!base) return phrase;
+  if (promptHasSubjectMotion(base)) return base;
+  return normalizePromptText(`${base}, ${phrase}`);
+}
+
+export function promptHasSubjectMotion(prompt: string): boolean {
+  return MOTION_MARKERS.test(normalizePromptText(prompt));
+}
+
 /**
  * Zero-token enricher for free-tier video: fills missing subject motion / lighting / framing
  * without inventing a conflicting camera move. Keeps the user's words first.
@@ -113,13 +135,25 @@ export function withCameraMotionPhrase(text: string, motion: CameraMotion): stri
 export function enrichVideoPromptLocal(prompt: string, options?: EnrichVideoOptions): string {
   const base = normalizePromptText(prompt);
   if (!base) return base;
-  if (!needsVideoPromptEnrichment(base) && !(options?.motion && !promptHasCameraMove(base))) {
+  const needsCharacter =
+    Boolean(options?.characterMotion) && !promptHasSubjectMotion(base);
+  if (
+    !needsVideoPromptEnrichment(base) &&
+    !(options?.motion && !promptHasCameraMove(base)) &&
+    !needsCharacter
+  ) {
     return base;
   }
 
   const structure = analyzeVideoPromptStructure(base);
   const extras: string[] = [];
-  if (!structure.hasMotion) extras.push(DEFAULT_MOTION);
+  if (!structure.hasMotion) {
+    extras.push(
+      options?.characterMotion
+        ? CHARACTER_MOTION_PHRASE[options.characterMotion]
+        : DEFAULT_MOTION,
+    );
+  }
   if (!structure.hasLighting) extras.push(DEFAULT_LIGHTING);
   if (!structure.hasFraming) extras.push(DEFAULT_FRAMING);
   // Only inject camera language when the caller named the selected motion.

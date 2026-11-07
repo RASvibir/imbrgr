@@ -1,5 +1,6 @@
 import { getCachedEnhancement, setCachedEnhancement } from "@/lib/ai/prompt-cache";
 import { isComplexPrompt, shouldSkipEnhancement } from "@/lib/ai/prompt-heuristics";
+import type { CharacterMotion } from "@/lib/ai/character-motion";
 import type { CameraMotion } from "@/lib/ai/video-provider";
 import {
   enrichVideoPromptLocal,
@@ -131,8 +132,11 @@ export function enhanceCacheStyle(
   style: string | undefined,
   kind: EnhanceKind,
   motion?: CameraMotion,
+  characterMotion?: CharacterMotion,
 ): string {
-  if (kind === "video") return `video:${style ?? ""}:${motion ?? ""}`;
+  if (kind === "video") {
+    return `video:${style ?? ""}:${motion ?? ""}:${characterMotion ?? ""}`;
+  }
   return style ?? "";
 }
 
@@ -144,6 +148,8 @@ export type EnhanceOptions = {
   kind?: EnhanceKind;
   /** Selected studio camera motion — local enrich uses this instead of inventing a push-in. */
   motion?: CameraMotion;
+  /** Selected subject / character motion preset (idle / walk / emote). */
+  characterMotion?: CharacterMotion;
 };
 
 type EnhanceDeps = {
@@ -162,8 +168,10 @@ export async function enhancePrompt(
   const trimmed = userPrompt.trim();
   const kind: EnhanceKind = options?.kind ?? "image";
   const motion = kind === "video" ? options?.motion : undefined;
-  const style = enhanceCacheStyle(options?.style, kind, motion);
+  const characterMotion = kind === "video" ? options?.characterMotion : undefined;
+  const style = enhanceCacheStyle(options?.style, kind, motion, characterMotion);
   const system = kind === "video" ? VIDEO_SYSTEM : IMAGE_SYSTEM;
+  const enrichOpts = { motion, characterMotion };
 
   const cacheGet = deps?.cacheGet ?? getCachedEnhancement;
   const cacheSet = deps?.cacheSet ?? setCachedEnhancement;
@@ -171,8 +179,8 @@ export async function enhancePrompt(
   // Video: skip LLM only when the prompt already has motion/camera/lighting structure.
   // Image: keep the existing length/detail heuristic.
   if (!options?.force && shouldSkipEnhancement(trimmed)) {
-    if (kind === "video" && needsVideoPromptEnrichment(trimmed)) {
-      const prompt = enrichVideoPromptLocal(trimmed, { motion });
+    if (kind === "video" && (needsVideoPromptEnrichment(trimmed) || characterMotion)) {
+      const prompt = enrichVideoPromptLocal(trimmed, enrichOpts);
       const result: EnhanceResult = {
         prompt,
         source: prompt === trimmed ? "skip" : "local",
@@ -220,17 +228,14 @@ export async function enhancePrompt(
   }
 
   if (!result) {
-    if (kind === "video" && needsVideoPromptEnrichment(trimmed)) {
-      result = { prompt: enrichVideoPromptLocal(trimmed, { motion }), source: "local" };
+    if (kind === "video" && (needsVideoPromptEnrichment(trimmed) || characterMotion)) {
+      result = { prompt: enrichVideoPromptLocal(trimmed, enrichOpts), source: "local" };
     } else {
       result = { prompt: trimmed, source: "passthrough" };
     }
-  } else if (kind === "video" && needsVideoPromptEnrichment(result.prompt)) {
-    // Cheap models sometimes omit subject motion — fill gaps without inventing a camera move.
-    result = { ...result, prompt: enrichVideoPromptLocal(result.prompt, { motion }) };
-  } else if (kind === "video" && motion) {
-    // Ensure selected Camera Motion lands in the prompt when the LLM omitted any camera move.
-    result = { ...result, prompt: enrichVideoPromptLocal(result.prompt, { motion }) };
+  } else if (kind === "video" && (needsVideoPromptEnrichment(result.prompt) || motion || characterMotion)) {
+    // Fill subject/camera gaps; characterMotion replaces the generic motion filler when set.
+    result = { ...result, prompt: enrichVideoPromptLocal(result.prompt, enrichOpts) };
   }
 
   await cacheSet(trimmed, style, result.prompt, result.source);

@@ -13,6 +13,7 @@ import {
 } from "@/lib/video-plugins";
 import {
   calculateTimelineDuration,
+  clipMotionProgress,
   splitClipAtTime,
   trimClip,
   computeMotionTransform,
@@ -24,7 +25,9 @@ import type {
   VisualClip,
 } from "@/lib/video-timeline/timeline-types";
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
-import type { CameraMotion } from "@/lib/ai/video-provider";
+import type { CharacterMotion } from "@/lib/ai/character-motion";
+import { CAMERA_MOTIONS, type CameraMotion } from "@/lib/ai/video-provider";
+import { resolveStudioVideoPreset } from "@/lib/ai/plate-presets";
 
 import { MyImagesPanel } from "@/components/library/MyImagesPanel";
 import { AiVideoGeneratorPanel } from "./video/AiVideoGeneratorPanel";
@@ -80,10 +83,19 @@ export function MediaCreationSuite({
   initialToolboxTab,
   initialAsset,
 }: MediaCreationSuiteProps = {}) {
+  const studioPreset = useMemo(() => resolveStudioVideoPreset(initialPreset), [initialPreset]);
   const [activeToolboxTab, setActiveToolboxTab] = useState<ToolboxTab>(
-    () => initialToolboxTab ?? (initialPreset === "timeline" ? "assets" : "ai"),
+    () =>
+      initialToolboxTab ??
+      (initialPreset === "timeline" || studioPreset.plate?.kind === "camera-loop" ? "assets" : "ai"),
   );
   const [libraryPickerOpen, setLibraryPickerOpen] = useState(false);
+
+  // Default still-plate motion when inserting images from Assets.
+  const [stillPlateMotion, setStillPlateMotion] = useState<CameraMotion>(
+    () => studioPreset.cameraMotion ?? "zoom-in",
+  );
+  const [stillPlateLoop, setStillPlateLoop] = useState<boolean>(() => Boolean(studioPreset.motionLoop));
 
   // Project state
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16" | "1:1">("16:9");
@@ -117,6 +129,7 @@ export function MediaCreationSuite({
     const url = `/api/media/file/${initialAsset.storageKey}`;
     const kind = isVideo ? "video" : initialAsset.mimeType === "image/gif" ? "gif" : "image";
     const durationSec = isVideo ? 5 : 3;
+    const preset = resolveStudioVideoPreset(initialPreset);
     return [
       {
         id: `clip-${id}`,
@@ -129,7 +142,9 @@ export function MediaCreationSuite({
         endSec: durationSec,
         sourceStartSec: 0,
         sourceDurationSec: durationSec,
-        motion: kind === "image" ? (initialPreset as CameraMotion) || "zoom-in" : undefined,
+        motion: kind === "image" ? preset.cameraMotion ?? "zoom-in" : undefined,
+        motionLoop: kind === "image" ? Boolean(preset.motionLoop) : undefined,
+        characterMotion: kind === "image" ? preset.characterMotion : undefined,
         transition: "dissolve",
         transitionDurationSec: 0.5,
       },
@@ -251,7 +266,9 @@ export function MediaCreationSuite({
               endSec: start + durationSec,
               sourceStartSec: 0,
               sourceDurationSec: durationSec,
-              motion: kind === "image" ? "zoom-in" : undefined,
+              motion: kind === "image" ? stillPlateMotion : undefined,
+              motionLoop: kind === "image" ? stillPlateLoop : undefined,
+              characterMotion: kind === "image" ? studioPreset.characterMotion : undefined,
               transition: "dissolve",
               transitionDurationSec: 0.5,
             },
@@ -354,6 +371,19 @@ export function MediaCreationSuite({
   const handleUpdateTransition = (clipId: string, transition: TransitionType) => {
     setVisualClips((prev) =>
       prev.map((c) => (c.id === clipId ? { ...c, transition } : c)),
+    );
+  };
+
+  const handleUpdateClipMotion = (
+    clipId: string,
+    patch: {
+      motion?: CameraMotion;
+      motionLoop?: boolean;
+      characterMotion?: CharacterMotion;
+    },
+  ) => {
+    setVisualClips((prev) =>
+      prev.map((c) => (c.id === clipId ? { ...c, ...patch } : c)),
     );
   };
 
@@ -530,8 +560,10 @@ export function MediaCreationSuite({
       // 2. Render Active Visual Clips
       const active = visualClips.filter((c) => time >= c.startSec && time < c.endSec);
       for (const clip of active) {
-        const clipDur = Math.max(0.1, clip.endSec - clip.startSec);
-        const progress = Math.max(0, Math.min(1, (time - clip.startSec) / clipDur));
+        const progress = clipMotionProgress(time, clip.startSec, clip.endSec, {
+          loop: clip.motionLoop,
+          loopPeriodSec: clip.motionLoopPeriodSec,
+        });
         const motion = computeMotionTransform(clip.motion, progress);
 
         ctx.save();
@@ -818,14 +850,9 @@ export function MediaCreationSuite({
                 onAddClip={handleAddVisualClip}
                 availableAssets={availableVisualAssets}
                 initialPrompt={initialPrompt}
-                initialMotion={
-                  initialPreset &&
-                  ["zoom-in", "zoom-out", "pan-right", "pan-left", "orbit", "pulse", "dramatic"].includes(
-                    initialPreset,
-                  )
-                    ? (initialPreset as CameraMotion)
-                    : undefined
-                }
+                initialMotion={studioPreset.cameraMotion}
+                initialCharacterMotion={studioPreset.characterMotion}
+                initialMotionLoop={studioPreset.motionLoop}
                 initialStyle={
                   initialPreset &&
                   ["cyberpunk", "cinematic", "anime", "vintage-35mm", "claymation", "noir"].includes(
@@ -915,6 +942,38 @@ export function MediaCreationSuite({
                   </div>
                 ) : null}
 
+                <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-2.5 space-y-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    Still plate motion
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block text-[11px] text-[var(--text-secondary)]">
+                      Camera
+                      <select
+                        value={stillPlateMotion}
+                        onChange={(e) => setStillPlateMotion(e.target.value as CameraMotion)}
+                        className="mt-1 w-full rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1 text-xs"
+                        data-testid="still-plate-motion"
+                      >
+                        {CAMERA_MOTIONS.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-end gap-2 pb-1 text-[11px] text-[var(--text-secondary)]">
+                      <input
+                        type="checkbox"
+                        checked={stillPlateLoop}
+                        onChange={(e) => setStillPlateLoop(e.target.checked)}
+                        data-testid="still-plate-loop"
+                      />
+                      Loop pan / zoom
+                    </label>
+                  </div>
+                </div>
+
                 {importedAssets.length > 0 ? (
                   <div className="space-y-2">
                     <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
@@ -953,7 +1012,10 @@ export function MediaCreationSuite({
                                   endSec: asset.durationSec,
                                   sourceStartSec: 0,
                                   sourceDurationSec: asset.durationSec,
-                                  motion: asset.kind === "image" ? "zoom-in" : undefined,
+                                  motion: asset.kind === "image" ? stillPlateMotion : undefined,
+                                  motionLoop: asset.kind === "image" ? stillPlateLoop : undefined,
+                                  characterMotion:
+                                    asset.kind === "image" ? studioPreset.characterMotion : undefined,
                                   transition: "fade",
                                   transitionDurationSec: 0.5,
                                 };
@@ -1386,6 +1448,7 @@ export function MediaCreationSuite({
           onDeleteClip={handleDeleteClip}
           onTrimClip={handleTrimClip}
           onUpdateTransition={handleUpdateTransition}
+          onUpdateClipMotion={handleUpdateClipMotion}
         />
       </div>
 
