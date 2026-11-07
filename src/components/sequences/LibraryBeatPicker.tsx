@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 type LibrarySave = {
   shortId: string;
@@ -22,10 +22,12 @@ type Props = {
 export function LibraryBeatPicker({ value, onChange }: Props) {
   const [saves, setSaves] = useState<LibrarySave[]>([]);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
-      // Prefer CHARACTER/BACKGROUND when kinds exist; ignore query param if unsupported.
+      // Prefer CHARACTER when kinds exist; ignore query param if unsupported.
       const res = await fetch("/api/library?kind=CHARACTER");
       const data = await res.json();
       if (!res.ok) return;
@@ -39,12 +41,16 @@ export function LibraryBeatPicker({ value, onChange }: Props) {
       }
     } catch {
       /* ignore */
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    if (open && saves.length === 0) void load();
-  }, [open, saves.length, load]);
+  const toggleOpen = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && saves.length === 0) void load();
+  };
 
   return (
     <div data-testid="library-beat-picker">
@@ -52,7 +58,7 @@ export function LibraryBeatPicker({ value, onChange }: Props) {
         <button
           type="button"
           className="rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]"
-          onClick={() => setOpen((v) => !v)}
+          onClick={toggleOpen}
         >
           {value ? "Change library still" : "Add from library"}
         </button>
@@ -68,7 +74,9 @@ export function LibraryBeatPicker({ value, onChange }: Props) {
       </div>
       {open ? (
         <ul className="mt-2 grid max-h-40 grid-cols-4 gap-2 overflow-y-auto sm:grid-cols-6">
-          {saves.length === 0 ? (
+          {loading && saves.length === 0 ? (
+            <li className="col-span-full text-xs text-[var(--text-muted)]">Loading…</li>
+          ) : saves.length === 0 ? (
             <li className="col-span-full text-xs text-[var(--text-muted)]">No library saves yet.</li>
           ) : (
             saves.slice(0, 24).map((s) => (

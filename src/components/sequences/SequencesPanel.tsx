@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 
@@ -14,6 +15,7 @@ type SequenceSummary = {
 };
 
 export function SequencesPanel() {
+  const router = useRouter();
   const [sequences, setSequences] = useState<SequenceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -35,6 +37,7 @@ export function SequencesPanel() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount; state is set from the response
     void load();
   }, [load]);
 
@@ -50,7 +53,7 @@ export function SequencesPanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Create failed");
-      window.location.href = `/sequences/${data.sequence.shortId}`;
+      router.push(`/sequences/${data.sequence.shortId}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Create failed");
       setCreating(false);

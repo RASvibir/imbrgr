@@ -36,6 +36,7 @@ export function SoftKitSelector({ value, onChange, className }: Props) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load kit options once; state is set from the response
     void load();
   }, [load]);
 
