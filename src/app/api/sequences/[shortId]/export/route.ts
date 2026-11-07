@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { getActor } from "@/lib/request-identity";
 import { ownsSequenceRow } from "@/lib/shot-sequence/access";
 import { exportSequence } from "@/lib/shot-sequence/export";
+import { kitPromptForSequence } from "@/lib/shot-sequence/resolve-kit";
 import { parseBeats } from "@/lib/shot-sequence/serialize";
 import { exportFormatSchema } from "@/lib/shot-sequence/types";
 
@@ -12,8 +13,6 @@ type Ctx = { params: Promise<{ shortId: string }> };
 
 const bodySchema = z.object({
   format: exportFormatSchema.default("storyboard"),
-  /** Optional kit prompt fragment from the client when kits API is available (PR #70). */
-  kitFragment: z.string().max(600).optional().nullable(),
 });
 
 export async function POST(req: Request, ctx: Ctx) {
@@ -29,7 +28,9 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Invalid export request" }, { status: 400 });
   }
 
-  const style = VIDEO_STYLES.find((s) => s.id === row.stylePreset);
+  const kit = await kitPromptForSequence(row.kitShortId);
+  const styleId = kit.stylePreset || row.stylePreset;
+  const style = VIDEO_STYLES.find((s) => s.id === styleId);
   const payload = exportSequence(
     {
       shortId: row.shortId,
@@ -40,7 +41,7 @@ export async function POST(req: Request, ctx: Ctx) {
       stylePreset: row.stylePreset,
       kitShortId: row.kitShortId,
       beats: parseBeats(row.beats),
-      kitFragment: parsed.data.kitFragment?.trim() || null,
+      kitFragment: kit.fragment || null,
       stylePresetSuffix: style?.promptSuffix ?? null,
     },
     parsed.data.format,

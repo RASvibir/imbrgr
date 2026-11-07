@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CAMERA_MOTIONS, VIDEO_STYLES } from "@/lib/ai/video-provider";
 import { btnPrimary, btnSecondary, btnGhost } from "@/lib/ui/button-classes";
-import { softKitFragment, type SoftKitSummary } from "@/lib/shot-sequence/kit-hook";
+import { CharacterKitSelector, type KitOption } from "@/components/kits/CharacterKitSelector";
+import { buildKitPromptExtras } from "@/lib/kit-prompt";
 import { newBeatId } from "@/lib/shot-sequence/defaults";
 import { buildBeatPrompt, framingHintForRole } from "@/lib/shot-sequence/prompts";
 import {
@@ -16,7 +17,6 @@ import {
   type ShotBeat,
 } from "@/lib/shot-sequence/types";
 import { LibraryBeatPicker } from "./LibraryBeatPicker";
-import { SoftKitSelector } from "./SoftKitSelector";
 
 export type SequenceDTO = {
   shortId: string;
@@ -52,7 +52,7 @@ export function SequenceEditor({ initial }: Props) {
   const [exporting, setExporting] = useState<SequenceExportFormat | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
-  const [kit, setKit] = useState<SoftKitSummary | null>(null);
+  const [kit, setKit] = useState<KitOption | null>(null);
   const [dirty, setDirty] = useState(false);
 
   const sortedBeats = useMemo(
@@ -175,11 +175,10 @@ export function SequenceEditor({ initial }: Props) {
           const ok = await save();
           if (!ok) return;
         }
-        const kitFrag = softKitFragment(kit).fragment;
         const res = await fetch(`/api/sequences/${seq.shortId}/export`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ format, kitFragment: kitFrag || null }),
+          body: JSON.stringify({ format }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Export failed");
@@ -191,16 +190,24 @@ export function SequenceEditor({ initial }: Props) {
         setExporting(null);
       }
     },
-    [dirty, kit, save, seq.shortId, seq.title],
+    [dirty, save, seq.shortId, seq.title],
   );
 
   const firstStudioHref = useMemo(() => {
     const first = sortedBeats[0];
     if (!first) return "/studio?tab=video";
-    const style = VIDEO_STYLES.find((s) => s.id === seq.stylePreset);
+    const kitExtras = kit
+      ? buildKitPromptExtras({
+          name: kit.name,
+          styleLock: kit.styleLock,
+          stylePreset: kit.stylePreset,
+        })
+      : { fragment: "", stylePreset: undefined };
+    const styleId = kitExtras.stylePreset || seq.stylePreset;
+    const style = VIDEO_STYLES.find((s) => s.id === styleId);
     const renderPrompt = buildBeatPrompt(first, {
       look: seq.look,
-      kitFragment: softKitFragment(kit).fragment || null,
+      kitFragment: kitExtras.fragment || null,
       stylePresetSuffix: style?.promptSuffix ?? null,
     });
     // Studio uses `preset` for camera motion when it matches CAMERA_MOTIONS.
@@ -297,11 +304,12 @@ export function SequenceEditor({ initial }: Props) {
             </select>
           </label>
           <div className="sm:col-span-2">
-            <SoftKitSelector
+            <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Character kit</label>
+            <CharacterKitSelector
               value={seq.kitShortId}
-              onHydrate={setKit}
+              onHydrate={(nextKit) => setKit(nextKit)}
               onChange={(shortId, nextKit) => {
-                setKit(nextKit);
+                setKit(nextKit ?? null);
                 patchLocal({
                   kitShortId: shortId,
                   stylePreset: nextKit?.stylePreset || seq.stylePreset,

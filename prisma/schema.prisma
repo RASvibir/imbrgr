@@ -233,6 +233,7 @@ model CharacterKit {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   refs         CharacterKitRef[]
+  sequences    ShotSequence[]
 
   @@index([userId])
   @@index([voterKey])
@@ -476,23 +477,24 @@ model VideoJob {
 
 /// Editable shot sequence (establishing → action → close-up beats). Beats live in JSON.
 model ShotSequence {
-  id          String   @id @default(cuid())
-  shortId     String   @unique
+  id          String        @id @default(cuid())
+  shortId     String        @unique
   userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   voterKey    String?
   title       String
   /// Continuity lock: subject, setting, palette, lighting shared by every beat
-  look        String?  @db.Text
-  narration   String?  @db.Text
-  aspectRatio String   @default("16:9")
+  look        String?       @db.Text
+  narration   String?       @db.Text
+  aspectRatio String        @default("16:9")
   stylePreset String?
-  /// Soft hook for character kits (PR #70). Stored as shortId string — no FK until kits land.
+  /// Optional character kit (FK to CharacterKit.shortId)
   kitShortId  String?
+  kit         CharacterKit? @relation(fields: [kitShortId], references: [shortId], onDelete: SetNull)
   beats       Json
-  visibility  String   @default("PRIVATE")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  visibility  String        @default("PRIVATE")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   @@index([userId])
   @@index([voterKey])

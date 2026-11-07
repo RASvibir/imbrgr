@@ -5,6 +5,7 @@ import { getActor } from "@/lib/request-identity";
 import { normalizeVisibility } from "@/lib/visibility";
 import { sequenceOwnerWhere } from "@/lib/shot-sequence/access";
 import { defaultBeats, defaultLook } from "@/lib/shot-sequence/defaults";
+import { resolveOwnedKitShortId } from "@/lib/shot-sequence/resolve-kit";
 import { serializeSequence } from "@/lib/shot-sequence/serialize";
 import { createSequenceSchema } from "@/lib/shot-sequence/types";
 
@@ -28,6 +29,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid sequence" }, { status: 400 });
   }
 
+  const kit = await resolveOwnedKitShortId(actor, parsed.data.kitShortId);
+  if (!kit.ok) return NextResponse.json({ error: kit.error }, { status: kit.status });
+
   const seed = parsed.data.title;
   const beats = parsed.data.beats ?? defaultBeats(seed);
   const look = parsed.data.look ?? defaultLook(seed);
@@ -41,7 +45,7 @@ export async function POST(req: Request) {
       narration: parsed.data.narration?.trim() || null,
       aspectRatio: parsed.data.aspectRatio ?? "16:9",
       stylePreset: parsed.data.stylePreset?.trim() || null,
-      kitShortId: parsed.data.kitShortId?.trim() || null,
+      kitShortId: kit.kitShortId,
       beats,
       visibility: normalizeVisibility(parsed.data.visibility ?? "PRIVATE"),
       ...owner,
