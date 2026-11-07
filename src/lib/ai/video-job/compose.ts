@@ -3,7 +3,7 @@ import { buildCinematicVideoPrompt, type CameraMotion } from "@/lib/ai/video-pro
 import {
   CAMERA_MOTION_PHRASE,
   promptHasCameraMove,
-  promptHasSubjectMotion,
+  promptHasCharacterMotionPhrase,
   withCameraMotionPhrase,
 } from "@/lib/ai/video-prompt";
 
@@ -58,30 +58,37 @@ export type ComposeParams = ShotTextParams & {
  * A first clip gets framing, shared look, scene, action, camera and style. A chained clip already has its picture
  * (the previous last frame), so it only says what moves: re-describing the scene is what makes clips drift.
  * Camera language is skipped on every path when the text already names a move (including continuation).
- * Subject-motion presets are skipped when the scene already carries that language (e.g. from enhance).
+ * Subject-motion presets de-dupe only against that preset's phrase — steam/rain/etc. do not block them.
  */
 export function composeGpuPrompt(p: ComposeParams): string {
   const camera = CAMERA_MOTION_PHRASE[p.motion];
   const explicitAction = p.action?.trim().replace(/[.\s]+$/, "") || undefined;
+
   if (p.continuation && explicitAction) {
     const body = `Continuing from the previous frame: ${explicitAction}`;
     return promptHasCameraMove(body) ? body : `${body}, ${camera}`;
   }
-  const scene = composeShotText(p);
-  // Preset fills missing action only; never restack when enhance already injected the phrase.
-  const fromPreset =
-    !explicitAction && p.characterMotion && !promptHasSubjectMotion(scene)
-      ? CHARACTER_MOTION_PHRASE[p.characterMotion]
-      : undefined;
-  const action = explicitAction || fromPreset;
-  if (p.continuation && action) {
-    const body = `Continuing from the previous frame: ${action}`;
+
+  // Action-only continuation: scene is not concatenated, so always allow the selected preset.
+  if (p.continuation && p.characterMotion) {
+    const body = `Continuing from the previous frame: ${CHARACTER_MOTION_PHRASE[p.characterMotion]}`;
     return promptHasCameraMove(body) ? body : `${body}, ${camera}`;
   }
+
   if (p.continuation) {
     const body = `Continuing from the previous frame, same subject and setting, now ${p.visualPrompt.trim().replace(/[.\s]+$/, "")}`;
     return buildCinematicVideoPrompt(withCameraMotionPhrase(body, p.motion), p.style);
   }
+
+  const scene = composeShotText(p);
+  // First clip: skip only when this exact preset phrase was already injected (e.g. by enhance).
+  const fromPreset =
+    !explicitAction &&
+    p.characterMotion &&
+    !promptHasCharacterMotionPhrase(scene, p.characterMotion)
+      ? CHARACTER_MOTION_PHRASE[p.characterMotion]
+      : undefined;
+  const action = explicitAction || fromPreset;
   const parts = [scene, action].filter(Boolean).join(", ");
   return buildCinematicVideoPrompt(withCameraMotionPhrase(parts, p.motion), p.style);
 }

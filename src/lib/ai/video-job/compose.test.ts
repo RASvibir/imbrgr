@@ -84,6 +84,15 @@ describe("composeGpuPrompt with anchors", () => {
     expect(out.match(/natural looping gait/gi)?.length ?? 0).toBe(1);
   });
 
+  it("still applies characterMotion when the scene has unrelated motion words", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "hero in a raincoat, steam rising, rain streaking past",
+      motion: "zoom-in",
+      characterMotion: "walk",
+    });
+    expect(out).toMatch(/walks forward with a natural looping gait/i);
+  });
+
   it("does not duplicate characterMotion when enhance already injected the phrase", () => {
     const enhanced =
       "hero in a raincoat, subject walks forward with a natural looping gait, steady pace, arms swinging lightly";
@@ -93,5 +102,16 @@ describe("composeGpuPrompt with anchors", () => {
       characterMotion: "walk",
     });
     expect(out.match(/natural looping gait/gi)?.length ?? 0).toBe(1);
+  });
+
+  it("uses characterMotion on continuation without restating the scene", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "long scene text with steam rising",
+      motion: "orbit",
+      characterMotion: "emote",
+      continuation: true,
+    });
+    expect(out).toMatch(/^Continuing from the previous frame: subject performs a clear expressive gesture/);
+    expect(out).not.toContain("long scene text");
   });
 });

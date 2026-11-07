@@ -77,8 +77,15 @@ describe("enrichVideoPromptLocal (zero-token free tier)", () => {
 
   it("uses character motion presets instead of generic subject motion", () => {
     const out = enrichVideoPromptLocal("hero in a raincoat", { characterMotion: "walk" });
-    expect(out).toMatch(/walking forward|looping gait/i);
+    expect(out).toMatch(/walks forward|looping gait/i);
     expect(out).not.toMatch(/gentle natural motion/i);
+  });
+
+  it("still injects a selected characterMotion when only unrelated motion words are present", () => {
+    const out = enrichVideoPromptLocal("hero in a raincoat, steam rising, rain streaking", {
+      characterMotion: "idle",
+    });
+    expect(out).toMatch(/soft idle pose|gentle breathing/i);
   });
 
   it("detects already-injected character motion phrases so they are not restacked", () => {

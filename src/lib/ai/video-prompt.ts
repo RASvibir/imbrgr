@@ -116,12 +116,25 @@ export function withCameraMotionPhrase(text: string, motion: CameraMotion): stri
   return normalizePromptText(`${base}, ${CAMERA_MOTION_PHRASE[motion]}`);
 }
 
-/** Append subject-motion phrase when the text does not already describe physical action. */
+/** True when the text already contains this preset's phrase (verbatim), not any motion word. */
+export function promptHasCharacterMotionPhrase(
+  prompt: string,
+  characterMotion: CharacterMotion,
+): boolean {
+  const lower = normalizePromptText(prompt).toLowerCase();
+  if (!lower) return false;
+  return lower.includes(CHARACTER_MOTION_PHRASE[characterMotion].toLowerCase());
+}
+
+/**
+ * Append the selected subject-motion preset only when that preset's phrase is not already present.
+ * Unlike promptHasSubjectMotion, unrelated scene motion (steam, rain) does not block the control.
+ */
 export function withCharacterMotionPhrase(text: string, characterMotion: CharacterMotion): string {
   const base = normalizePromptText(text);
   const phrase = CHARACTER_MOTION_PHRASE[characterMotion];
   if (!base) return phrase;
-  if (promptHasSubjectMotion(base)) return base;
+  if (promptHasCharacterMotionPhrase(base, characterMotion)) return base;
   return normalizePromptText(`${base}, ${phrase}`);
 }
 
@@ -143,7 +156,8 @@ export function enrichVideoPromptLocal(prompt: string, options?: EnrichVideoOpti
   const base = normalizePromptText(prompt);
   if (!base) return base;
   const needsCharacter =
-    Boolean(options?.characterMotion) && !promptHasSubjectMotion(base);
+    Boolean(options?.characterMotion) &&
+    !promptHasCharacterMotionPhrase(base, options!.characterMotion!);
   if (
     !needsVideoPromptEnrichment(base) &&
     !(options?.motion && !promptHasCameraMove(base)) &&
@@ -154,12 +168,13 @@ export function enrichVideoPromptLocal(prompt: string, options?: EnrichVideoOpti
 
   const structure = analyzeVideoPromptStructure(base);
   const extras: string[] = [];
-  if (!structure.hasMotion) {
-    extras.push(
-      options?.characterMotion
-        ? CHARACTER_MOTION_PHRASE[options.characterMotion]
-        : DEFAULT_MOTION,
-    );
+  // Selected subject preset is phrase-specific; generic filler only when no motion at all.
+  if (options?.characterMotion) {
+    if (!promptHasCharacterMotionPhrase(base, options.characterMotion)) {
+      extras.push(CHARACTER_MOTION_PHRASE[options.characterMotion]);
+    }
+  } else if (!structure.hasMotion) {
+    extras.push(DEFAULT_MOTION);
   }
   if (!structure.hasLighting) extras.push(DEFAULT_LIGHTING);
   if (!structure.hasFraming) extras.push(DEFAULT_FRAMING);
