@@ -163,7 +163,17 @@ export function MobileBottomNav() {
               className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
               onClick={() => setMoreOpen(false)}
             >
-              📁 My Library
+              📁 Asset library
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/kits"
+              className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+              data-testid="mobile-nav-kits"
+            >
+              🎭 Character kits
             </Link>
           </li>
           <li>

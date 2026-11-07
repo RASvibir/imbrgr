@@ -4,12 +4,19 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import { librarySaveCaption } from "@/lib/library-display";
+import {
+  LIBRARY_ASSET_KINDS,
+  LIBRARY_ASSET_KIND_LABELS,
+  type LibraryAssetKind,
+  parseLibraryAssetKind,
+} from "@/lib/library-kinds";
 import { COPY, friendlyError } from "@/lib/user-messages";
 
 type SaveRow = {
   shortId: string;
   savedAt: string;
   visibility: string;
+  kind?: LibraryAssetKind;
   label: string | null;
   autoSaved?: boolean;
   folder: { shortId: string; name: string } | null;
@@ -28,23 +35,36 @@ type FolderRow = {
   _count: { saves: number };
 };
 
+const KIND_FILTERS: LibraryAssetKind[] = ["GENERAL", "CHARACTER", "PROP", "BACKGROUND", "OTHER"];
+
 export function MyImagesPanel({
   initialFolderShortId,
+  initialKind,
   compact,
+  onPickMedia,
 }: {
   initialFolderShortId?: string | null;
+  initialKind?: string | null;
   compact?: boolean;
+  /** When set, clicking a save calls this instead of opening studio (picker mode). */
+  onPickMedia?: (media: SaveRow["media"] & { kind?: LibraryAssetKind }) => void;
 }) {
   const [folders, setFolders] = useState<FolderRow[]>([]);
   const [saves, setSaves] = useState<SaveRow[]>([]);
   const [folderShortId, setFolderShortId] = useState<string | null>(initialFolderShortId ?? null);
+  const [kind, setKind] = useState<LibraryAssetKind | null>(
+    () => parseLibraryAssetKind(initialKind) ?? null,
+  );
   const [err, setErr] = useState("");
   const [newFolderName, setNewFolderName] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
   const load = useCallback(async () => {
-    const q = folderShortId ? `?folder=${encodeURIComponent(folderShortId)}` : "";
+    const params = new URLSearchParams();
+    if (folderShortId) params.set("folder", folderShortId);
+    if (kind && kind !== "GENERAL") params.set("kind", kind);
+    const q = params.toString() ? `?${params}` : "";
     const res = await fetch(`/api/library${q}`);
     const data = await res.json();
     if (!res.ok) {
@@ -54,7 +74,7 @@ export function MyImagesPanel({
     setFolders(data.folders ?? []);
     setSaves(data.saves ?? []);
     setErr("");
-  }, [folderShortId]);
+  }, [folderShortId, kind]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on mount/folder change; state is set from the response
@@ -108,18 +128,59 @@ export function MyImagesPanel({
     await load();
   };
 
+  const setSaveKind = async (mediaShortId: string, nextKind: LibraryAssetKind) => {
+    const res = await fetch("/api/library/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mediaShortId,
+        kind: nextKind,
+        folderShortId: folderShortId ?? undefined,
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setErr(friendlyError(data.error ?? "Could not update type"));
+      return;
+    }
+    await load();
+  };
+
   const activeFolder = folders.find((f) => f.shortId === folderShortId);
 
   return (
     <div className={compact ? "space-y-4" : "mx-auto max-w-6xl px-4 py-8 sm:px-6"} data-testid="my-images-panel">
       {!compact ? (
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold">My images</h1>
-          <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Images you saved from the studio — organized in folders if you like.
-          </p>
+        <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Asset library</h1>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Saved files from the studio — organize by folder and type (characters, props, backgrounds).
+            </p>
+          </div>
+          <Link href="/kits" className={`${btnSecondary} inline-flex justify-center text-sm`}>
+            Character kits
+          </Link>
         </header>
       ) : null}
+
+      <div className="mb-4 flex flex-wrap gap-2" data-testid="library-kind-filters">
+        {KIND_FILTERS.map((k) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setKind(k === "GENERAL" ? null : k)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+              (k === "GENERAL" && !kind) || kind === k
+                ? "border-[var(--accent-primary)] bg-[var(--accent-primary)]/15 text-[var(--accent-primary)]"
+                : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--accent-primary)]/40"
+            }`}
+            data-testid={`library-kind-${k.toLowerCase()}`}
+          >
+            {LIBRARY_ASSET_KIND_LABELS[k]}
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <aside className="w-full shrink-0 lg:w-64 lg:min-w-[16rem]">
@@ -226,6 +287,121 @@ export function MyImagesPanel({
                   mediaTitle: s.media.title,
                   altText: s.media.altText,
                 });
+                const body = (
+                  <>
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={s.media.previewUrl} alt="" className="aspect-square w-full object-cover" />
+                      {s.kind && s.kind !== "GENERAL" ? (
+                        <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                          {s.kind.toLowerCase()}
+                        </span>
+                      ) : null}
+                      {!onPickMedia ? (
+                        <div className="absolute right-0 top-0 z-10 flex items-center gap-0 opacity-0 transition-opacity duration-150 group-hover/lib:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const a = document.createElement("a");
+                              a.href = s.media.previewUrl;
+                              const ext = s.media.mimeType.split("/")[1] || "png";
+                              a.download = `imbrgr-${s.media.shortId}.${ext}`;
+                              a.click();
+                            }}
+                            className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
+                            title="Download image"
+                            aria-label="Download image"
+                          >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--accent-primary)]">
+                              💾
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const url = `${window.location.origin}/studio?tab=refine&media=${s.media.shortId}`;
+                              await navigator.clipboard.writeText(url);
+                            }}
+                            className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
+                            title="Copy link"
+                            aria-label="Copy link"
+                          >
+                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--accent-primary)]">
+                              🔗
+                            </span>
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1 px-2 py-1.5">
+                      {caption || s.autoSaved ? (
+                        <div className="flex min-w-0 items-center gap-2">
+                          {caption ? (
+                            <p className="min-w-0 flex-1 truncate text-xs text-[var(--text-secondary)]">{caption}</p>
+                          ) : null}
+                          {s.autoSaved ? (
+                            <span
+                              className="shrink-0 rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]"
+                              data-testid="library-auto-saved-chip"
+                            >
+                              {COPY.libraryAutoSavedChip}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {!onPickMedia ? (
+                        <label
+                          className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                        >
+                          Type
+                          <select
+                            value={s.kind ?? "GENERAL"}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            onChange={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              void setSaveKind(s.media.shortId, e.target.value as LibraryAssetKind);
+                            }}
+                            className="min-h-8 rounded border px-1 text-[11px] text-[var(--text-secondary)]"
+                            data-testid={`library-kind-select-${s.shortId}`}
+                          >
+                            {LIBRARY_ASSET_KINDS.map((k) => (
+                              <option key={k} value={k}>
+                                {LIBRARY_ASSET_KIND_LABELS[k]}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                    </div>
+                  </>
+                );
+
+                if (onPickMedia) {
+                  return (
+                    <button
+                      key={s.shortId}
+                      type="button"
+                      onClick={() => onPickMedia({ ...s.media, kind: s.kind })}
+                      className="group/lib relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] text-left hover:border-[var(--accent-primary)]/40"
+                      data-testid={`library-save-${s.shortId}`}
+                    >
+                      {body}
+                    </button>
+                  );
+                }
+
                 return (
                   <Link
                     key={s.shortId}
@@ -233,64 +409,7 @@ export function MyImagesPanel({
                     className="group/lib relative overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] hover:border-[var(--accent-primary)]/40"
                     data-testid={`library-save-${s.shortId}`}
                   >
-                    <div className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.media.previewUrl} alt="" className="aspect-square w-full object-cover" />
-                      
-                      {/* Quick Action Overlay (Download & Copy Link) */}
-                      <div className="absolute right-0 top-0 z-10 flex items-center gap-0 opacity-0 transition-opacity duration-150 group-hover/lib:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const a = document.createElement("a");
-                            a.href = s.media.previewUrl;
-                            const ext = s.media.mimeType.split("/")[1] || "png";
-                            a.download = `imbrgr-${s.media.shortId}.${ext}`;
-                            a.click();
-                          }}
-                          className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
-                          title="Download image"
-                          aria-label="Download image"
-                        >
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--accent-primary)]">
-                            💾
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const url = `${window.location.origin}/studio?tab=refine&media=${s.media.shortId}`;
-                            await navigator.clipboard.writeText(url);
-                          }}
-                          className="group/btn flex h-11 w-11 items-center justify-center bg-transparent focus:outline-none focus-visible:outline-none"
-                          title="Copy link"
-                          aria-label="Copy link"
-                        >
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/75 text-xs text-white shadow-md backdrop-blur-sm transition group-hover/btn:bg-[var(--accent-primary)] group-hover/btn:text-[var(--on-accent)] group-focus-visible/btn:ring-2 group-focus-visible/btn:ring-[var(--accent-primary)]">
-                            🔗
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                    {caption || s.autoSaved ? (
-                      <div className="flex min-w-0 items-center gap-2 px-2 py-1.5">
-                        {caption ? (
-                          <p className="min-w-0 flex-1 truncate text-xs text-[var(--text-secondary)]">{caption}</p>
-                        ) : null}
-                        {s.autoSaved ? (
-                          <span
-                            className="shrink-0 rounded-full bg-[var(--surface-raised)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-muted)]"
-                            data-testid="library-auto-saved-chip"
-                          >
-                            {COPY.libraryAutoSavedChip}
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : null}
+                    {body}
                   </Link>
                 );
               })}

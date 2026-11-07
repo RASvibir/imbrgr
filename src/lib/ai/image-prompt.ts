@@ -12,6 +12,18 @@ export function buildFluxPrompt(userOrEnhanced: string, styleId?: string): strin
   return parts.join(", ");
 }
 
+/** Append kit lock/palette fragment before style + quality suffixes. */
+export function buildFluxPromptWithKit(
+  userOrEnhanced: string,
+  styleId?: string,
+  kitFragment?: string,
+): string {
+  const withKit = kitFragment?.trim()
+    ? [userOrEnhanced.trim(), kitFragment.trim()].filter(Boolean).join(". ")
+    : userOrEnhanced;
+  return buildFluxPrompt(withKit, styleId);
+}
+
 export const ASPECT_PRESETS = {
   "1:1": { width: 1024, height: 1024, label: "Square 1024" },
   "16:9": { width: 1344, height: 768, label: "Wide 1344×768" },

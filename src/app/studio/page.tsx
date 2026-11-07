@@ -15,9 +15,10 @@ export default async function StudioPage({
     remixFrom?: string;
     preset?: string;
     mode?: string;
+    kit?: string;
   }>;
 }) {
-  const { tab, prompt, media: mediaShortId, remixFrom, preset, mode } = await searchParams;
+  const { tab, prompt, media: mediaShortId, remixFrom, preset, mode, kit } = await searchParams;
   const actor = await getServerActor();
 
   let initialAsset = null;
@@ -49,6 +50,7 @@ export default async function StudioPage({
         remixFromShortId={remixFrom}
         initialPreset={preset}
         initialMode={mode}
+        initialKitShortId={kit ?? null}
       />
     </Suspense>
   );

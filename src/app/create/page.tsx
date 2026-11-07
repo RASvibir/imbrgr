@@ -37,6 +37,16 @@ const PRESETS = [
     href: "/upload",
     description: "Batch upload images with tag automation",
   },
+  {
+    label: "🎭 Character Kits",
+    href: "/kits",
+    description: "Reusable refs, palettes, and style locks for consistent characters",
+  },
+  {
+    label: "🗄️ Asset Library",
+    href: "/library",
+    description: "Organize characters, props, and backgrounds for reuse",
+  },
 ];
 
 export default function CreateHubPage() {

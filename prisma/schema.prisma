@@ -47,6 +47,7 @@ model User {
   collections       Collection[]
   libraryFolders    LibraryFolder[]
   librarySaves      LibrarySave[]
+  characterKits     CharacterKit[]
   videoJobs         VideoJob[]
 }
 
@@ -141,6 +142,8 @@ model Media {
   rootMedia      Media?   @relation("MediaRootFamily", fields: [rootMediaId], references: [id], onDelete: SetNull)
   rootFamily     Media[]  @relation("MediaRootFamily")
   librarySaves   LibrarySave[]
+  kitCovers      CharacterKit[]    @relation("KitCover")
+  kitRefs        CharacterKitRef[]
   storageKey     String
   mimeType       String
   byteSize       Int
@@ -165,6 +168,14 @@ model Media {
   @@index([visibility])
 }
 
+enum LibraryAssetKind {
+  GENERAL
+  CHARACTER
+  PROP
+  BACKGROUND
+  OTHER
+}
+
 model LibraryFolder {
   id        String        @id @default(cuid())
   shortId   String        @unique
@@ -180,22 +191,64 @@ model LibraryFolder {
 }
 
 model LibrarySave {
-  id         String         @id @default(cuid())
-  shortId    String         @unique
+  id         String           @id @default(cuid())
+  shortId    String           @unique
   mediaId    String
-  media      Media          @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  media      Media            @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   folderId   String?
-  folder     LibraryFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  folder     LibraryFolder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
   userId     String?
-  user       User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
   voterKey   String?
-  visibility String         @default("PUBLIC")
+  visibility String           @default("PUBLIC")
   label      String?
-  savedAt    DateTime       @default(now())
+  kind       LibraryAssetKind @default(GENERAL)
+  savedAt    DateTime         @default(now())
 
   @@index([userId])
   @@index([voterKey])
   @@index([folderId])
+  @@index([mediaId])
+  @@index([kind])
+}
+
+model CharacterKit {
+  id           String            @id @default(cuid())
+  shortId      String            @unique
+  userId       String?
+  user         User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voterKey     String?
+  name         String
+  description  String?           @db.Text
+  /// Prompt fragments always appended when this kit is used
+  styleLock    String?           @db.Text
+  /// JSON: { primary?, secondary?, accents?: string[] } hex colors
+  paletteJson  Json?
+  /// Optional STYLES key used as default look
+  stylePreset  String?
+  coverMediaId String?
+  coverMedia   Media?            @relation("KitCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  visibility   String            @default("PRIVATE")
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  refs         CharacterKitRef[]
+
+  @@index([userId])
+  @@index([voterKey])
+}
+
+model CharacterKitRef {
+  id        String       @id @default(cuid())
+  kitId     String
+  kit       CharacterKit @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  mediaId   String
+  media     Media        @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  role      String       @default("REFERENCE")
+  sortOrder Int          @default(0)
+  note      String?
+  createdAt DateTime     @default(now())
+
+  @@unique([kitId, mediaId])
   @@index([mediaId])
 }
 
