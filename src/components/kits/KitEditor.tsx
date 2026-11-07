@@ -85,17 +85,12 @@ export function KitEditor({ mode, shortId }: Props) {
   }, [shortId]);
 
   const loadLibrary = useCallback(async () => {
-    const res = await fetch("/api/library?kind=CHARACTER");
+    // Full library so props/general/backgrounds stay attachable as kit refs
+    // even when CHARACTER-tagged saves already exist.
+    const res = await fetch("/api/library");
     const data = await res.json();
     if (!res.ok) return;
-    const characterSaves = (data.saves ?? []) as LibrarySave[];
-    if (characterSaves.length > 0) {
-      setLibrary(characterSaves);
-      return;
-    }
-    const all = await fetch("/api/library");
-    const allData = await all.json();
-    if (all.ok) setLibrary(allData.saves ?? []);
+    setLibrary((data.saves ?? []) as LibrarySave[]);
   }, []);
 
   useEffect(() => {
