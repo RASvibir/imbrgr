@@ -26,7 +26,8 @@ export function MobileBottomNav() {
       return (
         pathname.startsWith("/create") ||
         pathname.startsWith("/studio") ||
-        pathname.startsWith("/tools")
+        pathname.startsWith("/tools") ||
+        pathname.startsWith("/sequences")
       );
     }
     return pathname.startsWith(href);
@@ -155,6 +156,15 @@ export function MobileBottomNav() {
               onClick={() => setMoreOpen(false)}
             >
               ✨ AI Image Studio
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/sequences"
+              className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+            >
+              🎞️ Shot sequences
             </Link>
           </li>
           <li>

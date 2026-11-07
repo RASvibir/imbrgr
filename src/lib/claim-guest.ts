@@ -39,6 +39,10 @@ export async function claimGuestContent(userId: string, voterKey: string) {
     where: { voterKey, userId: null },
     data: { userId, voterKey: null },
   });
+  await prisma.shotSequence.updateMany({
+    where: { voterKey, userId: null },
+    data: { userId, voterKey: null },
+  });
 
   return { posts: posts.count, media: media.length, kits: kits.count };
 }

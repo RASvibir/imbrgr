@@ -49,6 +49,7 @@ model User {
   librarySaves      LibrarySave[]
   characterKits     CharacterKit[]
   videoJobs         VideoJob[]
+  shotSequences     ShotSequence[]
 }
 
 model Account {
@@ -232,6 +233,7 @@ model CharacterKit {
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   refs         CharacterKitRef[]
+  sequences    ShotSequence[]
 
   @@index([userId])
   @@index([voterKey])
@@ -471,4 +473,30 @@ model VideoJob {
 
   @@index([ownerKey, createdAt])
   @@index([userId])
+}
+
+/// Editable shot sequence (establishing → action → close-up beats). Beats live in JSON.
+model ShotSequence {
+  id          String        @id @default(cuid())
+  shortId     String        @unique
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voterKey    String?
+  title       String
+  /// Continuity lock: subject, setting, palette, lighting shared by every beat
+  look        String?       @db.Text
+  narration   String?       @db.Text
+  aspectRatio String        @default("16:9")
+  stylePreset String?
+  /// Optional character kit (FK to CharacterKit.shortId)
+  kitShortId  String?
+  kit         CharacterKit? @relation(fields: [kitShortId], references: [shortId], onDelete: SetNull)
+  beats       Json
+  visibility  String        @default("PRIVATE")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([voterKey])
+  @@index([kitShortId])
 }

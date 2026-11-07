@@ -26,7 +26,7 @@ export const storyboardSchema = z.object({
   title: z.string().min(1).max(80),
   narration: z.string().min(1).max(1200),
   /** The recurring subject, setting, palette and lighting, repeated in every shot so the video reads as one piece. */
-  look: z.string().min(3).max(200).optional(),
+  look: z.string().min(3).max(400).optional(),
   shots: z.array(shotSchema).min(1).max(12),
 });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type KitOption = {
   shortId: string;
@@ -15,12 +15,15 @@ export type KitOption = {
 type Props = {
   value: string | null;
   onChange: (shortId: string | null, kit?: KitOption | null) => void;
+  /** Fired once after kits load so parents can restore kit prompt state without marking dirty. */
+  onHydrate?: (kit: KitOption | null) => void;
   className?: string;
 };
 
-export function CharacterKitSelector({ value, onChange, className }: Props) {
+export function CharacterKitSelector({ value, onChange, onHydrate, className }: Props) {
   const [kits, setKits] = useState<KitOption[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const hydratedRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -33,9 +36,15 @@ export function CharacterKitSelector({ value, onChange, className }: Props) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- load kit options once for the selector
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!loaded || hydratedRef.current) return;
+    hydratedRef.current = true;
+    const kit = value ? (kits.find((k) => k.shortId === value) ?? null) : null;
+    onHydrate?.(kit);
+  }, [loaded, kits, value, onHydrate]);
 
   const selected = kits.find((k) => k.shortId === value) ?? null;
 

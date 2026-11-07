@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 import {
@@ -237,6 +238,13 @@ export function AiVideoGeneratorPanel({
           </button>
         ))}
       </div>
+
+      <p className="text-xs text-[var(--text-muted)]">
+        Planning a multi-beat pack?{" "}
+        <Link href="/sequences" className="font-medium text-[var(--accent-primary)] hover:underline">
+          Open shot sequence builder
+        </Link>
+      </p>
 
       {/* Tab toggle between Text-to-Video and Image-to-Video */}
       <div className="flex rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-1">
