@@ -6,10 +6,11 @@ import { CAMERA_MOTIONS, VIDEO_STYLES } from "@/lib/ai/video-provider";
 import { btnPrimary, btnSecondary, btnGhost } from "@/lib/ui/button-classes";
 import { softKitFragment, type SoftKitSummary } from "@/lib/shot-sequence/kit-hook";
 import { newBeatId } from "@/lib/shot-sequence/defaults";
-import { framingHintForRole } from "@/lib/shot-sequence/prompts";
+import { buildBeatPrompt, framingHintForRole } from "@/lib/shot-sequence/prompts";
 import {
   BEAT_ROLE_LABELS,
   BEAT_ROLES,
+  MAX_SEQUENCE_BEATS,
   type BeatRole,
   type SequenceExportFormat,
   type ShotBeat,
@@ -94,6 +95,7 @@ export function SequenceEditor({ initial }: Props) {
 
   const addBeat = useCallback((role: BeatRole = "custom") => {
     setSeq((prev) => {
+      if (prev.beats.length >= MAX_SEQUENCE_BEATS) return prev;
       const order = prev.beats.length;
       const beat: ShotBeat = {
         id: newBeatId(),
@@ -109,6 +111,7 @@ export function SequenceEditor({ initial }: Props) {
       };
       return { ...prev, beats: [...prev.beats, beat] };
     });
+    // Buttons are disabled at the cap; only reached when a beat can be added.
     setDirty(true);
   }, []);
 
@@ -125,7 +128,7 @@ export function SequenceEditor({ initial }: Props) {
     setDirty(true);
   }, []);
 
-  const save = useCallback(async () => {
+  const save = useCallback(async (): Promise<boolean> => {
     setSaving(true);
     setError(null);
     try {
@@ -148,8 +151,10 @@ export function SequenceEditor({ initial }: Props) {
       setSeq(data.sequence);
       setDirty(false);
       setSavedFlash(true);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -166,7 +171,10 @@ export function SequenceEditor({ initial }: Props) {
       setExporting(format);
       setError(null);
       try {
-        if (dirty) await save();
+        if (dirty) {
+          const ok = await save();
+          if (!ok) return;
+        }
         const kitFrag = softKitFragment(kit).fragment;
         const res = await fetch(`/api/sequences/${seq.shortId}/export`, {
           method: "POST",
@@ -189,9 +197,16 @@ export function SequenceEditor({ initial }: Props) {
   const firstStudioHref = useMemo(() => {
     const first = sortedBeats[0];
     if (!first) return "/studio?tab=video";
-    const prompt = encodeURIComponent(first.visualPrompt.slice(0, 200));
+    const style = VIDEO_STYLES.find((s) => s.id === seq.stylePreset);
+    const renderPrompt = buildBeatPrompt(first, {
+      look: seq.look,
+      kitFragment: softKitFragment(kit).fragment || null,
+      stylePresetSuffix: style?.promptSuffix ?? null,
+    });
+    // Studio uses `preset` for camera motion when it matches CAMERA_MOTIONS.
+    const prompt = encodeURIComponent(renderPrompt.slice(0, 500));
     return `/studio?tab=video&prompt=${prompt}&preset=${first.motion}`;
-  }, [sortedBeats]);
+  }, [sortedBeats, seq.look, seq.stylePreset, kit]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-10" data-testid="sequence-editor">
@@ -284,6 +299,7 @@ export function SequenceEditor({ initial }: Props) {
           <div className="sm:col-span-2">
             <SoftKitSelector
               value={seq.kitShortId}
+              onHydrate={setKit}
               onChange={(shortId, nextKit) => {
                 setKit(nextKit);
                 patchLocal({
@@ -300,17 +316,35 @@ export function SequenceEditor({ initial }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--text-muted)]">Beats</h2>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={btnSecondary} onClick={() => addBeat("establishing")}>
+            <button
+              type="button"
+              className={btnSecondary}
+              onClick={() => addBeat("establishing")}
+              disabled={sortedBeats.length >= MAX_SEQUENCE_BEATS}
+            >
               + Establishing
             </button>
-            <button type="button" className={btnSecondary} onClick={() => addBeat("action")}>
+            <button
+              type="button"
+              className={btnSecondary}
+              onClick={() => addBeat("action")}
+              disabled={sortedBeats.length >= MAX_SEQUENCE_BEATS}
+            >
               + Action
             </button>
-            <button type="button" className={btnSecondary} onClick={() => addBeat("closeup")}>
+            <button
+              type="button"
+              className={btnSecondary}
+              onClick={() => addBeat("closeup")}
+              disabled={sortedBeats.length >= MAX_SEQUENCE_BEATS}
+            >
               + Close-up
             </button>
           </div>
         </div>
+        {sortedBeats.length >= MAX_SEQUENCE_BEATS ? (
+          <p className="mt-2 text-xs text-[var(--text-muted)]">Max {MAX_SEQUENCE_BEATS} beats per sequence.</p>
+        ) : null}
 
         <ol className="mt-4 space-y-4" data-testid="sequence-beats">
           {sortedBeats.map((beat, index) => (

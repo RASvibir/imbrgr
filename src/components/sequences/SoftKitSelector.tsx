@@ -1,22 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { softKitFragment, type SoftKitSummary } from "@/lib/shot-sequence/kit-hook";
 
 type Props = {
   value: string | null;
   onChange: (shortId: string | null, kit: SoftKitSummary | null) => void;
+  /** Fired once after kits load so the parent can restore kitFragment without marking dirty. */
+  onHydrate?: (kit: SoftKitSummary | null) => void;
   className?: string;
 };
 
 /**
  * Soft character-kit selector. Detects `/api/kits` (PR #70); until then shows a quiet hook note.
  */
-export function SoftKitSelector({ value, onChange, className }: Props) {
+export function SoftKitSelector({ value, onChange, onHydrate, className }: Props) {
   const [kits, setKits] = useState<SoftKitSummary[]>([]);
   const [available, setAvailable] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const hydratedRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -26,7 +29,8 @@ export function SoftKitSelector({ value, onChange, className }: Props) {
         return;
       }
       const data = (await res.json()) as { kits?: SoftKitSummary[] };
-      setKits(Array.isArray(data.kits) ? data.kits : []);
+      const list = Array.isArray(data.kits) ? data.kits : [];
+      setKits(list);
       setAvailable(true);
     } catch {
       setAvailable(false);
@@ -39,6 +43,13 @@ export function SoftKitSelector({ value, onChange, className }: Props) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- load kit options once; state is set from the response
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!loaded || !available || hydratedRef.current) return;
+    hydratedRef.current = true;
+    const kit = value ? (kits.find((k) => k.shortId === value) ?? null) : null;
+    onHydrate?.(kit);
+  }, [loaded, available, kits, value, onHydrate]);
 
   if (!loaded) return null;
 

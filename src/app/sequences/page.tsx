@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { SequencesPanel } from "@/components/sequences/SequencesPanel";
 
 export const metadata = {
@@ -6,5 +7,9 @@ export const metadata = {
 };
 
 export default function SequencesPage() {
-  return <SequencesPanel />;
+  return (
+    <Suspense fallback={<p className="p-8 text-center text-[var(--text-muted)]">Loading sequences…</p>}>
+      <SequencesPanel />
+    </Suspense>
+  );
 }

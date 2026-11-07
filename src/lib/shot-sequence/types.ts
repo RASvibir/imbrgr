@@ -35,7 +35,9 @@ export const beatSchema = z.object({
   mediaShortId: z.string().min(4).max(20).optional().nullable(),
 });
 
-export const beatsSchema = z.array(beatSchema).min(1).max(12);
+export const MAX_SEQUENCE_BEATS = 12;
+
+export const beatsSchema = z.array(beatSchema).min(1).max(MAX_SEQUENCE_BEATS);
 
 export type ShotBeat = z.infer<typeof beatSchema>;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { btnPrimary, btnSecondary } from "@/lib/ui/button-classes";
 
@@ -16,10 +16,12 @@ type SequenceSummary = {
 
 export function SequencesPanel() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sequences, setSequences] = useState<SequenceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(() => searchParams.get("title")?.trim().slice(0, 80) ?? "");
+  const [kitShortId] = useState(() => searchParams.get("kit")?.trim().slice(0, 20) ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -49,7 +51,10 @@ export function SequencesPanel() {
       const res = await fetch("/api/sequences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: t }),
+        body: JSON.stringify({
+          title: t,
+          ...(kitShortId ? { kitShortId } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Create failed");
@@ -101,6 +106,9 @@ export function SequencesPanel() {
             {creating ? "Creating…" : "Create with 3 beats"}
           </button>
         </div>
+        {kitShortId ? (
+          <p className="mt-2 text-xs text-[var(--text-muted)]">Will attach character kit {kitShortId} when created.</p>
+        ) : null}
       </section>
 
       {error ? (
