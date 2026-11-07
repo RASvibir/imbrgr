@@ -39,4 +39,18 @@ describe("kit-prompt", () => {
     expect(next).toContain("consistent face");
     expect(palettePromptFragment({ primary: "#ea580c" })).toContain("#ea580c");
   });
+
+  it("re-applies kit locks after an enhanced prompt rewrite", () => {
+    const kit = {
+      name: "Scout",
+      styleLock: "soft cel shading, oversized coat",
+      paletteJson: { primary: "#f97316" },
+    };
+    const enhanced = "a dramatic rooftop portrait with wind-swept hair, cinematic lighting";
+    const finalPrompt = applyKitToPrompt(enhanced, kit);
+    expect(finalPrompt).toContain("dramatic rooftop portrait");
+    expect(finalPrompt).toContain("soft cel shading, oversized coat");
+    expect(finalPrompt).toContain("#f97316");
+    expect(finalPrompt).toContain('kit "Scout"');
+  });
 });

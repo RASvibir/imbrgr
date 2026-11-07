@@ -35,6 +35,10 @@ export async function claimGuestContent(userId: string, voterKey: string) {
     where: { voterKey, userId: null },
     data: { userId, voterKey: null },
   });
+  const kits = await prisma.characterKit.updateMany({
+    where: { voterKey, userId: null },
+    data: { userId, voterKey: null },
+  });
 
-  return { posts: posts.count, media: media.length };
+  return { posts: posts.count, media: media.length, kits: kits.count };
 }

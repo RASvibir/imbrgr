@@ -128,14 +128,16 @@ export function MyImagesPanel({
     await load();
   };
 
-  const setSaveKind = async (mediaShortId: string, nextKind: LibraryAssetKind) => {
+  const setSaveKind = async (save: SaveRow, nextKind: LibraryAssetKind) => {
+    // Use the save's own folder — not the current All-saves filter — so we
+    // update the existing row instead of creating a duplicate unfoldered save.
     const res = await fetch("/api/library/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        mediaShortId,
+        mediaShortId: save.media.shortId,
         kind: nextKind,
-        folderShortId: folderShortId ?? undefined,
+        ...(save.folder?.shortId ? { folderShortId: save.folder.shortId } : {}),
       }),
     });
     if (!res.ok) {
@@ -371,7 +373,7 @@ export function MyImagesPanel({
                             onChange={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              void setSaveKind(s.media.shortId, e.target.value as LibraryAssetKind);
+                              void setSaveKind(s, e.target.value as LibraryAssetKind);
                             }}
                             className="min-h-8 rounded border px-1 text-[11px] text-[var(--text-secondary)]"
                             data-testid={`library-kind-select-${s.shortId}`}
