@@ -4,6 +4,7 @@ import {
   enrichVideoPromptLocal,
   needsVideoPromptEnrichment,
   promptHasCameraMove,
+  promptHasSubjectMotion,
   VIDEO_ENHANCE_SYSTEM,
   VIDEO_PROMPT_EXAMPLES,
 } from "./video-prompt";
@@ -78,6 +79,12 @@ describe("enrichVideoPromptLocal (zero-token free tier)", () => {
     const out = enrichVideoPromptLocal("hero in a raincoat", { characterMotion: "walk" });
     expect(out).toMatch(/walking forward|looping gait/i);
     expect(out).not.toMatch(/gentle natural motion/i);
+  });
+
+  it("detects already-injected character motion phrases so they are not restacked", () => {
+    const withEmote = enrichVideoPromptLocal("hero in a raincoat", { characterMotion: "emote" });
+    expect(promptHasSubjectMotion(withEmote)).toBe(true);
+    expect(enrichVideoPromptLocal(withEmote, { characterMotion: "emote" })).toBe(withEmote);
   });
 
   it("does not overwrite camera language the user already wrote", () => {

@@ -69,7 +69,8 @@ export function promptHasCameraMove(prompt: string): boolean {
 
 export function analyzeVideoPromptStructure(prompt: string): VideoPromptStructure {
   const p = normalizePromptText(prompt);
-  const hasMotion = MOTION_MARKERS.test(p);
+  // Use promptHasSubjectMotion so injected idle/walk/emote phrases count as motion.
+  const hasMotion = promptHasSubjectMotion(p);
   const hasCamera = promptHasCameraMove(p);
   const hasLighting = LIGHTING_MARKERS.test(p);
   const hasFraming = FRAMING_MARKERS.test(p);
@@ -125,7 +126,13 @@ export function withCharacterMotionPhrase(text: string, characterMotion: Charact
 }
 
 export function promptHasSubjectMotion(prompt: string): boolean {
-  return MOTION_MARKERS.test(normalizePromptText(prompt));
+  const p = normalizePromptText(prompt);
+  if (MOTION_MARKERS.test(p)) return true;
+  // Belt-and-suspenders: detect any already-injected subject-motion preset phrase.
+  const lower = p.toLowerCase();
+  return Object.values(CHARACTER_MOTION_PHRASE).some((phrase) =>
+    lower.includes(phrase.toLowerCase()),
+  );
 }
 
 /**

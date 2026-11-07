@@ -73,4 +73,25 @@ describe("composeGpuPrompt with anchors", () => {
       ),
     ).toBe(true);
   });
+
+  it("uses characterMotion as action when the scene has no subject motion", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "hero in a raincoat",
+      motion: "zoom-in",
+      characterMotion: "walk",
+    });
+    expect(out).toMatch(/walks forward with a natural looping gait/i);
+    expect(out.match(/natural looping gait/gi)?.length ?? 0).toBe(1);
+  });
+
+  it("does not duplicate characterMotion when enhance already injected the phrase", () => {
+    const enhanced =
+      "hero in a raincoat, subject walks forward with a natural looping gait, steady pace, arms swinging lightly";
+    const out = composeGpuPrompt({
+      visualPrompt: enhanced,
+      motion: "zoom-in",
+      characterMotion: "walk",
+    });
+    expect(out.match(/natural looping gait/gi)?.length ?? 0).toBe(1);
+  });
 });
