@@ -9,6 +9,7 @@
 
 import { fetchWithTimeout } from "@/lib/fetch-timeout";
 import type { VideoMode } from "@/lib/ai/video-limits";
+import { VIDEO_NEGATIVE_CUES, VIDEO_QUALITY_SUFFIX } from "@/lib/ai/video-prompt";
 import { MAX_VIDEO_BYTES } from "@/lib/validation";
 
 export type CameraMotion =
@@ -51,32 +52,34 @@ export const VIDEO_STYLES = [
   {
     id: "cinematic",
     label: "Cinematic Film",
-    promptSuffix: "cinematic lighting, 35mm film look, shallow depth of field",
+    // Look/grade only — camera moves come from the Camera Motion control.
+    promptSuffix: "cinematic color grade, 35mm film grain, shallow depth of field, motivated practical lighting",
   },
   {
     id: "cyberpunk",
     label: "Cyberpunk Neon",
-    promptSuffix: "neon glow, dark rain reflections, volumetric lighting, futuristic city",
+    promptSuffix: "neon glow and wet asphalt reflections, volumetric light shafts, futuristic night city, rain-soaked streets",
   },
   {
     id: "anime",
     label: "Anime Motion",
-    promptSuffix: "vibrant anime animation, painterly backgrounds, expressive motion, soft glowing light",
+    promptSuffix:
+      "vibrant anime look, painterly backgrounds, expressive secondary motion, soft glowing rim light, clean cel shading",
   },
   {
     id: "hyperlapse",
     label: "Urban Hyperlapse",
-    promptSuffix: "high-speed hyperlapse, light trails, smooth motion blur, dramatic perspective",
+    promptSuffix: "urban night energy, light trails, controlled motion blur, dramatic vanishing-point perspective, time-compressed feel",
   },
   {
     id: "macro",
     label: "Macro Sizzle",
-    promptSuffix: "extreme macro close-up, sizzling textures, steam droplets, mouth-watering focus",
+    promptSuffix: "extreme macro close-up, sizzling textures and rising steam, droplet detail, mouth-watering focus, warm key light",
   },
   {
     id: "retro",
     label: "Retro 80s Synth",
-    promptSuffix: "80s retro aesthetic, chrome reflections, synthwave horizon, sunset glow",
+    promptSuffix: "80s retro synthwave look, chrome reflections, neon grid horizon, sunset glow",
   },
 ] as const;
 
@@ -103,9 +106,18 @@ export function resolveVideoDimensions(aspectRatio: "16:9" | "9:16" | "1:1" = "1
 }
 
 export function buildCinematicVideoPrompt(basePrompt: string, styleId?: string): string {
+  const trimmed = basePrompt.trim();
+  if (!trimmed) return trimmed;
   const style = VIDEO_STYLES.find((s) => s.id === styleId);
-  const suffix = style ? `, ${style.promptSuffix}` : ", smooth cinematic motion";
-  return `${basePrompt.trim()}${suffix}`;
+  const styleSuffix = style ? style.promptSuffix : "smooth cinematic motion, motivated lighting";
+  // Avoid duplicating quality/negative cues when compose or enhance already appended them.
+  const parts = [trimmed];
+  if (!trimmed.toLowerCase().includes(styleSuffix.slice(0, 24).toLowerCase())) {
+    parts.push(styleSuffix);
+  }
+  if (!/\bsmooth continuous motion\b/i.test(trimmed)) parts.push(VIDEO_QUALITY_SUFFIX);
+  if (!/\bno watermark\b/i.test(trimmed)) parts.push(VIDEO_NEGATIVE_CUES);
+  return parts.join(", ");
 }
 
 // --- Pollinations Gen (https://gen.pollinations.ai) ---------------------------

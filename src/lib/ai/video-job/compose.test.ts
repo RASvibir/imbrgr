@@ -4,13 +4,41 @@ import { composeGpuPrompt, composeShotText, shotScaleFor } from "./compose";
 describe("composeGpuPrompt", () => {
   it("puts subject, camera move, then style", () => {
     const out = composeGpuPrompt({ visualPrompt: "a burger on a grill.", motion: "orbit" });
-    expect(out.startsWith("a burger on a grill, camera orbiting around the subject")).toBe(true);
-    expect(out).toContain("smooth cinematic motion");
+    expect(out.startsWith("a burger on a grill, gentle orbital camera drift around the subject")).toBe(true);
+    expect(out).toContain("smooth continuous motion");
+  });
+
+  it("does not stack a second camera move when the scene already names one", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "a burger on a grill, gentle orbital camera drift around the subject",
+      motion: "zoom-in",
+    });
+    expect(out).toMatch(/orbital camera drift/i);
+    expect(out).not.toMatch(/push-in/i);
   });
 
   it("writes continuation clips as what changes next", () => {
     const out = composeGpuPrompt({ visualPrompt: "flames rise", motion: "zoom-in", continuation: true });
     expect(out).toMatch(/^Continuing from the previous frame, same subject and setting, now flames rise/);
+    expect(out).toContain("push-in");
+  });
+
+  it("does not restack camera language on continuation when the scene already has the move", () => {
+    const scene =
+      "flames rise, slow cinematic push-in toward the focal point, steady framing";
+    const out = composeGpuPrompt({ visualPrompt: scene, motion: "zoom-in", continuation: true });
+    expect(out.match(/push-in/gi)?.length ?? 0).toBe(1);
+  });
+
+  it("does not restack camera on action-only continuation when action already names the move", () => {
+    const out = composeGpuPrompt({
+      visualPrompt: "ignored",
+      action: "steam rises, gentle orbital camera drift around the subject, level horizon",
+      motion: "orbit",
+      continuation: true,
+    });
+    expect(out.match(/orbital camera drift/gi)?.length ?? 0).toBe(1);
+    expect(out).not.toContain("push-in");
   });
 });
 
@@ -32,11 +60,17 @@ describe("composeShotText", () => {
 describe("composeGpuPrompt with anchors", () => {
   it("chained clip with an action drops scene text and style", () => {
     const out = composeGpuPrompt({ visualPrompt: "long scene text", look: "neon bar", action: "flames rise", motion: "zoom-in", continuation: true, style: "cyberpunk" });
-    expect(out).toBe("Continuing from the previous frame: flames rise, slow push-in toward the subject");
+    expect(out).toBe(
+      "Continuing from the previous frame: flames rise, slow cinematic push-in toward the focal point, steady framing",
+    );
   });
 
   it("first clip combines framing, look, scene, action, camera and style", () => {
     const out = composeGpuPrompt({ visualPrompt: "a burger", look: "neon bar", scale: "wide establishing shot", action: "steam rises", motion: "orbit" });
-    expect(out.startsWith("wide establishing shot, neon bar, a burger, steam rises, camera orbiting around the subject")).toBe(true);
+    expect(
+      out.startsWith(
+        "wide establishing shot, neon bar, a burger, steam rises, gentle orbital camera drift around the subject",
+      ),
+    ).toBe(true);
   });
 });

@@ -52,7 +52,10 @@ export async function POST(req: Request) {
   let prompt = parsed.data.prompt;
   if (parsed.data.enhance !== false) {
     try {
-      const enhanced = await enhanceVideoPrompt(prompt, { style: parsed.data.style });
+      const enhanced = await enhanceVideoPrompt(prompt, {
+        style: parsed.data.style,
+        motion: parsed.data.motion,
+      });
       prompt = enhanced.prompt;
     } catch {
       /* keep original */

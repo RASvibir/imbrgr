@@ -117,7 +117,7 @@ describe("planGpuShots", () => {
   it("uses each storyboard shot's own motion", () => {
     const shots = planGpuShots(base, storyboard([4, 4, 5]), 5);
     expect(shots.every((s) => s.motion === "pan-right")).toBe(true);
-    expect(shots[0].visualPrompt).toContain("pan to the right");
+    expect(shots[0].visualPrompt).toContain("lateral truck to the right");
   });
 
   it("keeps the closing storyboard shot when the board is longer than the chain", () => {
@@ -185,7 +185,9 @@ describe("continuity anchors", () => {
     const shots = planGpuShots(base, withAction, 5);
     expect(shots[0].visualPrompt).toContain("neon burger bar at night");
     expect(shots[0].visualPrompt).toContain("steam rises 0");
-    expect(shots[1].visualPrompt).toBe("Continuing from the previous frame: steam rises 1, smooth camera pan to the right");
+    expect(shots[1].visualPrompt).toBe(
+      "Continuing from the previous frame: steam rises 1, smooth lateral truck to the right, constant subject distance",
+    );
     expect(shots[1].visualPrompt).not.toContain("neon burger bar");
   });
 
