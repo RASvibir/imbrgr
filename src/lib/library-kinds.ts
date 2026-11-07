@@ -3,6 +3,7 @@ export const LIBRARY_ASSET_KINDS = [
   "CHARACTER",
   "PROP",
   "BACKGROUND",
+  "LOGO",
   "OTHER",
 ] as const;
 
@@ -13,6 +14,7 @@ export const LIBRARY_ASSET_KIND_LABELS: Record<LibraryAssetKind, string> = {
   CHARACTER: "Characters",
   PROP: "Props",
   BACKGROUND: "Backgrounds",
+  LOGO: "Logos",
   OTHER: "Other",
 };
 

@@ -30,6 +30,10 @@ import { MediaCreationSuite } from "@/components/studio/MediaCreationSuite";
 import { readGuestKeepOriginal, writeGuestKeepOriginal } from "@/lib/studio-keep-original";
 import type { StudioInitialAsset } from "@/lib/studio-initial-asset";
 import {
+  parseBrandConstraintMode,
+  type BrandConstraintMode,
+} from "@/lib/brand-prompt";
+import {
   fieldpressStudioVisibilityFromUserDefault,
   ingestFieldPressDraftFromQuery,
   readFieldPressDraftId,
@@ -72,6 +76,8 @@ export function ImageStudio({
   initialPreset,
   initialMode,
   initialKitShortId,
+  initialBrandKitShortId,
+  initialBrandMode,
 }: {
   defaultTab?: string;
   initialPrompt?: string;
@@ -81,6 +87,8 @@ export function ImageStudio({
   initialPreset?: string;
   initialMode?: string;
   initialKitShortId?: string | null;
+  initialBrandKitShortId?: string | null;
+  initialBrandMode?: string | null;
 }) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -110,6 +118,14 @@ export function ImageStudio({
   const [enhance, setEnhance] = useState(true);
   const [style, setStyle] = useState("");
   const [kitShortId, setKitShortId] = useState<string | null>(() => initialKitShortId ?? null);
+  const [brandKitShortId, setBrandKitShortId] = useState<string | null>(
+    () => initialBrandKitShortId ?? null,
+  );
+  const [brandMode, setBrandMode] = useState<BrandConstraintMode>(() => {
+    const parsed = parseBrandConstraintMode(initialBrandMode);
+    if (parsed !== "none") return parsed;
+    return initialBrandKitShortId ? "on_brand" : "none";
+  });
   const [aspect, setAspect] = useState<keyof typeof ASPECT_PRESETS>("1:1");
   const [variations, setVariations] = useState(1);
   const [kitchenOpen, setKitchenOpen] = useState(true);
@@ -317,6 +333,8 @@ export function ImageStudio({
           visibility: settings.visibility,
           keepOriginal,
           kitShortId: kitShortId || undefined,
+          brandKitShortId: brandKitShortId || undefined,
+          brandMode: brandMode !== "none" ? brandMode : undefined,
         }),
       });
       const data = await res.json();
@@ -726,6 +744,13 @@ export function ImageStudio({
               setKitShortId(id);
               if (kit?.stylePreset && !style) setStyle(kit.stylePreset);
             }}
+            brandKitShortId={brandKitShortId}
+            brandMode={brandMode}
+            onBrandKitChange={(id, brand) => {
+              setBrandKitShortId(id);
+              if (brand?.stylePreset && !style) setStyle(brand.stylePreset);
+            }}
+            onBrandModeChange={setBrandMode}
             signedIn={signedIn}
             busy={busy}
             onGenerate={generate}

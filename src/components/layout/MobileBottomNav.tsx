@@ -187,6 +187,16 @@ export function MobileBottomNav() {
             </Link>
           </li>
           <li>
+            <Link
+              href="/brands"
+              className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+              onClick={() => setMoreOpen(false)}
+              data-testid="mobile-nav-brands"
+            >
+              🎨 Brand kits
+            </Link>
+          </li>
+          <li>
             <Link href="/tags" className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]" onClick={() => setMoreOpen(false)}>
               🏷️ Tags
             </Link>

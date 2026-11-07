@@ -65,6 +65,9 @@ export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean 
           <Link href="/kits" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
             Kits
           </Link>
+          <Link href="/brands" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
+            Brands
+          </Link>
           <Link href="/settings" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
             Settings
           </Link>
