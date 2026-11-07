@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { exportSequence, toClipPack, toStoryboard } from "./export";
+import { exportSequence, fitStoryboardVisualPrompt, toClipPack, toStoryboard } from "./export";
 import { defaultBeats, defaultLook } from "./defaults";
+import type { ShotBeat } from "./types";
 
 const source = {
   shortId: "seq12345",
@@ -22,6 +23,23 @@ describe("shot sequence export", () => {
     expect(board.shots).toHaveLength(3);
     expect(board.shots[0]!.motion).toBe("zoom-out");
     expect(board.shots.every((s) => s.visualPrompt.includes("continuity look"))).toBe(true);
+    expect(board.look).toContain("a runner at dawn");
+  });
+
+  it("keeps look lock when beat prompt is long", () => {
+    const longBeat: ShotBeat = {
+      ...source.beats[0]!,
+      visualPrompt: "x".repeat(400),
+    };
+    const prompt = fitStoryboardVisualPrompt(longBeat, {
+      look: "shared coastal dawn palette",
+      kitFragment: "kit Runner lock",
+      stylePresetSuffix: "cinematic lighting",
+    });
+    expect(prompt.length).toBeLessThanOrEqual(300);
+    expect(prompt).toContain("continuity look: shared coastal dawn palette");
+    expect(prompt).toContain("kit Runner lock");
+    expect(prompt).toContain("cinematic lighting");
   });
 
   it("exports a clip pack with handoff and durations", () => {
@@ -33,7 +51,14 @@ describe("shot sequence export", () => {
     expect(pack.beats[1]!.role).toBe("action");
     expect(pack.beats[2]!.role).toBe("closeup");
     expect(pack.handoff.studioHref).toContain("/studio?tab=video&prompt=");
+    expect(pack.handoff.studioHref).toContain("&preset=zoom-out");
     expect(pack.beats.every((b) => b.renderPrompt.length >= b.visualPrompt.length)).toBe(true);
+  });
+
+  it("allows look up to 400 chars on storyboard export", () => {
+    const look = "y".repeat(400);
+    const board = toStoryboard({ ...source, look });
+    expect(board.look?.length).toBe(400);
   });
 
   it("branches on export format", () => {

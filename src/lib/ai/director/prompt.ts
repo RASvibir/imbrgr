@@ -6,7 +6,7 @@ Reply with ONE JSON object and nothing else, in exactly this shape:
 {
   "title": string (max 80 chars),
   "narration": string (the full voiceover script, plain sentences),
-  "look": string (ONE sentence naming the recurring subject, setting, colour palette and lighting that every shot shares, max 200 chars),
+  "look": string (ONE sentence naming the recurring subject, setting, colour palette and lighting that every shot shares, max 400 chars),
   "shots": [
     {
       "durationSec": number (1-10),

@@ -29,7 +29,8 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   const kit = await kitPromptForSequence(row.kitShortId);
-  const styleId = kit.stylePreset || row.stylePreset;
+  // Prefer kit style when present so exported stylePreset matches renderPrompt suffix.
+  const styleId = kit.stylePreset || row.stylePreset || null;
   const style = VIDEO_STYLES.find((s) => s.id === styleId);
   const payload = exportSequence(
     {
@@ -38,7 +39,7 @@ export async function POST(req: Request, ctx: Ctx) {
       look: row.look,
       narration: row.narration,
       aspectRatio: row.aspectRatio,
-      stylePreset: row.stylePreset,
+      stylePreset: styleId,
       kitShortId: row.kitShortId,
       beats: parseBeats(row.beats),
       kitFragment: kit.fragment || null,

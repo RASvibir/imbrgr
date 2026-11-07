@@ -62,7 +62,7 @@ export function repairStoryboard(raw: unknown, params: Pick<PlanParams, "prompt"
   return {
     title: (str(raw.title) || topic).slice(0, 80),
     narration: narration.slice(0, 1200),
-    ...(str(raw.look) ? { look: str(raw.look).slice(0, 200) } : {}),
+    ...(str(raw.look) ? { look: str(raw.look).slice(0, 400) } : {}),
     shots,
   };
 }

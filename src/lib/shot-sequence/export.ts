@@ -55,8 +55,48 @@ export type StoryboardExport = {
   storyboard: Storyboard;
 };
 
+const STORYBOARD_LOOK_MAX = 400;
+const STORYBOARD_VISUAL_MAX = 300;
+const STUDIO_PROMPT_MAX = 500;
+
 function sortedBeats(beats: ShotBeat[]): ShotBeat[] {
   return [...beats].sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+}
+
+/**
+ * Fit a look-locked prompt into the director storyboard visualPrompt max (300).
+ * Prefer keeping continuity (look / kit / style) over the raw beat prompt tail.
+ */
+export function fitStoryboardVisualPrompt(
+  beat: ShotBeat,
+  opts?: {
+    look?: string | null;
+    kitFragment?: string | null;
+    stylePresetSuffix?: string | null;
+  },
+): string {
+  const continuityParts: string[] = [];
+  const look = opts?.look?.trim();
+  if (look) continuityParts.push(`continuity look: ${look}`);
+  const kit = opts?.kitFragment?.trim();
+  if (kit) continuityParts.push(kit);
+  const style = opts?.stylePresetSuffix?.trim();
+  if (style) continuityParts.push(style);
+  if (beat.action?.trim()) continuityParts.push(`action: ${beat.action.trim()}`);
+
+  const continuity = continuityParts.join(". ");
+  // Reserve room for continuity; keep at least ~80 chars of the beat prompt.
+  const continuityBudget = Math.min(continuity.length, STORYBOARD_VISUAL_MAX - 80);
+  const continuityTrimmed = continuity.slice(0, Math.max(0, continuityBudget));
+  const sep = continuityTrimmed ? 2 : 0;
+  const baseBudget = STORYBOARD_VISUAL_MAX - continuityTrimmed.length - sep;
+  const base = beat.visualPrompt.trim().slice(0, Math.max(0, baseBudget));
+  return [base, continuityTrimmed].filter(Boolean).join(". ").slice(0, STORYBOARD_VISUAL_MAX);
+}
+
+function studioHandoffHref(prompt: string, motion: ShotBeat["motion"]): string {
+  const encoded = encodeURIComponent(prompt.slice(0, STUDIO_PROMPT_MAX));
+  return `/studio?tab=video&prompt=${encoded}&preset=${motion}`;
 }
 
 export function toStoryboard(source: SequenceExportSource): Storyboard {
@@ -64,15 +104,15 @@ export function toStoryboard(source: SequenceExportSource): Storyboard {
   return {
     title: source.title.slice(0, 80),
     narration: (source.narration?.trim() || source.title).slice(0, 1200),
-    look: source.look?.trim()?.slice(0, 200) || undefined,
+    look: source.look?.trim()?.slice(0, STORYBOARD_LOOK_MAX) || undefined,
     shots: beats.map((b) => ({
       durationSec: b.durationSec,
       caption: b.caption.slice(0, 140),
-      visualPrompt: buildBeatPrompt(b, {
+      visualPrompt: fitStoryboardVisualPrompt(b, {
         look: source.look,
         kitFragment: source.kitFragment,
         stylePresetSuffix: source.stylePresetSuffix,
-      }).slice(0, 300),
+      }),
       stockQuery: (b.stockQuery?.trim() || b.caption).slice(0, 60),
       motion: b.motion,
       action: b.action?.trim()?.slice(0, 200) || undefined,
@@ -83,13 +123,12 @@ export function toStoryboard(source: SequenceExportSource): Storyboard {
 export function toClipPack(source: SequenceExportSource): ClipPackExport {
   const beats = sortedBeats(source.beats);
   const totalDurationSec = beats.reduce((sum, b) => sum + b.durationSec, 0);
-  const firstPrompt = encodeURIComponent(
-    buildBeatPrompt(beats[0]!, {
-      look: source.look,
-      kitFragment: source.kitFragment,
-      stylePresetSuffix: source.stylePresetSuffix,
-    }).slice(0, 200),
-  );
+  const first = beats[0]!;
+  const firstRender = buildBeatPrompt(first, {
+    look: source.look,
+    kitFragment: source.kitFragment,
+    stylePresetSuffix: source.stylePresetSuffix,
+  });
   return {
     format: "clip-pack",
     version: 1,
@@ -119,7 +158,7 @@ export function toClipPack(source: SequenceExportSource): ClipPackExport {
       sortOrder: b.sortOrder,
     })),
     handoff: {
-      studioHref: `/studio?tab=video&prompt=${firstPrompt}`,
+      studioHref: studioHandoffHref(firstRender, first.motion),
       note: "Open Video Studio with the first beat prompt. Multi-beat batch render from a sequence is a follow-up.",
     },
   };
