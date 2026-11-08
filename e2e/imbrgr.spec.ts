@@ -244,7 +244,10 @@ test.describe("imbrgr e2e", () => {
     await page.getByPlaceholder(/password/i).fill("password12345");
     await page.getByRole("button", { name: /sign in/i }).click();
     await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
-    await expect(page.getByRole("link", { name: "Admin" })).toBeVisible({ timeout: 15000 });
+    await page.getByTestId("header-overflow-menu").click();
+    await expect(
+      page.getByTestId("header-overflow-panel").getByRole("menuitem", { name: "Admin" }),
+    ).toBeVisible({ timeout: 15000 });
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: /Super admin/i })).toBeVisible();
     await page.getByRole("button", { name: "Site" }).click();
@@ -263,7 +266,12 @@ test.describe("imbrgr e2e", () => {
     await page.getByPlaceholder(/email/i).fill("e2euser@imbrgr.test");
     await page.getByPlaceholder(/password/i).fill("password12345");
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
+    await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
+    await page.getByTestId("header-overflow-menu").click();
+    await expect(page.getByTestId("header-overflow-panel")).toBeVisible();
+    await expect(
+      page.getByTestId("header-overflow-panel").getByRole("menuitem", { name: "Admin" }),
+    ).toHaveCount(0);
     const res = await request.get("/api/admin/dashboard");
     expect(res.status()).toBe(404);
   });
