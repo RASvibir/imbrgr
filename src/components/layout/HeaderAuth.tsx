@@ -1,103 +1,59 @@
 "use client";
 
 import Link from "next/link";
-import { signOut, useSession } from "next-auth/react";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useSession } from "next-auth/react";
 import {
   headerNavLinkAccentClass,
   headerNavLinkClass,
   headerNavLinkPrimaryClass,
 } from "@/components/layout/header-nav-classes";
-import { FieldPressNavLink } from "@/components/fieldpress/FieldPressNavLink";
+import { HeaderOverflowMenu } from "@/components/layout/HeaderOverflowMenu";
 
+/**
+ * Visitor-focused header chrome:
+ * - Competitive CTAs stay visible (Create / Upload / Gallery) where they don't fight the mobile bottom nav.
+ * - Utility destinations (Admin, Sequences, Library, Kits, Manual, theme, etc.) live in the overflow menu.
+ */
 export function HeaderAuth({ showAdminLink = false }: { showAdminLink?: boolean }) {
   const { data: session } = useSession();
+
   return (
-    <nav className="flex items-center gap-1 sm:gap-2" aria-label="Main">
-      <div className="hidden items-center gap-1 lg:flex">
-        <Link href="/" className={`${headerNavLinkClass} inline-flex`}>
-          Gallery
-        </Link>
-        <Link href="/hot" className={`${headerNavLinkClass} inline-flex`}>
-          Hot
-        </Link>
-        <Link href="/create" className={`${headerNavLinkAccentClass} inline-flex`}>
-          Create
-        </Link>
-        <Link href="/tools" className={`${headerNavLinkClass} inline-flex`}>
-          Tools
-        </Link>
+    <nav className="flex min-w-0 shrink items-center justify-end gap-1 sm:gap-2" aria-label="Main">
+      {/* Competitive CTAs — hidden below lg when the bottom nav already surfaces Create/Gallery */}
+      <Link
+        href="/create"
+        className={`${headerNavLinkAccentClass} hidden lg:inline-flex`}
+        data-testid="header-nav-create"
+      >
+        Create
+      </Link>
+      <Link
+        href="/upload"
+        className={`${headerNavLinkClass} inline-flex`}
+        data-testid="header-nav-upload"
+      >
+        Upload
+      </Link>
+      <Link
+        href="/"
+        className={`${headerNavLinkClass} hidden lg:inline-flex`}
+        data-testid="header-nav-gallery"
+      >
+        Gallery
+      </Link>
+
+      {/* Guest sign-in stays one tap away on wide layouts; signed-in account lives in overflow */}
+      {!session?.user ? (
         <Link
-          href="/studio?tab=video"
-          className={`${headerNavLinkClass} inline-flex items-center gap-1 text-xs`}
-          title="AI Video Studio (pacNcap Engine)"
+          href="/auth/signin"
+          className={`${headerNavLinkPrimaryClass} hidden lg:inline-flex`}
+          data-testid="header-nav-signin"
         >
-          <span>Video Studio</span>
-          <span className="rounded-full bg-[var(--accent-primary)]/20 px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent-primary)]">
-            ⚡
-          </span>
+          Sign in
         </Link>
-      </div>
-      <Link href="/tags" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
-        Tags
-      </Link>
-      <Link href="/search" className={`${headerNavLinkClass} hidden lg:inline-flex`}>
-        Search
-      </Link>
-      <FieldPressNavLink className={`${headerNavLinkClass} hidden items-center gap-1 sm:inline-flex`} />
-      <ThemeToggle />
-      {session?.user ? (
-        <>
-          {showAdminLink ? (
-            <Link
-              href="/admin"
-              className={`${headerNavLinkAccentClass} hidden font-semibold sm:inline-flex`}
-            >
-              Admin
-            </Link>
-          ) : null}
-          <Link href="/sequences" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
-            Sequences
-          </Link>
-          <Link href="/library" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
-            Library
-          </Link>
-          <Link href="/kits" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
-            Kits
-          </Link>
-          <Link href="/brands" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
-            Brands
-          </Link>
-          <Link href="/settings/manual" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
-            Manual
-          </Link>
-          <Link href="/settings" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
-            Settings
-          </Link>
-          <Link
-            href={`/u/${session.user.username}`}
-            className={`${headerNavLinkClass} hidden sm:inline-flex`}
-          >
-            @{session.user.username}
-          </Link>
-          <button
-            type="button"
-            onClick={() => signOut()}
-            className={`${headerNavLinkClass} hidden border border-[var(--border-strong)] lg:inline-flex`}
-          >
-            Sign out
-          </button>
-        </>
-      ) : (
-        <>
-          <Link href="/settings/manual" className={`${headerNavLinkClass} hidden sm:inline-flex`}>
-            Manual
-          </Link>
-          <Link href="/auth/signin" className={`${headerNavLinkPrimaryClass} hidden lg:inline-flex`}>
-            Sign in
-          </Link>
-        </>
-      )}
+      ) : null}
+
+      <HeaderOverflowMenu showAdminLink={showAdminLink} includeTheme />
     </nav>
   );
 }

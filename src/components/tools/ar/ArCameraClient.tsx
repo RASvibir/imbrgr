@@ -14,6 +14,7 @@ import {
   type ArEffectId,
 } from "@/lib/tools/ar-effects";
 import { getHeadPose, type HeadPose } from "@/lib/tools/ar-geometry";
+import { withSilencedMediapipeConsole } from "@/lib/tools/silence-mediapipe-console";
 import { FUN_FILTERS } from "@/lib/fun-filters";
 
 type CameraState = "idle" | "requesting" | "active" | "denied" | "unsupported" | "error";
@@ -107,62 +108,64 @@ export function ArCameraClient() {
     };
   }, [activeEffect, intensity, activeFunFilter, facingMode]);
 
-  // Load MediaPipe FaceLandmarker
+  // Load MediaPipe FaceLandmarker (lazy — only when the user starts camera / photo mode)
   const ensureFaceLandmarker = useCallback(async () => {
     if (landmarkerRef.current) return landmarkerRef.current;
 
     setModelLoading(true);
     try {
-      const vision = await import("@mediapipe/tasks-vision");
+      return await withSilencedMediapipeConsole(async () => {
+        const vision = await import("@mediapipe/tasks-vision");
 
-      let fileset;
-      try {
-        fileset = await vision.FilesetResolver.forVisionTasks("/mediapipe/wasm");
-      } catch (e) {
-        console.warn("Local wasm failed, falling back to CDN", e);
-        fileset = await vision.FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm",
-        );
-      }
-
-      let landmarker;
-      try {
-        // Try GPU delegate with local model
-        landmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
-          baseOptions: {
-            modelAssetPath: "/mediapipe/models/face_landmarker.task",
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numFaces: 2,
-        });
-      } catch (gpuErr) {
-        console.warn("GPU delegate failed, trying CPU fallback", gpuErr);
+        let fileset;
         try {
+          fileset = await vision.FilesetResolver.forVisionTasks("/mediapipe/wasm");
+        } catch (e) {
+          console.warn("Local wasm failed, falling back to CDN", e);
+          fileset = await vision.FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm",
+          );
+        }
+
+        let landmarker;
+        try {
+          // Try GPU delegate with local model
           landmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
             baseOptions: {
               modelAssetPath: "/mediapipe/models/face_landmarker.task",
-              delegate: "CPU",
+              delegate: "GPU",
             },
             runningMode: "VIDEO",
             numFaces: 2,
           });
-        } catch (modelErr) {
-          console.warn("Local model failed, trying remote CDN model", modelErr);
-          landmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
-            baseOptions: {
-              modelAssetPath:
-                "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-              delegate: "CPU",
-            },
-            runningMode: "VIDEO",
-            numFaces: 2,
-          });
+        } catch (gpuErr) {
+          console.warn("GPU delegate failed, trying CPU fallback", gpuErr);
+          try {
+            landmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
+              baseOptions: {
+                modelAssetPath: "/mediapipe/models/face_landmarker.task",
+                delegate: "CPU",
+              },
+              runningMode: "VIDEO",
+              numFaces: 2,
+            });
+          } catch (modelErr) {
+            console.warn("Local model failed, trying remote CDN model", modelErr);
+            landmarker = await vision.FaceLandmarker.createFromOptions(fileset, {
+              baseOptions: {
+                modelAssetPath:
+                  "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+                delegate: "CPU",
+              },
+              runningMode: "VIDEO",
+              numFaces: 2,
+            });
+          }
         }
-      }
 
-      landmarkerRef.current = landmarker;
-      return landmarker;
+        landmarkerRef.current = landmarker;
+        return landmarker;
+      });
     } catch (err) {
       console.error("FaceLandmarker init failed:", err);
       throw err;

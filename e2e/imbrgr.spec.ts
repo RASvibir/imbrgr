@@ -43,7 +43,7 @@ test.describe("imbrgr e2e", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Main" });
-    const linkNames = ["Gallery", "Hot", "Create", "Tools", "Tags", "Search", "Sign in"];
+    const linkNames = ["Create", "Upload", "Gallery", "Sign in"];
     const boxes = await Promise.all(
       linkNames.map((name) =>
         nav.getByRole("link", { name, exact: true }).boundingBox(),
@@ -52,6 +52,7 @@ test.describe("imbrgr e2e", () => {
     const tops = boxes.map((b) => b?.y).filter((y): y is number => y != null);
     expect(tops.length).toBe(linkNames.length);
     expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
+    await expect(nav.getByTestId("header-overflow-menu")).toBeVisible();
   });
 
   test("anonymous browse home and studio", async ({ page }) => {
