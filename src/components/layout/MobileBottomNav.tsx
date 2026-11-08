@@ -124,6 +124,7 @@ export function MobileBottomNav() {
             </Link>
             <Link
               href="/tools/ar"
+              prefetch={false}
               className="tap-target col-span-2 flex items-center justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-2 text-xs font-semibold hover:border-[var(--accent-primary)]"
               onClick={() => setMoreOpen(false)}
             >

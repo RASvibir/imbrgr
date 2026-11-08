@@ -36,6 +36,7 @@ export function MobileActionBar() {
           <Link
             key={t.id}
             href={t.href}
+            prefetch={t.id === "ar" ? false : undefined}
             className="tap-target flex flex-1 flex-col items-center justify-center min-h-11 py-1 px-2 rounded-xl text-xs font-semibold text-[var(--text-secondary)] transition hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] active:scale-95"
             data-testid={`mobile-action-${t.id}`}
           >

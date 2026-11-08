@@ -43,7 +43,7 @@ test.describe("imbrgr e2e", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto("/");
     const nav = page.getByRole("navigation", { name: "Main" });
-    const linkNames = ["Gallery", "Hot", "Create", "Tools", "Tags", "Search", "Sign in"];
+    const linkNames = ["Create", "Upload", "Gallery", "Sign in"];
     const boxes = await Promise.all(
       linkNames.map((name) =>
         nav.getByRole("link", { name, exact: true }).boundingBox(),
@@ -52,6 +52,7 @@ test.describe("imbrgr e2e", () => {
     const tops = boxes.map((b) => b?.y).filter((y): y is number => y != null);
     expect(tops.length).toBe(linkNames.length);
     expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
+    await expect(nav.getByTestId("header-overflow-menu")).toBeVisible();
   });
 
   test("anonymous browse home and studio", async ({ page }) => {
@@ -243,7 +244,10 @@ test.describe("imbrgr e2e", () => {
     await page.getByPlaceholder(/password/i).fill("password12345");
     await page.getByRole("button", { name: /sign in/i }).click();
     await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
-    await expect(page.getByRole("link", { name: "Admin" })).toBeVisible({ timeout: 15000 });
+    await page.getByTestId("header-overflow-menu").click();
+    await expect(
+      page.getByTestId("header-overflow-panel").getByRole("menuitem", { name: "Admin" }),
+    ).toBeVisible({ timeout: 15000 });
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: /Super admin/i })).toBeVisible();
     await page.getByRole("button", { name: "Site" }).click();
@@ -262,7 +266,12 @@ test.describe("imbrgr e2e", () => {
     await page.getByPlaceholder(/email/i).fill("e2euser@imbrgr.test");
     await page.getByPlaceholder(/password/i).fill("password12345");
     await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
+    await page.waitForURL((url) => !url.pathname.includes("/auth/signin"), { timeout: 15000 });
+    await page.getByTestId("header-overflow-menu").click();
+    await expect(page.getByTestId("header-overflow-panel")).toBeVisible();
+    await expect(
+      page.getByTestId("header-overflow-panel").getByRole("menuitem", { name: "Admin" }),
+    ).toHaveCount(0);
     const res = await request.get("/api/admin/dashboard");
     expect(res.status()).toBe(404);
   });

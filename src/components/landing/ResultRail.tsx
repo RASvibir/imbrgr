@@ -475,6 +475,7 @@ export function ResultRail({ file, imageEl, onClear }: ResultRailProps) {
           badge="Realtime"
           description="Face tracking & stickers"
           testId="result-card-ar"
+          prefetch={false}
         >
           <canvas
             ref={arCanvasRef}
@@ -494,6 +495,7 @@ function ResultCard({
   description,
   children,
   testId,
+  prefetch,
 }: {
   href: string;
   title: string;
@@ -501,10 +503,12 @@ function ResultCard({
   description: string;
   children: React.ReactNode;
   testId: string;
+  prefetch?: boolean;
 }) {
   return (
     <Link
       href={href}
+      prefetch={prefetch}
       data-testid={testId}
       className="group relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] transition duration-200 hover:-translate-y-1 hover:border-[var(--accent-primary)] hover:shadow-[var(--shadow-ember)] focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:outline-none"
     >
