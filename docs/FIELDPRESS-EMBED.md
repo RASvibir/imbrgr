@@ -6,7 +6,7 @@
 https://imbrgr.website/studio?tab=generate&embed=1&from=fieldpress&draft=<id>&prompt=<text>
 ```
 
-- `embed=1` — hide site header/footer/mobile nav; CSP `frame-ancestors` allows FieldPress origins.
+- `embed=1` — hide site header/footer/mobile nav; CSP `frame-ancestors` allows FieldPress production + localhost (add preview hosts via `FIELDPRESS_EMBED_FRAME_ANCESTORS`).
 - `from=fieldpress` + `draft` — session return context for **Share with FieldPress**.
 - Without `embed`, same params open full studio (FieldPress **Full studio** link).
 

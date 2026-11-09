@@ -6,12 +6,16 @@ export function isStudioEmbedParam(raw: string | null | undefined): boolean {
   return v === "1" || v === "true" || v === "yes";
 }
 
-/** Origins allowed to frame /studio when embed=1 (CSP frame-ancestors). */
+/**
+ * Origins allowed to frame /studio when embed=1 (CSP frame-ancestors).
+ * Intentionally narrow — CSP cannot express `fieldpress-*.vercel.app`, and
+ * `https://*.vercel.app` would let any Vercel app iframe the studio.
+ * Add preview hosts via FIELDPRESS_EMBED_FRAME_ANCESTORS (space-separated).
+ */
 export const FIELDPRESS_FRAME_ANCESTORS = [
   "'self'",
   "https://fieldpress.studio",
   "https://www.fieldpress.studio",
-  "https://*.vercel.app",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://127.0.0.1:5173",
@@ -19,5 +23,10 @@ export const FIELDPRESS_FRAME_ANCESTORS = [
 ] as const;
 
 export function studioEmbedCspFrameAncestors(): string {
-  return `frame-ancestors ${FIELDPRESS_FRAME_ANCESTORS.join(" ")}`;
+  const extra = (process.env.FIELDPRESS_EMBED_FRAME_ANCESTORS || "")
+    .split(/\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const ancestors = [...FIELDPRESS_FRAME_ANCESTORS, ...extra];
+  return `frame-ancestors ${ancestors.join(" ")}`;
 }

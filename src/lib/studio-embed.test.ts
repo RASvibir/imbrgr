@@ -9,9 +9,10 @@ describe("studio embed", () => {
     expect(isStudioEmbedParam(null)).toBe(false);
   });
 
-  it("includes FieldPress in frame-ancestors CSP", () => {
+  it("includes FieldPress in frame-ancestors CSP without broad vercel wildcard", () => {
     const csp = studioEmbedCspFrameAncestors();
     expect(csp).toContain("frame-ancestors");
     expect(csp).toContain("https://fieldpress.studio");
+    expect(csp).not.toContain("https://*.vercel.app");
   });
 });
