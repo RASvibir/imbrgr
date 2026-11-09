@@ -11,6 +11,7 @@ import {
   readFieldPressInviteDismissed,
   subscribeFieldPressInviteDismissed,
 } from "@/lib/fieldpress-invite-dismiss";
+import { tryPostComposeImageToParent } from "@/lib/fieldpress-post-message";
 
 type Props = {
   /** `share.directUrl` — absolute `/api/media/file/...` URL */
@@ -38,6 +39,12 @@ export function FieldPressInvite({ imageDirectUrl, visibility, title }: Props) {
   const composeHref = fieldpressComposeUrl(imageDirectUrl, title);
   if (!composeHref) return null;
 
+  const share = () => {
+    const posted = tryPostComposeImageToParent({ imageUrl: imageDirectUrl, title });
+    if (posted) return;
+    window.open(composeHref, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <section
       className="mt-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-3"
@@ -47,18 +54,18 @@ export function FieldPressInvite({ imageDirectUrl, visibility, title }: Props) {
         <div className="min-w-0">
           <p className="text-sm font-medium text-[var(--text-primary)]">Got a story behind this image?</p>
           <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-            Keep hosting on imbrgr — open FieldPress to write the dispatch around it.
+            Keep hosting on imbrgr — share into FieldPress to write the dispatch around it.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={composeHref}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={share}
             className="tap-target inline-flex min-h-11 items-center rounded-lg border border-[var(--border-strong)] bg-[var(--surface-base)] px-3 py-1.5 text-sm font-medium hover:bg-[var(--surface-hover)]"
+            data-testid="fieldpress-share-button"
           >
-            Write the story on FieldPress
-          </a>
+            Share with FieldPress
+          </button>
           <button
             type="button"
             onClick={dismissFieldPressInvite}

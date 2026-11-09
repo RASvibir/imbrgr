@@ -6,6 +6,7 @@ import {
   fieldpressDraftComposeWithImageUrl,
   parseFieldPressDraftId,
 } from "@/lib/fieldpress-draft";
+import { tryPostComposeImageToParent } from "@/lib/fieldpress-post-message";
 
 type Props = {
   draftId: string;
@@ -17,6 +18,8 @@ type Props = {
   role?: "link" | "menuitem";
   onNavigate?: () => void;
 };
+
+const LABEL = "Share with FieldPress";
 
 export function UseInFieldPressDraftLink({
   draftId,
@@ -34,8 +37,14 @@ export function UseInFieldPressDraftLink({
   if (!href) return null;
 
   const go = () => {
+    const posted = tryPostComposeImageToParent({
+      imageUrl: imageDirectUrl,
+      draftId: id,
+      title,
+    });
     clearFieldPressDraftId();
     onNavigate?.();
+    if (posted) return;
     window.location.assign(href);
   };
 
@@ -48,7 +57,7 @@ export function UseInFieldPressDraftLink({
         data-testid="fieldpress-use-in-draft"
         onClick={go}
       >
-        Use in FieldPress draft
+        {LABEL}
       </button>
     );
   }
@@ -60,7 +69,7 @@ export function UseInFieldPressDraftLink({
       data-testid="fieldpress-use-in-draft"
       onClick={go}
     >
-      Use in FieldPress draft
+      {LABEL}
     </button>
   );
 }

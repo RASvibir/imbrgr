@@ -1,7 +1,8 @@
 import { normalizeVisibility, type Visibility } from "@/lib/visibility";
 import { FIELDPRESS_URL, isSafeFieldPressImageUrl } from "@/lib/fieldpress";
 
-export const FIELDPRESS_DRAFT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+/** Align with FieldPress compose draft ids (`Fp_<timestamp>`, optional dots). */
+export const FIELDPRESS_DRAFT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
 export const FIELDPRESS_DRAFT_SESSION_KEY = "imbrgr-fieldpress-draft-id";
 
