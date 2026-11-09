@@ -229,6 +229,19 @@ textarea {
   max-width: 100%;
 }
 
+/* FieldPress Visual tray: compact studio when ?embed=1 */
+html[data-imbrgr-embed="1"] header,
+html[data-imbrgr-embed="1"] footer,
+html[data-imbrgr-embed="1"] [data-testid="mobile-bottom-nav"],
+html[data-imbrgr-embed="1"] [data-testid="announcement-banner"] {
+  display: none !important;
+}
+
+html[data-imbrgr-embed="1"] .page-main {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 .toast-above-mobile-chrome {
   position: fixed;
   left: 1rem;

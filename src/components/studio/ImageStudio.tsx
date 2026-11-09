@@ -39,6 +39,7 @@ import {
   readFieldPressDraftId,
   subscribeFieldPressDraftId,
 } from "@/lib/fieldpress-draft";
+import { isStudioEmbedParam } from "@/lib/studio-embed";
 
 type StudioAsset = {
   shortId: string;
@@ -93,6 +94,7 @@ export function ImageStudio({
   const router = useRouter();
   const { data: session } = useSession();
   const params = useSearchParams();
+  const embedded = isStudioEmbedParam(params.get("embed"));
   const urlTab = parseStudioTab(defaultTab ?? params.get("tab"));
   const [tabOverride, setTabOverride] = useState<Tab | null>(null);
   const tab = tabOverride ?? urlTab;
@@ -627,7 +629,7 @@ export function ImageStudio({
       )}
 
       <nav className="flex gap-1 overflow-x-auto border-b border-[var(--border-subtle)] pb-1" aria-label="Studio steps">
-        {TABS.map((t) => (
+        {(embedded ? TABS.filter((t) => t.id !== "media") : TABS).map((t) => (
           <button
             key={t.id}
             type="button"

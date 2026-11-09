@@ -29,8 +29,9 @@ describe("fieldpress draft context", () => {
 
   it("validates draft ids", () => {
     expect(parseFieldPressDraftId("abc-123_9")).toBe("abc-123_9");
+    expect(parseFieldPressDraftId("Fp_1730000000000")).toBe("Fp_1730000000000");
     expect(parseFieldPressDraftId("../evil")).toBeNull();
-    expect(parseFieldPressDraftId("a".repeat(65))).toBeNull();
+    expect(parseFieldPressDraftId("a".repeat(129))).toBeNull();
     expect(parseFieldPressDraftId("")).toBeNull();
   });
 
