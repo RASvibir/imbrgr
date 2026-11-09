@@ -27,11 +27,26 @@ export function mediaDirectFileUrl(storageKey: string, mimeType: string): string
   return buildShareCodes("media", storageKey, mimeType).directUrl;
 }
 
-/** Block localhost direct URLs from being sent to FieldPress compose links. */
+/** Direct file URLs that FieldPress will accept (HTTPS imbrgr hosts only). */
 export function isSafeFieldPressImageUrl(imageDirectUrl: string): boolean {
   try {
-    const host = new URL(imageDirectUrl).hostname;
-    return host !== "localhost" && host !== "127.0.0.1";
+    const url = new URL(imageDirectUrl);
+    if (url.protocol !== "https:") return false;
+    const host = url.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1") return false;
+    if (host === "imbrgr.website" || host === "www.imbrgr.website" || host === "imbrgr.vercel.app") {
+      return true;
+    }
+    // Absolute media URLs always come from NEXT_PUBLIC_SITE_URL in production.
+    const site = process.env.NEXT_PUBLIC_SITE_URL;
+    if (site) {
+      try {
+        if (host === new URL(site).hostname.toLowerCase()) return true;
+      } catch {
+        /* ignore */
+      }
+    }
+    return false;
   } catch {
     return false;
   }

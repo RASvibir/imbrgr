@@ -45,9 +45,11 @@ describe("fieldpress", () => {
     expect(showFieldPressStoryInvite(null, null)).toBe(false);
   });
 
-  it("rejects localhost compose image URLs", () => {
+  it("rejects localhost and non-imbrgr compose image URLs", () => {
     expect(isSafeFieldPressImageUrl("http://localhost:3000/api/media/file/x.png")).toBe(false);
     expect(fieldpressComposeUrl("http://localhost:3000/api/media/file/x.png")).toBeNull();
     expect(isSafeFieldPressImageUrl("https://imbrgr.vercel.app/api/media/file/x.png")).toBe(true);
+    expect(isSafeFieldPressImageUrl("https://evil.com/x.png")).toBe(false);
+    expect(fieldpressComposeUrl("https://evil.com/x.png")).toBeNull();
   });
 });
