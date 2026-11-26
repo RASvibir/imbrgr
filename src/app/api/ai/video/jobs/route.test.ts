@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   assertCanGenerateAiForUser: vi.fn(),
   assertCanGenerateAiForAnonymous: vi.fn(),
   createVideoJob: vi.fn(),
+  resolveContinuation: vi.fn(),
+  selectBackend: vi.fn(),
+  pollinationsEnabled: vi.fn(),
 }));
 
 vi.mock("@/lib/request-identity", () => ({ getActor: mocks.getActor }));
@@ -32,30 +35,51 @@ vi.mock("@/lib/ai/usage", () => ({
   assertCanGenerateAiForUser: mocks.assertCanGenerateAiForUser,
   assertCanGenerateAiForAnonymous: mocks.assertCanGenerateAiForAnonymous,
 }));
+vi.mock("@/lib/ai/video-provider", async (orig) => {
+  const actual = await orig<typeof import("@/lib/ai/video-provider")>();
+  return { ...actual, pollinationsAssembledEnabled: mocks.pollinationsEnabled };
+});
+vi.mock("@/lib/ai/video-job/backend", async (orig) => {
+  const actual = await orig<typeof import("@/lib/ai/video-job/backend")>();
+  return { ...actual, selectBackend: mocks.selectBackend };
+});
 vi.mock("@/lib/ai/video-job/service", async (orig) => {
   const actual = await orig<typeof import("@/lib/ai/video-job/service")>();
   return {
     ...actual,
     createVideoJob: mocks.createVideoJob,
+    resolveContinuation: mocks.resolveContinuation,
   };
 });
 
 import { POST } from "./route";
 
-function call(body: unknown) {
-  return POST(
-    new Request("http://localhost/api/ai/video/jobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }),
-  );
+function assembledBackend(supportsContinuation = true) {
+  return {
+    name: supportsContinuation ? "assembled-stills" : "no-continue",
+    tier: 1,
+    supportsContinuation,
+    isConfigured: () => true,
+    renderShot: vi.fn(),
+  };
 }
 
 describe("POST /api/ai/video/jobs prompt-assist behavior", () => {
+  function call(body: unknown) {
+    return POST(
+      new Request("http://localhost/api/ai/video/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getActor.mockResolvedValue({ userId: "u1", voterKey: "u:u1", ipHash: "h" });
+    mocks.selectBackend.mockReturnValue(assembledBackend());
+    mocks.pollinationsEnabled.mockReturnValue(false);
     mocks.assertUserMayUseAi.mockResolvedValue(null);
     mocks.consumeRateLimit.mockResolvedValue(1);
     mocks.assertCanGenerateAiForUser.mockResolvedValue(undefined);
@@ -159,5 +183,92 @@ describe("POST /api/ai/video/jobs prompt-assist behavior", () => {
     const badRatio = await call({ prompt: "sunset burger", aspectRatio: "4:3" });
     expect(badRatio.status).toBe(400);
     expect((await badRatio.json()).error).toMatch(/16:9, 9:16, or 1:1/i);
+  });
+});
+
+describe("POST /api/ai/video/jobs continuation", () => {
+  function postReq(body: Record<string, unknown>) {
+    return new Request("http://localhost/api/ai/video/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getActor.mockResolvedValue({ userId: "user1", voterKey: "u:user1", ipHash: "h1" });
+    mocks.assertUserMayUseAi.mockResolvedValue(null);
+    mocks.consumeRateLimit.mockResolvedValue(undefined);
+    mocks.assertCanGenerateAiForUser.mockResolvedValue(undefined);
+    mocks.assertCanGenerateAiForAnonymous.mockResolvedValue(undefined);
+    mocks.plannerAvailable.mockReturnValue(false);
+    mocks.enhanceVideoPrompt.mockImplementation(async (p: string) => ({ prompt: p }));
+    mocks.selectBackend.mockReturnValue(assembledBackend());
+    mocks.pollinationsEnabled.mockReturnValue(true);
+    mocks.resolveContinuation.mockResolvedValue({
+      ok: true,
+      lastFrame: "https://blob.example/frame.jpg",
+      lastFrameSource: "client",
+    });
+    mocks.createVideoJob.mockImplementation(async (_actor, input, shots) => ({
+      id: "job-next",
+      ownerKey: "u:user1",
+      userId: "user1",
+      ipHash: null,
+      status: "queued",
+      input,
+      shots,
+      nextShot: 0,
+      error: null,
+    }));
+  });
+
+  it("allows continuation on a tier-1 backend that declares supportsContinuation", async () => {
+    const res = await POST(
+      postReq({ prompt: "pan up to neon sign", parentJobId: "job-prev", continueMode: "next-shot", durationSec: 13 }),
+    );
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    const [, input, shots] = mocks.createVideoJob.mock.calls[0];
+    expect(input.parentJobId).toBe("job-prev");
+    expect(shots).toHaveLength(2);
+    expect(shots[0].seedImage).toBe("https://blob.example/frame.jpg");
+    expect(shots[0].seedImageSource).toBe("client");
+    expect(shots.every((s: { stockQuery?: string }) => s.stockQuery === undefined)).toBe(true);
+    expect(shots.reduce((acc: number, s: { durationSec: number }) => acc + s.durationSec, 0)).toBe(13);
+  });
+
+  it("creates prompt-only continuation jobs for guests without a seed image", async () => {
+    mocks.getActor.mockResolvedValueOnce({ userId: null, voterKey: "a:guest", ipHash: "h1" });
+    mocks.resolveContinuation.mockResolvedValueOnce({ ok: true, promptOnly: true });
+    const res = await POST(
+      postReq({ prompt: "pan up to neon sign", parentJobId: "job-prev", continueMode: "extend", durationSec: 5 }),
+    );
+    expect(res.status).toBe(200);
+    const [, input, shots] = mocks.createVideoJob.mock.calls[0];
+    expect(input.parentJobId).toBe("job-prev");
+    expect(shots[0].seedImage).toBeUndefined();
+    expect(shots[0].seedImageSource).toBeUndefined();
+  });
+
+  it("returns 409 when the configured backend does not support continuation", async () => {
+    mocks.selectBackend.mockReturnValue(assembledBackend(false));
+    const res = await POST(postReq({ prompt: "continue", parentJobId: "job-prev" }));
+    expect(res.status).toBe(409);
+    expect(mocks.createVideoJob).not.toHaveBeenCalled();
+  });
+
+  it("rejects mature continuation requests", async () => {
+    const res = await POST(postReq({ prompt: "continue", parentJobId: "job-prev", mature: true }));
+    expect(res.status).toBe(400);
+    expect(mocks.createVideoJob).not.toHaveBeenCalled();
+  });
+
+  it("propagates 404 when parent job is missing or owned by someone else", async () => {
+    mocks.resolveContinuation.mockResolvedValueOnce({ ok: false, status: 404, error: "Video job not found" });
+    const res = await POST(postReq({ prompt: "continue", parentJobId: "other-job" }));
+    expect(res.status).toBe(404);
   });
 });

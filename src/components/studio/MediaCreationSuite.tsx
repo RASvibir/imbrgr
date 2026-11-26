@@ -15,8 +15,10 @@ import {
   calculateTimelineDuration,
   clipMotionProgress,
   splitClipAtTime,
+  transitionState,
   trimClip,
   computeMotionTransform,
+  UNDERLAY_TAIL_SEC,
 } from "@/lib/video-timeline/timeline-ops";
 import type {
   AudioClip,
@@ -557,17 +559,16 @@ export function MediaCreationSuite({
       ctx.fillStyle = bgColor;
       ctx.fillRect(0, 0, width, height);
 
-      // 2. Render Active Visual Clips
-      const active = visualClips.filter((c) => time >= c.startSec && time < c.endSec);
-      for (const clip of active) {
-        const progress = clipMotionProgress(time, clip.startSec, clip.endSec, {
+      // 2. Render Active Visual Clips (including dissolve underlay for video & still clips)
+      const drawClip = async (clip: VisualClip, clipTime: number, alpha: number) => {
+        const progress = clipMotionProgress(clipTime, clip.startSec, clip.endSec, {
           loop: clip.motionLoop,
           loopPeriodSec: clip.motionLoopPeriodSec,
         });
         const motion = computeMotionTransform(clip.motion, progress);
 
         ctx.save();
-        ctx.globalAlpha = motion.alpha;
+        ctx.globalAlpha = motion.alpha * alpha;
 
         const cx = width / 2;
         const cy = height / 2;
@@ -581,7 +582,8 @@ export function MediaCreationSuite({
         if (clip.kind === "video") {
           const v = videoElements.get(clip.id);
           if (v) {
-            await seekVideo(v, clip.sourceStartSec + (time - clip.startSec));
+            const maxSource = Number.isFinite(v.duration) && v.duration > 0 ? Math.max(0, v.duration - 0.02) : Number.POSITIVE_INFINITY;
+            await seekVideo(v, Math.min(maxSource, Math.max(0, clip.sourceStartSec + (clipTime - clip.startSec))));
             drawCover(ctx, v, v.videoWidth, v.videoHeight, width, height);
           }
         } else {
@@ -591,6 +593,16 @@ export function MediaCreationSuite({
           }
         }
         ctx.restore();
+      };
+
+      const active = visualClips.filter((c) => time >= c.startSec && time < c.endSec);
+      for (const clip of active) {
+        const { alpha, underlay } = transitionState(visualClips, clip, time);
+        if (underlay) {
+          const tailSec = Math.max(underlay.startSec, underlay.endSec - UNDERLAY_TAIL_SEC);
+          await drawClip(underlay, tailSec, 1);
+        }
+        await drawClip(clip, time, alpha);
       }
 
       // 3. Render Active Text Overlays

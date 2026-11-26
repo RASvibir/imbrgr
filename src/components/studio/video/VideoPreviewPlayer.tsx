@@ -49,21 +49,25 @@ export function VideoPreviewPlayer({
   const animationFrameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
   const renderFrameRef = useRef<(time: number) => Promise<void>>(async () => {});
+  const scheduleRenderRef = useRef<(time: number) => void>(() => {});
   const onTimeUpdateRef = useRef(onTimeUpdate);
   const currentTimeRef = useRef(currentTimeSec);
   const latestTimeRef = useRef(0);
+  const isPlayingRef = useRef(isPlaying);
   const busyRef = useRef(false);
   const dirtyRef = useRef(false);
 
   const canvasWidth = aspectRatio === "9:16" ? 720 : aspectRatio === "1:1" ? 1080 : 1280;
   const canvasHeight = aspectRatio === "9:16" ? 1280 : aspectRatio === "1:1" ? 1080 : 720;
 
-  // Preload and cache images/videos
+  // Preload and cache images/videos (keyed by clip.id for videos so identical URLs don't fight over currentTime during dissolves)
   useEffect(() => {
     for (const clip of visualClips) {
       if (clip.kind === "video") {
-        if (!loadedVideosRef.current.has(clip.url)) {
+        const cached = loadedVideosRef.current.get(clip.id);
+        if (!cached || cached.dataset.clipUrl !== clip.url) {
           const video = document.createElement("video");
+          video.dataset.clipUrl = clip.url;
           // Needed so frames can be read back for plugins without tainting the canvas.
           video.crossOrigin = "anonymous";
           video.addEventListener(
@@ -77,11 +81,18 @@ export function VideoPreviewPlayer({
             },
             { once: true },
           );
+          const rerenderWhenPaused = () => {
+            if (!isPlayingRef.current) {
+              scheduleRenderRef.current(currentTimeRef.current);
+            }
+          };
+          video.addEventListener("loadeddata", rerenderWhenPaused);
+          video.addEventListener("seeked", rerenderWhenPaused);
           video.src = clip.url;
           video.muted = true;
           video.preload = "auto";
           video.playsInline = true;
-          loadedVideosRef.current.set(clip.url, video);
+          loadedVideosRef.current.set(clip.id, video);
         }
       } else {
         if (!loadedImagesRef.current.has(clip.url)) {
@@ -148,10 +159,16 @@ export function VideoPreviewPlayer({
       ctx.translate(-cx, -cy);
 
       if (clip.kind === "video") {
-        const vid = loadedVideosRef.current.get(clip.url);
+        const vid = loadedVideosRef.current.get(clip.id);
         if (vid && vid.readyState >= 2) {
-          const expectedVideoTime = clip.sourceStartSec + (clipTime - clip.startSec);
-          if (Math.abs(vid.currentTime - expectedVideoTime) > 0.3) {
+          const maxSourceTime =
+            Number.isFinite(vid.duration) && vid.duration > 0 ? Math.max(0, vid.duration - 0.02) : Number.POSITIVE_INFINITY;
+          const expectedVideoTime = Math.min(
+            maxSourceTime,
+            Math.max(0, clip.sourceStartSec + (clipTime - clip.startSec)),
+          );
+          const tolerance = isPlayingRef.current ? 0.3 : 0.05;
+          if (Math.abs(vid.currentTime - expectedVideoTime) > tolerance) {
             vid.currentTime = expectedVideoTime;
           }
           drawCover(ctx, vid, vid.videoWidth, vid.videoHeight, canvas.width, canvas.height);
@@ -244,6 +261,7 @@ export function VideoPreviewPlayer({
     renderFrameRef.current = renderFrame;
     onTimeUpdateRef.current = onTimeUpdate;
     currentTimeRef.current = currentTimeSec;
+    isPlayingRef.current = isPlaying;
   });
 
   // Serialize async frame renders (plugins are async); a newer request replaces a queued one.
@@ -266,6 +284,10 @@ export function VideoPreviewPlayer({
     }
     run(time);
   }, []);
+
+  useEffect(() => {
+    scheduleRenderRef.current = scheduleRender;
+  }, [scheduleRender]);
 
   // Playback Loop
   useEffect(() => {

@@ -3,8 +3,11 @@ import sharp from "sharp";
 import { generateAiVideo } from "@/lib/ai/video-generate";
 import {
   buildCinematicVideoPrompt,
+  clampPollinationsVideoDuration,
+  getPollinationsVideoModelCapabilities,
   pollinationsAssembledEnabled,
   pollinationsVideoUrl,
+  resolveProviderSeedImageUrl,
   resolveVideoDimensions,
   CAMERA_MOTIONS,
   VIDEO_STYLES,
@@ -53,6 +56,55 @@ describe("AI Video Provider", () => {
     expect(url).toContain("seed=42");
     expect(url).toContain("safe=true");
     expect(url).not.toContain("key=");
+  });
+
+  it("includes image query param only for reachable http(s) URLs and never raw data URLs", () => {
+    const withRemote = pollinationsVideoUrl({
+      prompt: "continue walking",
+      durationSec: 5,
+      model: "prunaai/p-video",
+      image: "https://blob.vercel-storage.com/frame-1.jpg",
+    });
+    expect(withRemote).toContain("image=https%3A%2F%2Fblob.vercel-storage.com%2Fframe-1.jpg");
+
+    const withDataUrl = pollinationsVideoUrl({
+      prompt: "continue walking",
+      durationSec: 5,
+      model: "prunaai/p-video",
+      image: "data:image/jpeg;base64,/9j/4AAQ",
+    });
+    expect(withDataUrl).not.toContain("image=");
+
+    expect(resolveProviderSeedImageUrl("/api/media/file/abc.jpg")).toBeUndefined();
+    expect(resolveProviderSeedImageUrl("http://localhost:3000/api/media/file/abc.jpg")).toBeUndefined();
+    expect(resolveProviderSeedImageUrl("https://cdn.example.com/frame.jpg")).toBe(
+      "https://cdn.example.com/frame.jpg",
+    );
+  });
+
+  it("reports init-image capabilities for catalog and unknown models", () => {
+    expect(getPollinationsVideoModelCapabilities("prunaai/p-video", {})).toMatchObject({
+      supportsInitImage: true,
+      maxDurationSec: 10,
+    });
+    expect(getPollinationsVideoModelCapabilities("minimax/minimax-h3", {})).toMatchObject({
+      supportsInitImage: false,
+    });
+    expect(getPollinationsVideoModelCapabilities("unknown/custom-video", {})).toMatchObject({
+      supportsInitImage: false,
+    });
+    expect(
+      getPollinationsVideoModelCapabilities("unknown/custom-video", {
+        AI_VIDEO_MODEL_SUPPORTS_INIT_IMAGE: "true",
+      }),
+    ).toMatchObject({ supportsInitImage: true });
+  });
+
+  it("clamps Pollinations video durations without rounding fractional values down", () => {
+    expect(clampPollinationsVideoDuration(2.5)).toBe(3);
+    expect(clampPollinationsVideoDuration(2.1)).toBe(3);
+    expect(clampPollinationsVideoDuration(0.4)).toBe(1);
+    expect(clampPollinationsVideoDuration(13)).toBe(10);
   });
 
   it("requires a secret key for the Pollinations assembled path", () => {

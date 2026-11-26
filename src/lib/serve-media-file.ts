@@ -4,11 +4,37 @@ import { prisma } from "@/lib/db";
 import type { Actor } from "@/lib/request-identity";
 import { parseRange } from "@/lib/http-range";
 import { statObject, storageDriver } from "@/lib/storage";
+import { mediaFilePath } from "@/lib/urls";
+import { ownerKeyFor } from "@/lib/ai/video-job/service";
+import type { JobShot } from "@/lib/ai/video-job/types";
 
 type MediaRow = {
   visibility: string;
   post: { userId: string | null; visibility: string; hiddenByAdmin: boolean } | null;
 };
+
+async function ownsVideoJobFile(storageKey: string, actor: Actor): Promise<boolean> {
+  const expectedPath = mediaFilePath(storageKey);
+  const jobs = await prisma.videoJob.findMany({
+    where: { ownerKey: ownerKeyFor(actor) },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: { shots: true },
+  });
+  for (const job of jobs) {
+    if (!Array.isArray(job.shots)) continue;
+    for (const raw of job.shots) {
+      const shot = raw as Partial<JobShot> | null;
+      if (!shot) continue;
+      for (const candidate of [shot.videoUrl, shot.imageUrl, shot.lastFrame, shot.seedImage]) {
+        if (typeof candidate === "string" && candidate.split("?")[0] === expectedPath) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
 
 export function mediaFileCacheControl(media: MediaRow | null, isProfileAsset: boolean): string {
   if (isProfileAsset) {
@@ -50,10 +76,11 @@ export async function serveMediaFile(
       where: { OR: [{ avatarKey: storageKey }, { bannerKey: storageKey }] },
       select: { id: true },
     });
-    if (!profileOwner) {
+    if (profileOwner) {
+      isProfileAsset = true;
+    } else if (!(await ownsVideoJobFile(storageKey, actor))) {
       return Response.json({ error: "Not found" }, { status: 404 });
     }
-    isProfileAsset = true;
   }
 
   if (media?.post && !canViewPost(media.post, actor)) {

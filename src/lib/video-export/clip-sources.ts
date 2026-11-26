@@ -19,6 +19,7 @@ type VideoEntry = {
   input: Input;
   sink: CanvasSink;
   firstTimestamp: number;
+  lastTimestamp: number;
 };
 
 async function loadImage(url: string): Promise<HTMLImageElement | null> {
@@ -41,7 +42,10 @@ async function openVideo(clip: VisualClip, width: number, height: number): Promi
     if (!track || !(await track.canDecode())) throw new UndecodableClipError(clip.name);
     const sink = new CanvasSink(track, { width, height, fit: "cover", poolSize: 2 });
     const firstTimestamp = await track.getFirstTimestamp();
-    return { input, sink, firstTimestamp };
+    const duration = await track.computeDuration().catch(() => 0);
+    const lastTimestamp =
+      duration > firstTimestamp ? Math.max(firstTimestamp, duration - 0.02) : Number.POSITIVE_INFINITY;
+    return { input, sink, firstTimestamp, lastTimestamp };
   } catch (err) {
     input.dispose();
     throw err;
@@ -74,8 +78,13 @@ export async function createClipSources(
       if (clip.kind === "video") {
         const entry = videos.get(clip.id);
         if (!entry) return null;
-        const t = Math.max(entry.firstTimestamp, clipSourceTimeSec(clip, timelineSec));
-        const frame = await entry.sink.getCanvas(t);
+        const t = Math.min(
+          entry.lastTimestamp,
+          Math.max(entry.firstTimestamp, clipSourceTimeSec(clip, timelineSec)),
+        );
+        const frame =
+          (await entry.sink.getCanvas(t)) ??
+          (t > entry.firstTimestamp ? await entry.sink.getCanvas(Math.max(entry.firstTimestamp, t - 0.1)) : null);
         if (!frame) return null;
         return { source: frame.canvas, width: frame.canvas.width, height: frame.canvas.height };
       }

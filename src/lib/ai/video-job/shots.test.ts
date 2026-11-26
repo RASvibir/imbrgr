@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Storyboard } from "@/lib/ai/director/types";
-import { MAX_JOB_SHOTS, pickShots, planGpuShots, planShots, stockQueryFromPrompt, stockQueryLadder } from "./shots";
+import {
+  MAX_JOB_SHOTS,
+  pickShots,
+  planAssembledShots,
+  planGpuShots,
+  planShots,
+  stockQueryFromPrompt,
+  stockQueryLadder,
+} from "./shots";
 import type { JobInput } from "./types";
 
 const base: JobInput = {
@@ -194,5 +202,33 @@ describe("continuity anchors", () => {
   it("works without look or action (small models)", () => {
     const shots = planGpuShots(base, storyboard([4, 4, 5]), 5);
     expect(shots[1].visualPrompt).toMatch(/^Continuing from the previous frame, same subject and setting, now scene 1/);
+  });
+});
+
+describe("planAssembledShots", () => {
+  it("splits 13s requests into <=10s integer shots when maxClipSec is 10", () => {
+    const shots = planAssembledShots(base, null, { maxClipSec: 10 });
+    expect(shots).toHaveLength(2);
+    expect(shots.map((s) => s.durationSec)).toEqual([7, 6]);
+    expect(total(shots)).toBe(13);
+    expect(shots.every((s) => s.durationSec <= 10)).toBe(true);
+  });
+
+  it("keeps GIF durations within 1-4s as a single shot", () => {
+    const shots = planAssembledShots({ ...base, mode: "gif", durationSec: 3.5 }, null, { maxClipSec: 10 });
+    expect(shots).toHaveLength(1);
+    expect(shots[0].durationSec).toBe(3.5);
+  });
+
+  it("skips stock queries and composes continuation prompts when parentJobId is set", () => {
+    const shots = planAssembledShots(
+      { ...base, durationSec: 13, parentJobId: "parent-1", continueMode: "next-shot" },
+      null,
+      { maxClipSec: 10 },
+    );
+    expect(shots).toHaveLength(2);
+    expect(shots.map((s) => s.durationSec)).toEqual([7, 6]);
+    expect(shots.every((s) => s.stockQuery === undefined)).toBe(true);
+    expect(shots[0].visualPrompt).toMatch(/^Continuing from the previous frame/);
   });
 });

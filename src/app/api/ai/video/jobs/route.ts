@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { enhanceVideoPrompt } from "@/lib/ai/prompt-enhance";
 import { enrichVideoPromptLocal } from "@/lib/ai/video-prompt";
-import { buildCinematicVideoPrompt } from "@/lib/ai/video-provider";
+import {
+  buildCinematicVideoPrompt,
+  pollinationsAssembledEnabled,
+  pollinationsMaxClipSec,
+} from "@/lib/ai/video-provider";
 import { clampVideoDuration, isDurationValid, VIDEO_LIMITS } from "@/lib/ai/video-limits";
 import { formatVideoValidationErrors } from "@/lib/ai/video-validation";
 import { plannerAvailable, planStoryboard } from "@/lib/ai/director/planner";
@@ -10,11 +14,11 @@ import { PLAN_MIN_SEC, type Storyboard } from "@/lib/ai/director/types";
 import { consumePlanLimits } from "@/lib/ai/director/limits";
 import { getCachedStoryboard, setCachedStoryboard } from "@/lib/ai/director/plan-cache";
 import { assertCanGenerateAiForAnonymous, assertCanGenerateAiForUser } from "@/lib/ai/usage";
-import { planGpuShots, planShots } from "@/lib/ai/video-job/shots";
-import { selectBackend } from "@/lib/ai/video-job/backend";
+import { planAssembledShots, planGpuShots } from "@/lib/ai/video-job/shots";
+import { backendSupportsContinuation, selectBackend } from "@/lib/ai/video-job/backend";
 import { gpuMaxClipSec } from "@/lib/ai/gpu/client";
 import { createVideoJob, resolveContinuation, serializeJob } from "@/lib/ai/video-job/service";
-import type { JobInput } from "@/lib/ai/video-job/types";
+import type { JobInput, LastFrameSource } from "@/lib/ai/video-job/types";
 import { aiRateLimitPerHour } from "@/lib/config";
 import { getActor } from "@/lib/request-identity";
 import { assertUserMayUseAi } from "@/lib/user-guards";
@@ -72,19 +76,22 @@ export async function POST(req: Request) {
     );
   }
 
+  const backend = selectBackend();
   let seedImage: string | undefined;
+  let seedImageSource: LastFrameSource | undefined;
   if (parsed.data.parentJobId) {
     if (matureRequested) {
       return NextResponse.json({ error: "Mature clips can't be continued." }, { status: 400 });
     }
-    if (selectBackend().tier !== 3) {
-      return NextResponse.json({ error: "Continuing a clip needs the GPU video backend." }, { status: 409 });
+    if (!backendSupportsContinuation(backend)) {
+      return NextResponse.json({ error: "The configured video backend doesn't support continuing a clip." }, { status: 409 });
     }
     const continuation = await resolveContinuation(parsed.data.parentJobId, actor);
     if (!continuation.ok) {
       return NextResponse.json({ error: continuation.error }, { status: continuation.status });
     }
     seedImage = continuation.lastFrame;
+    seedImageSource = continuation.lastFrameSource;
   }
 
   const rateKey = `ai-video:${actor.userId ?? actor.ipHash}`;
@@ -174,9 +181,18 @@ export async function POST(req: Request) {
   }
 
   try {
-    const useGpu = !matureRequested && selectBackend().tier === 3;
-    const planned = useGpu ? planGpuShots(input, storyboard, gpuMaxClipSec()) : planShots(input, storyboard);
-    const shots = seedImage ? planned.map((s, i) => (i === 0 ? { ...s, seedImage } : s)) : planned;
+    const useGpu = !matureRequested && backend.tier === 3;
+    const maxClipSec = !matureRequested && pollinationsAssembledEnabled() ? pollinationsMaxClipSec() : undefined;
+    const planned = useGpu
+      ? planGpuShots(input, storyboard, gpuMaxClipSec())
+      : planAssembledShots(input, storyboard, { maxClipSec });
+    const shots = seedImage
+      ? planned.map((s, i) =>
+          i === 0
+            ? { ...s, seedImage, ...(seedImageSource ? { seedImageSource } : {}) }
+            : s,
+        )
+      : planned;
     const job = await createVideoJob(actor, input, shots);
     return NextResponse.json({ success: true, job: serializeJob(job, { images: false }) });
   } catch (err) {
