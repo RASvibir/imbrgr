@@ -156,4 +156,38 @@ describe("enhanceVideoPrompt", () => {
     expect(result.prompt).toMatch(/motion|lighting|depth/i);
     expect(result.prompt).not.toMatch(/push-in/i);
   });
+
+  it("discards LLM output that fails verifyIntent and falls back to enrichVideoPromptLocal", async () => {
+    const result = await enhanceVideoPrompt(
+      "2 red cats without collars",
+      { motion: "orbit" },
+      {
+        ollama: async () => "three blue dogs wearing shiny collars",
+        cacheGet: async () => null,
+        cacheSet: async () => undefined,
+      },
+    );
+    expect(result.source).toBe("local");
+    expect(result.rejectedReason).toBeTruthy();
+    expect(result.prompt).toContain("2 red cats without collars");
+    expect(result.preserved).toEqual(expect.arrayContaining(["2", "without collars", "red", "cats"]));
+    expect(result.added?.length).toBeGreaterThan(0);
+  });
+
+  it("keeps verification summary when LLM passes verifyIntent", async () => {
+    const result = await enhanceVideoPrompt(
+      "2 red cats without collars",
+      {},
+      {
+        ollama: async () =>
+          "2 red cats without collars stretching on a porch, warm sunset lighting, shallow depth of field",
+        cacheGet: async () => null,
+        cacheSet: async () => undefined,
+      },
+    );
+    expect(result.source).toBe("ollama");
+    expect(result.rejectedReason).toBeUndefined();
+    expect(result.preserved).toEqual(expect.arrayContaining(["2", "without collars", "red", "cats"]));
+    expect(result.added).toEqual(expect.arrayContaining(["stretching", "porch", "warm"]));
+  });
 });

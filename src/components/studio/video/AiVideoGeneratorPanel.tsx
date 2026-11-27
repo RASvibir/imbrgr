@@ -12,9 +12,11 @@ import {
   VIDEO_STYLES,
   type CameraMotion,
 } from "@/lib/ai/video-provider";
-import { VIDEO_PROMPT_EXAMPLES } from "@/lib/ai/video-prompt";
+import { VIDEO_PROMPT_EXAMPLES, type VideoEnhancePreset } from "@/lib/ai/video-prompt";
 import { getVideoLimits, type VideoMode } from "@/lib/ai/video-limits";
 import type { VisualClip } from "@/lib/video-timeline/timeline-types";
+import { PromptAssistCard, type PromptAssistResult } from "./PromptAssistCard";
+import { PromptImproveControl } from "./PromptImproveControl";
 
 const CONTINUE_TRANSITION_SEC = 0.25;
 
@@ -26,6 +28,8 @@ type JobState = {
   total: number;
   completed: number;
   canContinue?: boolean;
+  promptUsed?: string;
+  promptSource?: string;
   error?: string;
   shots?: {
     durationSec: number;
@@ -74,6 +78,12 @@ export function AiVideoGeneratorPanel({
   const [selectedAssetId, setSelectedAssetId] = useState<string>("");
   const [generating, setGenerating] = useState(false);
   const [mature, setMature] = useState(false);
+  const [autoImprove, setAutoImprove] = useState(true);
+  const [improving, setImproving] = useState(false);
+  const [assistResult, setAssistResult] = useState<PromptAssistResult | null>(null);
+  const [undoState, setUndoState] = useState<{ previousPrompt: string; wasAccepted: boolean } | null>(null);
+  const [acceptedAssist, setAcceptedAssist] = useState(false);
+  const [copiedPromptUsed, setCopiedPromptUsed] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [generatedPreview, setGeneratedPreview] = useState<{
@@ -89,6 +99,8 @@ export function AiVideoGeneratorPanel({
     }[];
     durationSec: number;
     prompt: string;
+    promptUsed?: string;
+    promptSource?: string;
     mature?: boolean;
     jobId: string;
     canContinue: boolean;
@@ -106,12 +118,112 @@ export function AiVideoGeneratorPanel({
     if (clipKind !== "video") switchClipKind("video");
     setMature(false);
     setError("");
-    if (mode === "next-shot") setPrompt("");
+    if (mode === "next-shot") {
+      setPrompt("");
+      setAcceptedAssist(false);
+      setUndoState(null);
+      setAssistResult(null);
+    }
+  };
+
+  const handleImprovePrompt = async (preset: VideoEnhancePreset) => {
+    const trimmed = prompt.trim();
+    if (trimmed.length < 3) {
+      setError("Prompt must be at least 3 characters.");
+      return;
+    }
+    if (prompt.length > 500) {
+      setError("Prompt must be 500 characters or fewer.");
+      return;
+    }
+    setError("");
+    setImproving(true);
+    try {
+      const res = await fetch("/api/ai/video/enhance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          preset,
+          style: selectedStyle,
+          motion: selectedMotion,
+          ...(selectedCharacterMotion ? { characterMotion: selectedCharacterMotion } : {}),
+          mode: clipKind,
+          aspectRatio,
+          safe: !mature,
+          mature,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Could not improve prompt");
+      }
+      setAssistResult({
+        original: data.original ?? trimmed,
+        improved: data.improved,
+        variants: data.variants,
+        preset,
+        source: data.source ?? "local",
+        preserved: Array.isArray(data.preserved) ? data.preserved : [],
+        added: Array.isArray(data.added) ? data.added : [],
+        rejectedReason: data.rejectedReason,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not improve prompt");
+    } finally {
+      setImproving(false);
+    }
+  };
+
+  const handleAcceptAssist = (acceptedText: string) => {
+    setUndoState({ previousPrompt: prompt, wasAccepted: acceptedAssist });
+    setPrompt(acceptedText);
+    setAcceptedAssist(true);
+    setAssistResult(null);
+    setError("");
+  };
+
+  const handleUndoAssist = () => {
+    if (!undoState) return;
+    setPrompt(undoState.previousPrompt);
+    setAcceptedAssist(undoState.wasAccepted);
+    setUndoState(null);
+    setError("");
+  };
+
+  const handleCopyPromptUsed = async () => {
+    if (!generatedPreview?.promptUsed) return;
+    try {
+      await navigator.clipboard?.writeText(generatedPreview.promptUsed);
+      setCopiedPromptUsed(true);
+      setTimeout(() => setCopiedPromptUsed(false), 2000);
+    } catch {
+      /* ignore clipboard denial */
+    }
+  };
+
+  const handleUsePromptUsed = () => {
+    if (!generatedPreview?.promptUsed) return;
+    setPrompt(generatedPreview.promptUsed.slice(0, 500));
+    setAcceptedAssist(true);
+    setUndoState(null);
+    setAssistResult(null);
+    setError("");
   };
 
   const handleGenerateTextToVideo = async () => {
     if (!prompt.trim() || prompt.trim().length < 3) {
-      setError("Please enter a prompt of at least 3 characters.");
+      setError("Prompt must be at least 3 characters.");
+      return;
+    }
+    if (prompt.length > 500) {
+      setError("Prompt must be 500 characters or fewer.");
+      return;
+    }
+    if (durationSec < limits.minSec || durationSec > limits.maxSec) {
+      setError(
+        `Duration must be between ${limits.minSec} and ${limits.maxSec} seconds for ${clipKind === "gif" ? "GIFs" : "videos"}.`,
+      );
       return;
     }
     setError("");
@@ -122,7 +234,7 @@ export function AiVideoGeneratorPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          enhance: true,
+          enhance: autoImprove && !acceptedAssist,
           style: selectedStyle,
           motion: selectedMotion,
           ...(selectedCharacterMotion ? { characterMotion: selectedCharacterMotion } : {}),
@@ -172,6 +284,8 @@ export function AiVideoGeneratorPanel({
         }),
         durationSec: job.durationSec,
         prompt,
+        promptUsed: job.promptUsed,
+        promptSource: job.promptSource,
         mature: job.mature,
         jobId: job.id,
         canContinue: Boolean(job.canContinue),
@@ -292,18 +406,84 @@ export function AiVideoGeneratorPanel({
       {mode === "text" ? (
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-              AI Video Prompt
-            </label>
+            <div className="flex flex-wrap items-center justify-between gap-1">
+              <label
+                htmlFor="ai-video-prompt-textarea"
+                className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+              >
+                AI Video Prompt
+              </label>
+              <span
+                id="ai-video-prompt-counter"
+                data-testid="prompt-char-counter"
+                aria-live="polite"
+                className={`text-[11px] tabular-nums ${
+                  prompt.length >= 500
+                    ? "font-semibold text-[var(--danger)]"
+                    : prompt.length >= 420
+                      ? "font-medium text-[var(--accent-amber)]"
+                      : "text-[var(--text-muted)]"
+                }`}
+              >
+                {prompt.length}/500
+                {prompt.length >= 500 ? (
+                  <span data-testid="prompt-char-warning"> · Limit reached</span>
+                ) : prompt.length >= 420 ? (
+                  <span data-testid="prompt-char-warning"> · Near limit</span>
+                ) : null}
+              </span>
+            </div>
             <textarea
+              id="ai-video-prompt-textarea"
               rows={3}
+              maxLength={500}
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setPrompt(next);
+                if (!next.trim()) setAcceptedAssist(false);
+              }}
+              aria-describedby="ai-video-prompt-counter ai-video-prompt-tip"
               placeholder="Subject + action, setting, camera move, lighting — e.g. smashed burger searing, neon alley rain, slow push-in, warm rim light…"
-              className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-2.5 text-sm outline-none focus:border-[var(--accent-primary)]"
+              className="mt-1 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-2.5 text-sm outline-none focus:border-[var(--accent-primary)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
               data-testid="ai-video-prompt-input"
             />
-            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <PromptImproveControl
+                disabled={generating || prompt.trim().length < 3}
+                improving={improving}
+                onImprove={(preset) => void handleImprovePrompt(preset)}
+              />
+            </div>
+
+            {undoState ? (
+              <div
+                className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2.5 py-1.5 text-xs"
+                data-testid="prompt-assist-undo-bar"
+              >
+                <span className="text-[var(--text-secondary)]">Improved prompt applied.</span>
+                <button
+                  type="button"
+                  onClick={handleUndoAssist}
+                  data-testid="prompt-assist-undo"
+                  className="min-h-11 min-w-11 rounded-lg px-2.5 text-xs font-semibold text-[var(--accent-primary)] hover:bg-[var(--surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+                >
+                  Undo
+                </button>
+              </div>
+            ) : null}
+
+            {assistResult ? (
+              <div className="mt-2">
+                <PromptAssistCard
+                  result={assistResult}
+                  onAccept={handleAcceptAssist}
+                  onDismiss={() => setAssistResult(null)}
+                />
+              </div>
+            ) : null}
+
+            <p id="ai-video-prompt-tip" className="mt-1.5 text-[11px] text-[var(--text-muted)]">
               Tip: name what moves and how the camera travels. Short ideas are auto-expanded before render.
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5" data-testid="ai-video-prompt-examples">
@@ -313,9 +493,12 @@ export function AiVideoGeneratorPanel({
                   type="button"
                   onClick={() => {
                     setPrompt(ex.prompt);
+                    setAcceptedAssist(false);
+                    setUndoState(null);
+                    setAssistResult(null);
                     setError("");
                   }}
-                  className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]"
+                  className="min-h-9 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2.5 py-1 text-[11px] text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                 >
                   {ex.label}
                 </button>
@@ -432,14 +615,24 @@ export function AiVideoGeneratorPanel({
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <input
+                type="checkbox"
+                checked={autoImprove}
+                onChange={(e) => setAutoImprove(e.target.checked)}
+                data-testid="auto-improve-toggle"
+                className="h-4 w-4 rounded border-[var(--border-subtle)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              />
+              <span>Auto-improve on generate</span>
+            </label>
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 text-xs text-[var(--text-secondary)]">
               <input
                 type="checkbox"
                 checked={mature}
                 disabled={Boolean(continueFrom)}
                 onChange={(e) => setMature(e.target.checked)}
-                className="rounded border-[var(--border-subtle)]"
+                className="h-4 w-4 rounded border-[var(--border-subtle)] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
               />
               <span>18+ Mature Video</span>
             </label>
@@ -458,6 +651,7 @@ export function AiVideoGeneratorPanel({
             type="button"
             disabled={generating || !prompt.trim()}
             onClick={() => void handleGenerateTextToVideo()}
+            data-testid="ai-video-generate-button"
             className={`${btnPrimary} w-full py-2.5 text-sm font-semibold`}
           >
             {generating
@@ -549,6 +743,50 @@ export function AiVideoGeneratorPanel({
                   <p className="mt-1 text-[11px] text-[var(--text-muted)]">
                     Add this clip to the timeline first; a new generation replaces this preview.
                   </p>
+                </div>
+              ) : null}
+              {generatedPreview.promptUsed ? (
+                <div
+                  className="mt-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-2.5"
+                  data-testid="prompt-used-section"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                      Prompt used
+                    </span>
+                    {generatedPreview.promptSource ? (
+                      <span
+                        data-testid="prompt-used-source"
+                        className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-sunken)] px-2 py-0.5 text-[10px] font-medium uppercase text-[var(--text-muted)]"
+                      >
+                        {generatedPreview.promptSource}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p
+                    className="mt-1 break-words text-xs text-[var(--text-primary)]"
+                    data-testid="prompt-used-text"
+                  >
+                    {generatedPreview.promptUsed}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyPromptUsed()}
+                      data-testid="prompt-used-copy"
+                      className={`${btnSecondary} min-h-11 px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}
+                    >
+                      {copiedPromptUsed ? "Copied" : "Copy"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUsePromptUsed}
+                      data-testid="prompt-used-apply"
+                      className={`${btnSecondary} min-h-11 px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]`}
+                    >
+                      Use this prompt
+                    </button>
+                  </div>
                 </div>
               ) : null}
               <button
@@ -666,7 +904,11 @@ export function AiVideoGeneratorPanel({
         </div>
       )}
 
-      {error ? <p className="text-xs text-[var(--danger)]">{error}</p> : null}
+      {error ? (
+        <p role="alert" data-testid="video-generator-error" className="text-xs text-[var(--danger)]">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

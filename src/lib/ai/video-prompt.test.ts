@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeVideoPromptStructure,
+  buildLocalVideoVariants,
   enrichVideoPromptLocal,
   needsVideoPromptEnrichment,
+  polishVideoPromptLocal,
   promptHasCameraMove,
   promptHasSubjectMotion,
   VIDEO_ENHANCE_SYSTEM,
+  VIDEO_POLISH_SYSTEM,
+  VIDEO_PRESET_SYSTEMS,
   VIDEO_PROMPT_EXAMPLES,
+  VIDEO_VARIANTS_SYSTEM,
 } from "./video-prompt";
 
 /** Evaluation fixtures: thin free-tier inputs should reach structure score ≥ 3 after local enrich. */
@@ -148,5 +153,27 @@ describe("video prompt examples + system prompt fixtures", () => {
     expect(VIDEO_ENHANCE_SYSTEM).toMatch(/lighting/i);
     expect(VIDEO_ENHANCE_SYSTEM).toMatch(/max 55 words/i);
     expect(VIDEO_ENHANCE_SYSTEM).toMatch(/Output only the prompt/i);
+  });
+
+  it("defines polish, motion, and variants system prompts respecting Camera Motion ownership", () => {
+    expect(VIDEO_PRESET_SYSTEMS.polish).toBe(VIDEO_POLISH_SYSTEM);
+    expect(VIDEO_PRESET_SYSTEMS.motion).toBe(VIDEO_ENHANCE_SYSTEM);
+    expect(VIDEO_PRESET_SYSTEMS.variants).toBe(VIDEO_VARIANTS_SYSTEM);
+    for (const sys of Object.values(VIDEO_PRESET_SYSTEMS)) {
+      expect(sys).toMatch(/Do NOT invent a camera move/i);
+    }
+    expect(VIDEO_POLISH_SYSTEM).toMatch(/Do NOT add/i);
+    expect(VIDEO_VARIANTS_SYSTEM).toMatch(/3 distinct/i);
+  });
+
+  it("polishes whitespace without adding new terms and builds 3 distinct local variants", () => {
+    expect(polishVideoPromptLocal("  red burger ,on grill ")).toBe("Red burger, on grill");
+    const variants = buildLocalVideoVariants("red cat on a porch", { motion: "orbit" });
+    expect(new Set(variants).size).toBe(3);
+    for (const v of variants) {
+      expect(v).toContain("red cat on a porch");
+      expect(v).toMatch(/orbital camera drift/i);
+      expect(v).not.toMatch(/push-in/i);
+    }
   });
 });

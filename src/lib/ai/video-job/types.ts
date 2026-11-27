@@ -6,6 +6,8 @@ export type ContinueMode = "extend" | "next-shot";
 
 export type JobInput = {
   prompt: string;
+  originalPrompt?: string;
+  promptSource?: string;
   style?: string;
   aspectRatio: "16:9" | "9:16" | "1:1";
   mode: VideoMode;
@@ -50,6 +52,8 @@ export type JobView = {
   total: number;
   completed: number;
   canContinue: boolean;
+  promptUsed?: string;
+  promptSource?: string;
   error?: string;
   shots?: JobShot[];
 };

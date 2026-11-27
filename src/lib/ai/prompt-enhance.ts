@@ -1,5 +1,6 @@
 import { getCachedEnhancement, setCachedEnhancement } from "@/lib/ai/prompt-cache";
 import { isComplexPrompt, shouldSkipEnhancement } from "@/lib/ai/prompt-heuristics";
+import { verifyIntent } from "@/lib/ai/prompt-intent";
 import type { CharacterMotion } from "@/lib/ai/character-motion";
 import type { CameraMotion } from "@/lib/ai/video-provider";
 import {
@@ -49,8 +50,12 @@ function ollamaReachable(): boolean {
   return true;
 }
 
+function aiMockNoNetwork(): boolean {
+  return process.env.AI_MOCK === "true" || process.env.NODE_ENV === "test";
+}
+
 async function ollamaEnhance(userPrompt: string, system: string): Promise<string> {
-  if (!ollamaReachable()) throw new Error("ollama_skip");
+  if (aiMockNoNetwork() || !ollamaReachable()) throw new Error("ollama_skip");
   const host = process.env.OLLAMA_HOST ?? "http://127.0.0.1:11434";
   const model = process.env.OLLAMA_MODEL ?? "llama3.2";
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -79,6 +84,7 @@ async function ollamaEnhance(userPrompt: string, system: string): Promise<string
 }
 
 async function groqEnhance(userPrompt: string, system: string): Promise<string> {
+  if (aiMockNoNetwork()) throw new Error("groq_mock_skip");
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("no groq key");
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -105,6 +111,7 @@ async function groqEnhance(userPrompt: string, system: string): Promise<string> 
 }
 
 async function geminiEnhance(userPrompt: string, system: string): Promise<string> {
+  if (aiMockNoNetwork()) throw new Error("gemini_mock_skip");
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error("no gemini key");
   const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
@@ -140,7 +147,13 @@ export function enhanceCacheStyle(
   return style ?? "";
 }
 
-export type EnhanceResult = { prompt: string; source: PromptSource };
+export type EnhanceResult = {
+  prompt: string;
+  source: PromptSource;
+  preserved?: string[];
+  added?: string[];
+  rejectedReason?: string;
+};
 
 export type EnhanceOptions = {
   style?: string;
@@ -152,7 +165,7 @@ export type EnhanceOptions = {
   characterMotion?: CharacterMotion;
 };
 
-type EnhanceDeps = {
+export type EnhanceDeps = {
   ollama?: (p: string) => Promise<string>;
   groq?: (p: string) => Promise<string>;
   gemini?: (p: string) => Promise<string>;
@@ -181,18 +194,39 @@ export async function enhancePrompt(
   if (!options?.force && shouldSkipEnhancement(trimmed)) {
     if (kind === "video" && (needsVideoPromptEnrichment(trimmed) || characterMotion)) {
       const prompt = enrichVideoPromptLocal(trimmed, enrichOpts);
+      const intent = verifyIntent(trimmed, prompt);
       const result: EnhanceResult = {
         prompt,
         source: prompt === trimmed ? "skip" : "local",
+        preserved: intent.preserved,
+        added: intent.added,
       };
       await cacheSet(trimmed, style, result.prompt, result.source);
       return result;
+    }
+    if (kind === "video") {
+      const intent = verifyIntent(trimmed, trimmed);
+      return { prompt: trimmed, source: "skip", preserved: intent.preserved, added: intent.added };
     }
     return { prompt: trimmed, source: "skip" };
   }
 
   const cached = await cacheGet(trimmed, style);
-  if (cached) return { ...cached, source: "cache" };
+  if (cached) {
+    if (kind === "video") {
+      const intent = verifyIntent(trimmed, cached.prompt);
+      if (intent.ok) {
+        return {
+          ...cached,
+          source: "cache",
+          preserved: intent.preserved,
+          added: intent.added,
+        };
+      }
+    } else {
+      return { ...cached, source: "cache" };
+    }
+  }
 
   const timeout = Number.parseInt(process.env.AI_ENHANCE_TIMEOUT_MS ?? "12000", 10);
   const ollamaFn = deps?.ollama ?? ((p: string) => ollamaEnhance(p, system));
@@ -229,13 +263,54 @@ export async function enhancePrompt(
 
   if (!result) {
     if (kind === "video" && (needsVideoPromptEnrichment(trimmed) || characterMotion)) {
-      result = { prompt: enrichVideoPromptLocal(trimmed, enrichOpts), source: "local" };
+      const prompt = enrichVideoPromptLocal(trimmed, enrichOpts);
+      const intent = verifyIntent(trimmed, prompt);
+      result = {
+        prompt,
+        source: "local",
+        preserved: intent.preserved,
+        added: intent.added,
+      };
+    } else if (kind === "video") {
+      const intent = verifyIntent(trimmed, trimmed);
+      result = {
+        prompt: trimmed,
+        source: "passthrough",
+        preserved: intent.preserved,
+        added: intent.added,
+      };
     } else {
       result = { prompt: trimmed, source: "passthrough" };
     }
-  } else if (kind === "video" && (needsVideoPromptEnrichment(result.prompt) || motion || characterMotion)) {
-    // Fill subject/camera gaps; characterMotion replaces the generic motion filler when set.
-    result = { ...result, prompt: enrichVideoPromptLocal(result.prompt, enrichOpts) };
+  } else if (kind === "video") {
+    const initialIntent = verifyIntent(trimmed, result.prompt);
+    if (!initialIntent.ok) {
+      const fallbackPrompt = enrichVideoPromptLocal(trimmed, enrichOpts);
+      const fallbackIntent = verifyIntent(trimmed, fallbackPrompt);
+      const rejectedReason =
+        initialIntent.missing.length > 0
+          ? `Discarded rewrite missing: ${initialIntent.missing.join(", ")}`
+          : "Discarded rewrite that altered original intent";
+      result = {
+        prompt: fallbackPrompt,
+        source: "local",
+        preserved: fallbackIntent.preserved,
+        added: fallbackIntent.added,
+        rejectedReason,
+      };
+    } else {
+      const finalPrompt =
+        needsVideoPromptEnrichment(result.prompt) || motion || characterMotion
+          ? enrichVideoPromptLocal(result.prompt, enrichOpts)
+          : result.prompt;
+      const finalIntent = verifyIntent(trimmed, finalPrompt);
+      result = {
+        ...result,
+        prompt: finalPrompt,
+        preserved: finalIntent.preserved,
+        added: finalIntent.added,
+      };
+    }
   }
 
   await cacheSet(trimmed, style, result.prompt, result.source);
