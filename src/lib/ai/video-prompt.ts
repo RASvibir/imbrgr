@@ -212,17 +212,108 @@ export const VIDEO_PROMPT_EXAMPLES: { label: string; prompt: string }[] = [
   },
 ];
 
+export type VideoEnhancePreset = "polish" | "motion" | "variants";
+
+const CAMERA_OWNERSHIP_RULE =
+  "Do NOT invent a camera move (push-in, pan, orbit, tracking, drone, etc.) unless the user already named one — camera motion is chosen separately.";
+
+/** Polish whitespace/punctuation locally without adding any new concepts or words. */
+export function polishVideoPromptLocal(prompt: string): string {
+  const cleaned = normalizePromptText(prompt)
+    .replace(/\s+([,.;!?])/g, "$1")
+    .replace(/([,.;!?])(?=[A-Za-z0-9])/g, "$1 ")
+    .trim();
+  if (!cleaned) return cleaned;
+  const capitalized = cleaned.replace(/^[a-z]/, (c) => c.toUpperCase());
+  return capitalized.slice(0, 500);
+}
+
 /**
- * System instruction for LLM video enhance.
+ * Deterministic 3-variant local fallback: each variant keeps the user's words intact,
+ * respects Camera/Subject Motion controls, and varies emphasis so all 3 are distinct.
+ */
+export function buildLocalVideoVariants(
+  prompt: string,
+  options?: EnrichVideoOptions,
+): [string, string, string] {
+  const base = normalizePromptText(prompt);
+  if (!base) return ["", "", ""];
+
+  const structure = analyzeVideoPromptStructure(base);
+  const cameraPart =
+    !structure.hasCamera && options?.motion ? CAMERA_MOTION_PHRASE[options.motion] : undefined;
+  const charPart =
+    options?.characterMotion && !promptHasCharacterMotionPhrase(base, options.characterMotion)
+      ? CHARACTER_MOTION_PHRASE[options.characterMotion]
+      : undefined;
+
+  const presets = [
+    {
+      motion: charPart ?? (!structure.hasMotion ? "gentle natural motion in frame" : undefined),
+      lighting: !structure.hasLighting ? "warm practical lighting with soft rim light" : undefined,
+      framing: !structure.hasFraming ? "medium framing, crisp subject focus" : undefined,
+      accent: "tactile surface detail",
+    },
+    {
+      motion: charPart ?? (!structure.hasMotion ? "subtle continuous movement" : undefined),
+      lighting: !structure.hasLighting ? "soft golden hour glow and gentle shadows" : undefined,
+      framing: !structure.hasFraming ? "shallow depth of field, clean composition" : undefined,
+      accent: "atmospheric depth",
+    },
+    {
+      motion: charPart ?? (!structure.hasMotion ? "smooth natural motion in the scene" : undefined),
+      lighting: !structure.hasLighting ? "motivated ambient lighting, rich contrast" : undefined,
+      framing: !structure.hasFraming ? "35mm film look, balanced framing" : undefined,
+      accent: "clean visual clarity",
+    },
+  ];
+
+  const out = presets.map((p) => {
+    const extras = [p.motion, p.lighting, p.framing, cameraPart, p.accent].filter(Boolean);
+    return normalizePromptText(`${base}, ${extras.join(", ")}`).slice(0, 500);
+  });
+
+  return [out[0]!, out[1]!, out[2]!];
+}
+
+/**
+ * System instruction for LLM video polish: clarity & grammar only, add nothing new.
+ */
+export const VIDEO_POLISH_SYSTEM = `Polish the user's text-to-video prompt for clarity, flow, and grammar (max 55 words).
+Keep EVERY original subject, detail, number, color, and negation ("no ...", "without ...", "not ...").
+Do NOT add new subjects, settings, props, lighting, lens choices, or extra ideas.
+${CAMERA_OWNERSHIP_RULE}
+Avoid readable text, logos, brands, watermarks, morphing faces, and meta instructions.
+Output only the prompt — no quotes, labels, or preamble.`;
+
+/**
+ * System instruction for LLM video enhance (motion & lighting preset).
  * Camera moves are owned by the studio Camera Motion control — do not invent a conflicting one.
  */
 export const VIDEO_ENHANCE_SYSTEM = `Rewrite the user's idea into ONE production-ready text-to-video prompt (max 55 words).
-Keep their subject and intent. Structure in this order, comma-separated:
+Keep their exact subject, numbers, colors, negations ("no ...", "without ...", "not ..."), and intent.
+Add subject motion, lighting, and framing only where missing. Structure in this order, comma-separated:
 1) subject + concrete physical action,
 2) setting and time of day,
 3) lighting and atmosphere,
 4) lens or framing (macro, wide, shallow depth of field).
 Prefer simple, plausible subject motion that cheap video models can render.
-Do NOT invent a camera move (push-in, pan, orbit, tracking, drone, etc.) unless the user already named one — camera motion is chosen separately.
+${CAMERA_OWNERSHIP_RULE}
 Avoid readable text, logos, brands, watermarks, morphing faces, and meta instructions.
 Output only the prompt — no quotes, labels, or preamble.`;
+
+/**
+ * System instruction for LLM video 3-variants preset.
+ */
+export const VIDEO_VARIANTS_SYSTEM = `Write 3 distinct production-ready text-to-video rewrites of the user's idea (max 55 words each).
+Every rewrite MUST preserve all original subjects, numbers, colors, and negations ("no ...", "without ...", "not ...").
+Make the 3 variants meaningfully distinct (1: physical action & texture, 2: lighting & atmosphere, 3: framing & depth), adding subject motion, lighting, and framing only where missing.
+${CAMERA_OWNERSHIP_RULE}
+Avoid readable text, logos, brands, watermarks, morphing faces, and meta instructions.
+Output ONLY a JSON array of 3 strings (e.g. ["...", "...", "..."]) — no markdown, labels, or preamble.`;
+
+export const VIDEO_PRESET_SYSTEMS: Record<VideoEnhancePreset, string> = {
+  polish: VIDEO_POLISH_SYSTEM,
+  motion: VIDEO_ENHANCE_SYSTEM,
+  variants: VIDEO_VARIANTS_SYSTEM,
+};

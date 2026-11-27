@@ -51,6 +51,8 @@ export function serializeJob(job: JobRow, opts: { images: boolean }): JobView {
     total: shots.length,
     completed: job.nextShot,
     canContinue: status === "done" && !input.mature && Boolean(finalShot?.lastFrame),
+    promptUsed: input.prompt,
+    promptSource: input.promptSource,
     error: job.error ?? undefined,
     shots:
       opts.images && status === "done"

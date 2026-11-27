@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { enhanceVideoPrompt } from "@/lib/ai/prompt-enhance";
+import { enrichVideoPromptLocal } from "@/lib/ai/video-prompt";
 import { buildCinematicVideoPrompt } from "@/lib/ai/video-provider";
 import { generateAiVideo } from "@/lib/ai/video-generate";
 import { VIDEO_LIMITS, isDurationValid } from "@/lib/ai/video-limits";
+import { formatVideoValidationErrors } from "@/lib/ai/video-validation";
 import {
   assertCanGenerateAiForAnonymous,
   assertCanGenerateAiForUser,
@@ -43,28 +45,19 @@ const schema = z
 
 export async function POST(req: Request) {
   const actor = await getActor(req);
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid video generation request" }, { status: 400 });
+    const formatted = formatVideoValidationErrors(parsed.error, body?.mode);
+    return NextResponse.json(
+      { error: formatted.message, fieldErrors: formatted.fields },
+      { status: 400 },
+    );
   }
 
   const { isPromptBlocked, blockedPromptMessage } = await import("@/lib/prompt-safety");
-  let prompt = parsed.data.prompt;
-  if (parsed.data.enhance !== false) {
-    try {
-      const enhanced = await enhanceVideoPrompt(prompt, {
-        style: parsed.data.style,
-        motion: parsed.data.motion,
-        characterMotion: parsed.data.characterMotion,
-      });
-      prompt = enhanced.prompt;
-    } catch {
-      /* keep original */
-    }
-  }
-  const fullPrompt = buildCinematicVideoPrompt(prompt, parsed.data.style);
-  if (isPromptBlocked(parsed.data.prompt) || isPromptBlocked(prompt) || isPromptBlocked(fullPrompt)) {
+  const rawPrompt = parsed.data.prompt.trim();
+  if (isPromptBlocked(rawPrompt) || isPromptBlocked(parsed.data.style ?? "")) {
     return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
   }
 
@@ -106,6 +99,32 @@ export async function POST(req: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Rate limit or quota exceeded";
     return NextResponse.json({ error: message }, { status: 429 });
+  }
+
+  let prompt = rawPrompt;
+  if (parsed.data.enhance !== false) {
+    if (matureRequested) {
+      // Mature prompts must never be forwarded to third-party LLM providers.
+      prompt = enrichVideoPromptLocal(rawPrompt, {
+        motion: parsed.data.motion,
+        characterMotion: parsed.data.characterMotion,
+      });
+    } else {
+      try {
+        const enhanced = await enhanceVideoPrompt(rawPrompt, {
+          style: parsed.data.style,
+          motion: parsed.data.motion,
+          characterMotion: parsed.data.characterMotion,
+        });
+        prompt = enhanced.prompt;
+      } catch {
+        /* keep original */
+      }
+    }
+  }
+  const fullPrompt = buildCinematicVideoPrompt(prompt, parsed.data.style);
+  if (isPromptBlocked(prompt) || isPromptBlocked(fullPrompt)) {
+    return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
   }
 
   try {

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { enhanceVideoPrompt } from "@/lib/ai/prompt-enhance";
+import { enrichVideoPromptLocal } from "@/lib/ai/video-prompt";
 import { buildCinematicVideoPrompt } from "@/lib/ai/video-provider";
 import { clampVideoDuration, isDurationValid, VIDEO_LIMITS } from "@/lib/ai/video-limits";
+import { formatVideoValidationErrors } from "@/lib/ai/video-validation";
 import { plannerAvailable, planStoryboard } from "@/lib/ai/director/planner";
 import { PLAN_MIN_SEC, type Storyboard } from "@/lib/ai/director/types";
 import { consumePlanLimits } from "@/lib/ai/director/limits";
@@ -46,28 +48,19 @@ const schema = z
 /** Creates a generation job. Shots are rendered one per call to /jobs/:id/step. */
 export async function POST(req: Request) {
   const actor = await getActor(req);
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid video generation request" }, { status: 400 });
+    const formatted = formatVideoValidationErrors(parsed.error, body?.mode);
+    return NextResponse.json(
+      { error: formatted.message, fieldErrors: formatted.fields },
+      { status: 400 },
+    );
   }
 
   const { isPromptBlocked, blockedPromptMessage } = await import("@/lib/prompt-safety");
-  let prompt = parsed.data.prompt;
-  if (parsed.data.enhance !== false) {
-    try {
-      const enhanced = await enhanceVideoPrompt(prompt, {
-        style: parsed.data.style,
-        motion: parsed.data.motion,
-        characterMotion: parsed.data.characterMotion,
-      });
-      prompt = enhanced.prompt;
-    } catch {
-      /* keep original */
-    }
-  }
-  const fullPrompt = buildCinematicVideoPrompt(prompt, parsed.data.style);
-  if (isPromptBlocked(parsed.data.prompt) || isPromptBlocked(prompt) || isPromptBlocked(fullPrompt)) {
+  const rawPrompt = parsed.data.prompt.trim();
+  if (isPromptBlocked(rawPrompt) || isPromptBlocked(parsed.data.style ?? "")) {
     return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
   }
 
@@ -111,9 +104,40 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: message }, { status: 429 });
   }
 
+  let prompt = rawPrompt;
+  let promptSource = "user";
+  if (parsed.data.enhance !== false) {
+    if (matureRequested) {
+      // Mature prompts must never be forwarded to third-party LLM providers.
+      prompt = enrichVideoPromptLocal(rawPrompt, {
+        motion: parsed.data.motion,
+        characterMotion: parsed.data.characterMotion,
+      });
+      promptSource = prompt === rawPrompt ? "skip" : "local";
+    } else {
+      try {
+        const enhanced = await enhanceVideoPrompt(rawPrompt, {
+          style: parsed.data.style,
+          motion: parsed.data.motion,
+          characterMotion: parsed.data.characterMotion,
+        });
+        prompt = enhanced.prompt;
+        promptSource = enhanced.source;
+      } catch {
+        promptSource = "passthrough";
+      }
+    }
+  }
+  const fullPrompt = buildCinematicVideoPrompt(prompt, parsed.data.style);
+  if (isPromptBlocked(prompt) || isPromptBlocked(fullPrompt)) {
+    return NextResponse.json({ error: blockedPromptMessage }, { status: 400 });
+  }
+
   const mode = parsed.data.mode ?? "video";
   const input: JobInput = {
     prompt,
+    originalPrompt: rawPrompt,
+    promptSource,
     style: parsed.data.style,
     aspectRatio: parsed.data.aspectRatio ?? "16:9",
     mode,
@@ -130,7 +154,7 @@ export async function POST(req: Request) {
   if (!matureRequested && mode === "video" && plannerAvailable()) {
     try {
       const planParams = {
-        prompt: input.prompt,
+        prompt: input.originalPrompt ?? input.prompt,
         targetSec: Math.max(input.durationSec, PLAN_MIN_SEC),
         aspectRatio: input.aspectRatio,
         style: input.style,
