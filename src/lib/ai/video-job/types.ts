@@ -3,6 +3,7 @@ import type { CameraMotion } from "@/lib/ai/video-provider";
 import type { VideoMode } from "@/lib/ai/video-limits";
 
 export type ContinueMode = "extend" | "next-shot";
+export type LastFrameSource = "client" | "server";
 
 export type JobInput = {
   prompt: string;
@@ -35,10 +36,14 @@ export type JobShot = {
   remoteId?: string;
   startedAt?: number;
   lastFrame?: string;
+  lastFrameSource?: LastFrameSource;
   seedImage?: string;
+  seedImageSource?: LastFrameSource;
   backend?: "gpu" | "assembled";
   gpuRequestId?: string;
   fallbackReason?: string;
+  frameChained?: boolean;
+  continuationFallback?: string;
 };
 
 export type JobStatus = "queued" | "running" | "done" | "failed";
@@ -54,6 +59,8 @@ export type JobView = {
   canContinue: boolean;
   promptUsed?: string;
   promptSource?: string;
+  captureTarget?: { shotIndex: number; videoUrl: string };
+  continuationLabel?: string;
   error?: string;
   shots?: JobShot[];
 };

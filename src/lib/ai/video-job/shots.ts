@@ -54,6 +54,17 @@ function splitEvenly(total: number, count: number): number[] {
   return out;
 }
 
+/** Splits `total` into `count` durations summing to `total`, preferring integer seconds when `total` is whole. */
+export function distributeShotDurations(total: number, count: number): number[] {
+  if (count <= 1) return [total];
+  if (Number.isInteger(total) && total >= count) {
+    const base = Math.floor(total / count);
+    const rem = total % count;
+    return Array.from({ length: count }, (_, i) => base + (i < rem ? 1 : 0));
+  }
+  return splitEvenly(total, count);
+}
+
 /** One shot for a GIF or when no storyboard is available; otherwise 1-4 storyboard shots summing to the target. */
 export function planShots(input: JobInput, storyboard: Storyboard | null): JobShot[] {
   const total = input.durationSec;
@@ -84,6 +95,86 @@ export function planShots(input: JobInput, storyboard: Storyboard | null): JobSh
     caption: s.caption,
     stockQuery: input.mature ? undefined : (s.stockQuery || stockQueryFromPrompt(s.visualPrompt)),
   }));
+}
+
+/**
+ * Shot planner for the assembled (non-GPU) backend.
+ * - Continuations skip stock search, compose continuation prompts via `composeGpuPrompt`, and split >`maxClipSec`.
+ * - Non-continuations respect `maxClipSec` (e.g. Pollinations 10s cap) so 11–13s requests never silently clamp short.
+ */
+export function planAssembledShots(
+  input: JobInput,
+  storyboard: Storyboard | null,
+  opts?: { maxClipSec?: number },
+): JobShot[] {
+  const maxClipSec = opts?.maxClipSec && opts.maxClipSec > 0 ? opts.maxClipSec : undefined;
+  const isContinuation = Boolean(input.parentJobId);
+
+  if (isContinuation) {
+    const cap = maxClipSec ?? input.durationSec;
+    const minShots = Math.min(Math.max(1, Math.ceil(input.durationSec / cap - 1e-9)), MAX_JOB_SHOTS);
+    const board = input.mode === "video" && storyboard?.shots.length ? pickShots(storyboard.shots, MAX_JOB_SHOTS) : [];
+    const count = Math.max(board.length, minShots);
+    let durations: number[];
+    if (board.length === count && count > 1) {
+      const sum = board.reduce((acc, s) => acc + s.durationSec, 0);
+      durations = board.map((s) => round1((s.durationSec * input.durationSec) / sum));
+      const head = durations.slice(0, -1).reduce((acc, d) => acc + d, 0);
+      durations[durations.length - 1] = round1(input.durationSec - head);
+      if (durations.some((d) => d < 1 || (maxClipSec != null && d > maxClipSec))) {
+        durations = distributeShotDurations(input.durationSec, count);
+      }
+    } else {
+      durations = distributeShotDurations(input.durationSec, count);
+    }
+
+    return durations.map((durationSec, i) => {
+      const s = board[i];
+      const motion = s?.motion ?? input.motion;
+      return {
+        durationSec,
+        visualPrompt: composeGpuPrompt({
+          visualPrompt: s?.visualPrompt ?? input.prompt,
+          look: storyboard?.look,
+          action: s?.action,
+          characterMotion: input.characterMotion,
+          motion,
+          style: input.style,
+          continuation: true,
+        }),
+        motion,
+        caption: s?.caption,
+        stockQuery: undefined,
+      };
+    });
+  }
+
+  const baseShots = planShots(input, storyboard);
+  if (!maxClipSec || baseShots.every((s) => s.durationSec <= maxClipSec)) {
+    return baseShots;
+  }
+
+  const minShots = Math.min(Math.max(1, Math.ceil(input.durationSec / maxClipSec - 1e-9)), MAX_JOB_SHOTS);
+  const count = Math.max(baseShots.length, minShots);
+  const durations = distributeShotDurations(input.durationSec, count);
+  return durations.map((durationSec, i) => {
+    const src = baseShots[i] ?? baseShots[baseShots.length - 1];
+    return {
+      ...src,
+      durationSec,
+      visualPrompt:
+        i === 0
+          ? src.visualPrompt
+          : composeGpuPrompt({
+              visualPrompt: input.prompt,
+              look: storyboard?.look,
+              characterMotion: input.characterMotion,
+              motion: src.motion,
+              style: input.style,
+              continuation: true,
+            }),
+    };
+  });
 }
 
 /** Clip-by-clip plan for a generative backend: each clip continues from the previous clip's last frame. */

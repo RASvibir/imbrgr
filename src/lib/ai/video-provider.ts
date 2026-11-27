@@ -124,6 +124,105 @@ export function buildCinematicVideoPrompt(basePrompt: string, styleId?: string):
 
 /** Cheap, healthy text→video default from the live catalog (publisher/model IDs). */
 export const DEFAULT_POLLINATIONS_VIDEO_MODEL = "prunaai/p-video";
+export const POLLINATIONS_MAX_VIDEO_SEC = 10;
+
+export type PollinationsVideoModelCapabilities = {
+  supportsInitImage: boolean;
+  minDurationSec: number;
+  maxDurationSec: number;
+};
+
+/**
+ * Audited against https://gen.pollinations.ai/image/models (video output models).
+ * Unknown models default conservatively to `supportsInitImage: false` unless
+ * `AI_VIDEO_MODEL_SUPPORTS_INIT_IMAGE=true` is set, so we never pretend to chain.
+ */
+const POLLINATIONS_VIDEO_MODEL_CATALOG: Record<string, PollinationsVideoModelCapabilities> = {
+  "prunaai/p-video": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
+  "pruna-video": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
+  "p-video": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
+  "p-video-720p": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
+  "p-video-1080p": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
+  "google/veo-3.1-fast": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 8 },
+  "google/gemini-omni-1.1-flash": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 10 },
+  "google/gemini-omni-1.2-flash": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 15 },
+  "bytedance/seedance-1-pro-fast": { supportsInitImage: true, minDurationSec: 2, maxDurationSec: 10 },
+  "bytedance/seedance-2.0": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 15 },
+  "bytedance/seedance-2.0-mini": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 10 },
+  "bytedance/seedance-2.0-fast": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 5 },
+  "bytedance/seedance-2.5": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 4 },
+  "bytedance/seedance-2.5-flash": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 30 },
+  "alibaba/wan-2.2-fast": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 5 },
+  "alibaba/wan-2.6": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 15 },
+  "alibaba/wan-2.7": { supportsInitImage: true, minDurationSec: 2, maxDurationSec: 15 },
+  "alibaba/wan-3.0": { supportsInitImage: true, minDurationSec: 2, maxDurationSec: 15 },
+  "alibaba/happyhorse-1.1": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 15 },
+  "x-ai/grok-imagine-video": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 15 },
+  "x-ai/grok-imagine-video-1.5": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 15 },
+  "x-ai/grok-imagine-video-1.5-lite": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 15 },
+  "kwaivgi/kling-v3.0-std": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 15 },
+  "kwaivgi/kling-v3.0-pro": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 15 },
+  "kwaivgi/kling-v4.0-flash": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 20 },
+  "lightricks/ltx-2.5-pro": { supportsInitImage: true, minDurationSec: 6, maxDurationSec: 10 },
+  "black-forest-labs/flux-3-max": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 20 },
+  "kandinskylab/kandinsky-6.0-lite": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 5 },
+  "minimax/minimax-h3": { supportsInitImage: false, minDurationSec: 5, maxDurationSec: 5 },
+  "minimax/minimax-h3-max": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 15 },
+  "minimax/minimax-h3-max-turbo": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 15 },
+  "mirelo/sfx-2.0": { supportsInitImage: false, minDurationSec: 1, maxDurationSec: 120 },
+};
+
+export function getPollinationsVideoModelCapabilities(
+  model = resolvePollinationsVideoModel(),
+  env: Record<string, string | undefined> = process.env,
+): PollinationsVideoModelCapabilities {
+  const known = POLLINATIONS_VIDEO_MODEL_CATALOG[model.trim()];
+  const base: PollinationsVideoModelCapabilities = known ?? {
+    supportsInitImage: false,
+    minDurationSec: 1,
+    maxDurationSec: POLLINATIONS_MAX_VIDEO_SEC,
+  };
+  const override = env.AI_VIDEO_MODEL_SUPPORTS_INIT_IMAGE?.trim().toLowerCase();
+  if (override === "true") return { ...base, supportsInitImage: true };
+  if (override === "false") return { ...base, supportsInitImage: false };
+  return base;
+}
+
+export function pollinationsMaxClipSec(
+  model = resolvePollinationsVideoModel(),
+  env: Record<string, string | undefined> = process.env,
+): number {
+  const caps = getPollinationsVideoModelCapabilities(model, env);
+  return Math.min(POLLINATIONS_MAX_VIDEO_SEC, Math.max(1, caps.maxDurationSec));
+}
+
+/**
+ * Pollinations `/video/{prompt}?image=...` fetches the start frame from a public URL.
+ * Rejects `data:` URLs, relative paths, and localhost/loopback URLs so we never send raw
+ * data URLs or unreachable local URLs to a remote provider.
+ */
+export function resolveProviderSeedImageUrl(seedImage?: string): string | undefined {
+  if (!seedImage) return undefined;
+  const trimmed = seedImage.trim();
+  if (!trimmed || trimmed.startsWith("data:") || trimmed.startsWith("/")) return undefined;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return undefined;
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1" ||
+      host === "0.0.0.0" ||
+      host.endsWith(".local")
+    ) {
+      return undefined;
+    }
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
 
 export type PollinationsVideoParams = {
   prompt: string;
@@ -132,6 +231,7 @@ export type PollinationsVideoParams = {
   aspectRatio?: string;
   seed?: number;
   safe?: boolean;
+  image?: string;
 };
 
 const GEN_BASE = (process.env.POLLINATIONS_GEN_URL ?? "https://gen.pollinations.ai").replace(/\/$/, "");
@@ -151,10 +251,16 @@ export function resolvePollinationsVideoModel(params?: Pick<PollinationsVideoPar
   return params?.model ?? process.env.AI_VIDEO_MODEL ?? DEFAULT_POLLINATIONS_VIDEO_MODEL;
 }
 
-/** Clamp to a range the default cheap models accept (catalog: often 1–10s or 5s fixed). */
-export function clampPollinationsVideoDuration(sec: number | undefined): number {
+/**
+ * Clamp to the 1–10s range Pollinations cheap video models accept, rounding fractional
+ * seconds UP so a requested duration (e.g. 2.5s GIF) never delivers fewer seconds.
+ */
+export function clampPollinationsVideoDuration(
+  sec: number | undefined,
+  maxSec = POLLINATIONS_MAX_VIDEO_SEC,
+): number {
   const n = sec == null || !Number.isFinite(sec) ? 5 : sec;
-  return Math.min(Math.max(Math.round(n), 1), 10);
+  return Math.min(Math.max(Math.ceil(n), 1), maxSec);
 }
 
 /** Build GET URL for `/video/{prompt}` — auth goes in the Authorization header, not the query. */
@@ -167,6 +273,8 @@ export function pollinationsVideoUrl(params: PollinationsVideoParams): string {
   if (params.aspectRatio) url.searchParams.set("aspectRatio", params.aspectRatio);
   if (params.seed != null) url.searchParams.set("seed", String(params.seed));
   if (params.safe) url.searchParams.set("safe", "true");
+  const safeImage = resolveProviderSeedImageUrl(params.image);
+  if (safeImage) url.searchParams.set("image", safeImage);
   return url.toString();
 }
 

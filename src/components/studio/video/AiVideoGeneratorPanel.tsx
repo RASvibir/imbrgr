@@ -14,11 +14,15 @@ import {
 } from "@/lib/ai/video-provider";
 import { VIDEO_PROMPT_EXAMPLES, type VideoEnhancePreset } from "@/lib/ai/video-prompt";
 import { getVideoLimits, type VideoMode } from "@/lib/ai/video-limits";
+import { captureAndUploadLastFrame } from "@/lib/video-client/capture-last-frame";
 import type { VisualClip } from "@/lib/video-timeline/timeline-types";
 import { PromptAssistCard, type PromptAssistResult } from "./PromptAssistCard";
 import { PromptImproveControl } from "./PromptImproveControl";
 
 const CONTINUE_TRANSITION_SEC = 0.25;
+
+/** Client-side frame capture is best effort; stop retrying a shot so failures can't stall generation. */
+const MAX_CAPTURE_ATTEMPTS = 2;
 
 type JobState = {
   id: string;
@@ -30,6 +34,8 @@ type JobState = {
   canContinue?: boolean;
   promptUsed?: string;
   promptSource?: string;
+  captureTarget?: { shotIndex: number; videoUrl: string };
+  continuationLabel?: string;
   error?: string;
   shots?: {
     durationSec: number;
@@ -105,6 +111,8 @@ export function AiVideoGeneratorPanel({
     jobId: string;
     canContinue: boolean;
     continued: boolean;
+    continuationLabel?: string;
+    added?: boolean;
   } | null>(null);
   const [continueFrom, setContinueFrom] = useState<{ jobId: string; mode: "extend" | "next-shot" } | null>(null);
 
@@ -252,6 +260,7 @@ export function AiVideoGeneratorPanel({
       }
       let job: JobState = createdData.job;
       setProgress({ done: job.completed, total: job.total });
+      const captureAttempts = new Map<number, number>();
       while (job.status === "queued" || job.status === "running") {
         const before = job.completed;
         const stepRes = await fetch(`/api/ai/video/jobs/${job.id}/step`, { method: "POST" });
@@ -261,6 +270,15 @@ export function AiVideoGeneratorPanel({
         }
         job = stepData.job;
         setProgress({ done: job.completed, total: job.total });
+        const target = job.captureTarget;
+        if (target && !job.mature) {
+          const attempts = captureAttempts.get(target.shotIndex) ?? 0;
+          if (attempts < MAX_CAPTURE_ATTEMPTS) {
+            captureAttempts.set(target.shotIndex, attempts + 1);
+            const captured = await captureAndUploadLastFrame<JobState>(job.id, target.shotIndex, target.videoUrl);
+            if (captured) job = captured;
+          }
+        }
         if (job.completed === before && job.status === "running") {
           await new Promise((resolve) => setTimeout(resolve, 3000));
         }
@@ -290,6 +308,7 @@ export function AiVideoGeneratorPanel({
         jobId: job.id,
         canContinue: Boolean(job.canContinue),
         continued: Boolean(continueFrom),
+        continuationLabel: job.continuationLabel,
       });
       setContinueFrom(null);
     } catch (err) {
@@ -326,7 +345,7 @@ export function AiVideoGeneratorPanel({
     if (!generatedPreview) return;
     const stamp = Date.now();
     generatedPreview.shots.forEach((shot, i) => {
-      const isVideo = shot.mediaType === "video" || shot.url.endsWith(".mp4");
+      const isVideo = shot.mediaType === "video" || shot.url.split("?")[0].endsWith(".mp4");
       const newClip: VisualClip = {
         id: `clip-ai-${stamp}-${i}`,
         trackId: "visual-1",
@@ -348,7 +367,7 @@ export function AiVideoGeneratorPanel({
       };
       onAddClip(newClip);
     });
-    setGeneratedPreview(null);
+    setGeneratedPreview((prev) => (prev ? { ...prev, added: true } : prev));
   };
 
   return (
@@ -720,22 +739,32 @@ export function AiVideoGeneratorPanel({
                   )}
                 </p>
               ) : null}
+              {generatedPreview.continuationLabel ? (
+                <p
+                  className="mt-2 rounded border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2 py-1 text-[11px] text-[var(--text-secondary)]"
+                  data-testid="continuation-label"
+                >
+                  Note: {generatedPreview.continuationLabel}
+                </p>
+              ) : null}
               {generatedPreview.canContinue ? (
                 <div className="mt-2">
                   <div className="grid grid-cols-2 gap-1.5">
                     <button
                       type="button"
                       data-testid="continue-extend"
+                      aria-label="Extend previous clip"
                       onClick={() => startContinue(generatedPreview.jobId, "extend")}
-                      className={`${btnSecondary} py-1.5 text-xs font-medium`}
+                      className={`${btnSecondary} min-h-[44px] py-2 text-xs font-medium`}
                     >
                       Extend
                     </button>
                     <button
                       type="button"
                       data-testid="continue-next-shot"
+                      aria-label="Generate next shot from previous clip"
                       onClick={() => startContinue(generatedPreview.jobId, "next-shot")}
-                      className={`${btnSecondary} py-1.5 text-xs font-medium`}
+                      className={`${btnSecondary} min-h-[44px] py-2 text-xs font-medium`}
                     >
                       Next shot
                     </button>
@@ -794,7 +823,7 @@ export function AiVideoGeneratorPanel({
                 onClick={handleInsertGenerated}
                 className={`${btnSecondary} mt-2 w-full py-1.5 text-xs font-medium`}
               >
-                + Add Clip to Timeline
+                {generatedPreview.added ? "✓ Added to Timeline (+ Add Again)" : "+ Add Clip to Timeline"}
               </button>
             </div>
           ) : null}
