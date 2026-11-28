@@ -91,6 +91,13 @@ export function AiVideoGeneratorPanel({
   const [acceptedAssist, setAcceptedAssist] = useState(false);
   const [copiedPromptUsed, setCopiedPromptUsed] = useState(false);
   const [error, setError] = useState("");
+  const [savingToGallery, setSavingToGallery] = useState(false);
+  const [savedGalleryPost, setSavedGalleryPost] = useState<{
+    shortId: string;
+    pageUrl: string;
+    mature: boolean;
+    visibility: string;
+  } | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [generatedPreview, setGeneratedPreview] = useState<{
     shots: {
@@ -219,6 +226,42 @@ export function AiVideoGeneratorPanel({
     setError("");
   };
 
+  const handleSaveGeneratedToGallery = async () => {
+    if (!generatedPreview || savingToGallery) return;
+    setError("");
+    setSavingToGallery(true);
+    try {
+      const res = await fetch(`/api/ai/video/jobs/${encodeURIComponent(generatedPreview.jobId)}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: (generatedPreview.prompt || "AI Video Creation").slice(0, 120),
+          mature: Boolean(generatedPreview.mature),
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        shortId?: string;
+        pageUrl?: string;
+        mature?: boolean;
+        visibility?: string;
+      };
+      if (!res.ok || !data.shortId || !data.pageUrl) {
+        throw new Error(data.error || "Failed to save video to gallery.");
+      }
+      setSavedGalleryPost({
+        shortId: data.shortId,
+        pageUrl: data.pageUrl,
+        mature: Boolean(data.mature),
+        visibility: data.visibility ?? "UNLISTED",
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save video to gallery.");
+    } finally {
+      setSavingToGallery(false);
+    }
+  };
+
   const handleGenerateTextToVideo = async () => {
     if (!prompt.trim() || prompt.trim().length < 3) {
       setError("Prompt must be at least 3 characters.");
@@ -235,6 +278,7 @@ export function AiVideoGeneratorPanel({
       return;
     }
     setError("");
+    setSavedGalleryPost(null);
     setGenerating(true);
     try {
       const created = await fetch("/api/ai/video/jobs", {
@@ -818,13 +862,47 @@ export function AiVideoGeneratorPanel({
                   </div>
                 </div>
               ) : null}
-              <button
-                type="button"
-                onClick={handleInsertGenerated}
-                className={`${btnSecondary} mt-2 w-full py-1.5 text-xs font-medium`}
-              >
-                {generatedPreview.added ? "✓ Added to Timeline (+ Add Again)" : "+ Add Clip to Timeline"}
-              </button>
+              <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={handleInsertGenerated}
+                  className={`${btnSecondary} w-full py-1.5 text-xs font-medium`}
+                >
+                  {generatedPreview.added ? "✓ Added to Timeline (+ Add Again)" : "+ Add Clip to Timeline"}
+                </button>
+                <button
+                  type="button"
+                  disabled={savingToGallery}
+                  data-testid="ai-video-save-gallery"
+                  onClick={() => void handleSaveGeneratedToGallery()}
+                  className={`${btnPrimary} w-full py-1.5 text-xs font-semibold disabled:opacity-50`}
+                >
+                  {savingToGallery
+                    ? "Saving…"
+                    : savedGalleryPost
+                      ? "✓ Saved to Gallery"
+                      : "💾 Save to Gallery"}
+                </button>
+              </div>
+              {savedGalleryPost ? (
+                <div
+                  className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] px-2.5 py-2 text-xs"
+                  data-testid="ai-video-saved-banner"
+                >
+                  <span className="text-[var(--text-secondary)]">
+                    {savedGalleryPost.mature
+                      ? "Saved as 18+ Unlisted (reachable via Uncensored share in menu)."
+                      : `Saved to gallery (${savedGalleryPost.visibility.toLowerCase()}).`}
+                  </span>
+                  <Link
+                    href={savedGalleryPost.pageUrl}
+                    data-testid="ai-video-saved-link"
+                    className="font-semibold text-[var(--accent-primary)] hover:underline"
+                  >
+                    View Post →
+                  </Link>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

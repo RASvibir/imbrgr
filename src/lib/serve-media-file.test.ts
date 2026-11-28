@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mediaFindFirst, userFindFirst, queryRaw, statObjectMock } = vi.hoisted(() => ({
+const { mediaFindFirst, userFindFirst, userFindUnique, queryRaw, statObjectMock } = vi.hoisted(() => ({
   mediaFindFirst: vi.fn(),
   userFindFirst: vi.fn(),
+  userFindUnique: vi.fn(),
   queryRaw: vi.fn(),
   statObjectMock: vi.fn(),
 }));
@@ -10,7 +11,7 @@ const { mediaFindFirst, userFindFirst, queryRaw, statObjectMock } = vi.hoisted((
 vi.mock("@/lib/db", () => ({
   prisma: {
     media: { findFirst: mediaFindFirst },
-    user: { findFirst: userFindFirst },
+    user: { findFirst: userFindFirst, findUnique: userFindUnique },
     $queryRaw: queryRaw,
   },
 }));
@@ -44,6 +45,7 @@ describe("serveMediaFile VideoJob ownership lookup", () => {
     clearVideoJobFileCache();
     mediaFindFirst.mockReset().mockResolvedValue(null);
     userFindFirst.mockReset().mockResolvedValue(null);
+    userFindUnique.mockReset().mockResolvedValue(null);
     queryRaw.mockReset().mockResolvedValue([]);
     statObjectMock.mockReset();
   });
@@ -108,5 +110,39 @@ describe("serveMediaFile VideoJob ownership lookup", () => {
     expect(res.status).toBe(200);
     expect(userFindFirst).not.toHaveBeenCalled();
     expect(queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("blocks mature media with 403 unless the viewer is signed in and 18+ verified", async () => {
+    mediaFindFirst.mockResolvedValueOnce({ visibility: "UNLISTED", mature: true, post: null });
+    const guestRes = await serveMediaFile(
+      new Request("http://localhost:3000/api/media/file/adult.jpg"),
+      "adult.jpg",
+      { userId: null, voterKey: "anon:1", ipHash: "ip-1" },
+    );
+    expect(guestRes.status).toBe(403);
+    expect(statObjectMock).not.toHaveBeenCalled();
+
+    mediaFindFirst.mockResolvedValueOnce({ visibility: "UNLISTED", mature: true, post: null });
+    userFindUnique.mockResolvedValueOnce({ birthDate: new Date("2015-01-01T00:00:00Z"), adultVerifiedAt: new Date() });
+    const minorRes = await serveMediaFile(
+      new Request("http://localhost:3000/api/media/file/adult.jpg"),
+      "adult.jpg",
+      actor,
+    );
+    expect(minorRes.status).toBe(403);
+
+    mediaFindFirst.mockResolvedValueOnce({ visibility: "UNLISTED", mature: true, post: null });
+    userFindUnique.mockResolvedValueOnce({
+      birthDate: new Date("1990-01-01T00:00:00Z"),
+      adultVerifiedAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    mockStoredBytes("adult-img");
+    const adultRes = await serveMediaFile(
+      new Request("http://localhost:3000/api/media/file/adult.jpg"),
+      "adult.jpg",
+      actor,
+    );
+    expect(adultRes.status).toBe(200);
+    expect(adultRes.headers.get("cache-control")).toBe("private, no-store");
   });
 });

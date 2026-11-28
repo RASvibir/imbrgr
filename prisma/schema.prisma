@@ -32,6 +32,8 @@ model User {
   suspended                  Boolean   @default(false)
   storageQuotaBytesOverride  BigInt?
   aiDailyLimitOverride       Int?
+  birthDate                  DateTime?
+  adultVerifiedAt            DateTime?
   createdAt                  DateTime  @default(now())
   adminAuditLogs             AdminAuditLog[]
   posts             Post[]

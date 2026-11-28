@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ImageSettingsPanel, type ImageSettingsValues } from "@/components/images/ImageSettingsPanel";
+import { AgeGateCard } from "@/components/mature/AgeGateCard";
 import { PostMediaImage } from "@/components/media/PostMediaImage";
 import { CheeseSpiceGauge } from "@/components/posts/CheeseSpiceGauge";
 import { PostRemixButton } from "@/components/posts/PostRemixButton";
@@ -59,6 +60,7 @@ type Post = {
   remixedFrom?: { shortId: string; title: string } | null;
   canManage?: boolean;
   canDelete?: boolean;
+  viewerAgeVerified?: boolean;
 };
 
 export function PostDetail({ shortId }: { shortId: string }) {
@@ -73,30 +75,38 @@ export function PostDetail({ shortId }: { shortId: string }) {
   const [notFound, setNotFound] = useState(false);
   const [ownerSettings, setOwnerSettings] = useState<ImageSettingsValues | null>(null);
   const [revealedMediaIds, setRevealedMediaIds] = useState<Set<string>>(new Set());
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     if (sessionStatus === "loading") return;
-    void fetch(`/api/posts/${shortId}`)
+    let cancelled = false;
+    void fetch(`/api/posts/${shortId}`, { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) {
-          setNotFound(true);
+          if (!cancelled) setNotFound(true);
           return null;
         }
         return r.json();
       })
       .then((p) => {
-        if (p) {
-          setPost(p);
-          setOwnerSettings({
-            title: p.title,
-            description: p.description ?? "",
-            tags: p.tags.map((t: { tag: { name: string } }) => t.tag.name).join(", "),
-            altText: p.media[0]?.altText ?? "",
-            mature: p.media[0]?.mature ?? false,
-            visibility: p.visibility as Visibility,
-          });
-        }
+        if (cancelled || !p) return;
+        setPost(p);
+        setOwnerSettings({
+          title: p.title,
+          description: p.description ?? "",
+          tags: p.tags.map((t: { tag: { name: string } }) => t.tag.name).join(", "),
+          altText: p.media[0]?.altText ?? "",
+          mature: p.media[0]?.mature ?? false,
+          visibility: p.visibility as Visibility,
+        });
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [shortId, sessionStatus, reloadTick]);
+
+  useEffect(() => {
+    if (sessionStatus === "loading") return;
     void fetch(`/api/posts/${shortId}/comments`)
       .then((r) => r.json())
       .then(setComments);
@@ -316,6 +326,18 @@ export function PostDetail({ shortId }: { shortId: string }) {
           </div>
         ) : null}
         {post.media.map((m) => {
+          if (m.mature && !post.viewerAgeVerified) {
+            return (
+              <AgeGateCard
+                key={m.shortId}
+                signedIn={Boolean(session?.user)}
+                callbackUrl={`/p/${shortId}`}
+                onVerified={() => setReloadTick((n) => n + 1)}
+                title="18+ Age-Gated Content"
+                description="Sign in and verify your age (18+) to view this uncensored post."
+              />
+            );
+          }
           const src = mediaUrl(m.storageKey, m.mimeType);
           const ext = m.mimeType.split("/")[1] || (m.mimeType.startsWith("video/") ? "webm" : "png");
           const downloadName = `imbrgr-${post.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "media"}-${m.shortId}.${ext}`;

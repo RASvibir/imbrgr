@@ -241,6 +241,16 @@ export function MobileBottomNav() {
                 </Link>
               </li>
               <li>
+                <Link
+                  href={`/u/${session.user.username}/mature`}
+                  className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]"
+                  onClick={() => setMoreOpen(false)}
+                  data-testid="mobile-menu-uncensored-share"
+                >
+                  🔞 Uncensored share (18+)
+                </Link>
+              </li>
+              <li>
                 <Link href="/settings" className="tap-target block rounded-lg px-3 py-3 hover:bg-[var(--surface-hover)]" onClick={() => setMoreOpen(false)}>
                   Settings
                 </Link>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ImageEditor } from "@/components/editor/ImageEditor";
 import { CollectionSettings } from "@/components/collections/CollectionSettings";
+import { AgeGateCard } from "@/components/mature/AgeGateCard";
 import { StorageMeter } from "@/components/storage/StorageMeter";
 import { profileImageUrlBusted } from "@/lib/urls";
 
@@ -21,6 +22,8 @@ type Profile = {
   links: LinkItem[] | null;
   favoritesPublic: boolean;
   defaultPostVisibility: string;
+  ageVerified?: boolean;
+  birthDate?: string | null;
 };
 
 export default function SettingsPage() {
@@ -290,6 +293,52 @@ export default function SettingsPage() {
       </div>
 
       <CollectionSettings />
+
+      <section
+        className="mt-8 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] p-4"
+        data-testid="settings-age-verification"
+      >
+        <h2 className="font-semibold">18+ Age Verification &amp; Uncensored Share</h2>
+        <p className="mt-1 text-xs text-[var(--text-muted)]">
+          Adult shares stay off public feeds and are only reachable through your private share portal or direct post links by age-verified (18+) users.
+        </p>
+        {profile.ageVerified ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-base)] p-3">
+            <div className="text-sm">
+              <span className="font-semibold text-[var(--accent-primary)]">✓ Age verified (18+)</span>
+              {profile.birthDate ? (
+                <span className="ml-2 text-xs text-[var(--text-muted)]">DOB on file: {profile.birthDate}</span>
+              ) : null}
+            </div>
+            <Link
+              href={`/u/${profile.username}/mature`}
+              data-testid="settings-open-uncensored-share"
+              className="rounded-lg bg-[var(--accent-primary)] px-3 py-1.5 text-xs font-semibold text-[var(--on-accent)]"
+            >
+              Open Uncensored Share →
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <AgeGateCard
+              signedIn
+              callbackUrl="/settings"
+              title="Verify your age (18+)"
+              description="Verify your birth date once to unlock your Uncensored Share portal and view 18+ posts."
+              onVerified={() => {
+                void fetch("/api/me")
+                  .then((r) => r.json())
+                  .then((data) => {
+                    setProfile((prev) =>
+                      prev ? { ...prev, ageVerified: data.ageVerified, birthDate: data.birthDate } : prev,
+                    );
+                    setMsg("Age verified (18+)");
+                  });
+              }}
+            />
+          </div>
+        )}
+      </section>
 
       <section className="mt-10 rounded-xl border border-[var(--danger)]/40 p-4">
         <h2 className="font-semibold text-[var(--danger)]">Delete account</h2>

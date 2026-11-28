@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isUserAgeVerified } from "@/lib/age-gate";
 import { canDeletePost, deletePostAndMedia, isGuestPostOwner } from "@/lib/post-cleanup";
-import { postHasImageMedia } from "@/lib/post-feed-filter";
+import { postHasVisibleMedia } from "@/lib/post-feed-filter";
 import { canViewPost, isMediaOwner, isPostOwner } from "@/lib/media-access";
 import { getActor } from "@/lib/request-identity";
 import { slugifyTag } from "@/lib/validation";
@@ -45,9 +46,11 @@ export async function GET(
       remixedFrom: { select: { shortId: true, title: true } },
     },
   });
-  if (!post || !canViewPost(post, actor) || !postHasImageMedia(post.media)) {
+  if (!post || !canViewPost(post, actor) || !postHasVisibleMedia(post.media)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  const hasMatureMedia = post.media.some((m) => m.mature);
+  const viewerAgeVerified = hasMatureMedia ? await isUserAgeVerified(actor.userId) : true;
   const views = await recordPostView(post, actor);
   const postLike = { userId: post.userId, visibility: post.visibility };
   const canManage = isPostOwner(postLike, actor) || isGuestPostOwner(post, post.media, actor);
@@ -57,8 +60,12 @@ export async function GET(
     spiceScore: views.spiceScore ?? post.spiceScore ?? 0,
     canManage,
     canDelete: canDeletePost(post, post.media, actor),
+    viewerAgeVerified,
     media: post.media.map((m) => ({
       ...m,
+      ...(m.mature && !viewerAgeVerified
+        ? { storageKey: "", thumbSmKey: null, thumbMdKey: null }
+        : {}),
       canRefine: m.mimeType.startsWith("image/") && isMediaOwner(m, actor),
     })),
   });

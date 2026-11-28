@@ -17,17 +17,19 @@ export function PostMediaImage({
   className,
   alt = "",
   allowReveal = true,
+  defaultRevealed = false,
 }: {
   media: MediaThumbFields;
   variant?: "sm" | "md" | "full";
   className?: string;
   alt?: string;
   allowReveal?: boolean;
+  defaultRevealed?: boolean;
 }) {
   const { src, width, height } = pickMediaSrc(media, variant);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [revealed, setRevealed] = useState(false);
+  const [revealed, setRevealed] = useState(defaultRevealed);
   const imgRef = useRef<HTMLImageElement>(null);
   const bg = media.placeholderCss ?? "var(--surface-sunken)";
 

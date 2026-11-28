@@ -1,3 +1,4 @@
+import { isUserAgeVerified } from "@/lib/age-gate";
 import { canViewMedia, canViewPost } from "@/lib/media-access";
 import { contentTypeForKey } from "@/lib/media-types";
 import { prisma } from "@/lib/db";
@@ -10,6 +11,7 @@ import type { JobShot } from "@/lib/ai/video-job/types";
 
 type MediaRow = {
   visibility: string;
+  mature?: boolean;
   post: { userId: string | null; visibility: string; hiddenByAdmin: boolean } | null;
 };
 
@@ -81,6 +83,9 @@ export function mediaFileCacheControl(media: MediaRow | null, isProfileAsset: bo
   if (!media) {
     return "private, no-store";
   }
+  if (media.mature) {
+    return "private, no-store";
+  }
   const vis = media.post?.visibility ?? media.visibility;
   const isPrivate = vis === "PRIVATE" || Boolean(media.post?.hiddenByAdmin);
   if (isPrivate) {
@@ -127,6 +132,13 @@ export async function serveMediaFile(
 
   if (media && !canViewMedia(media, actor)) {
     return Response.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (media?.mature && !(await isUserAgeVerified(actor.userId))) {
+    return Response.json(
+      { error: "Age verification required", code: "AGE_VERIFICATION_REQUIRED" },
+      { status: 403 },
+    );
   }
 
   const object = await statObject(storageKey);

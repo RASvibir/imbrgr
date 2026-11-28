@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { isAtLeast18 } from "@/lib/age-gate";
 import { prisma } from "@/lib/db";
 
 const profileSchema = z.object({
@@ -39,12 +40,17 @@ export async function GET() {
       storageBytesUsed: true,
       defaultPostVisibility: true,
       studioKeepOriginal: true,
+      birthDate: true,
+      adultVerifiedAt: true,
       createdAt: true,
     },
   });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const ageVerified = Boolean(user.adultVerifiedAt && user.birthDate && isAtLeast18(user.birthDate));
   return NextResponse.json({
     ...user,
+    birthDate: user.birthDate ? user.birthDate.toISOString().slice(0, 10) : null,
+    ageVerified,
     storageBytesUsed: user.storageBytesUsed.toString(),
   });
 }

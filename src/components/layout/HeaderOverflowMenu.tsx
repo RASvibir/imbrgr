@@ -189,6 +189,13 @@ export function HeaderOverflowMenu({ showAdminLink = false, includeTheme = false
                 <MenuLink href={`/u/${session.user.username}`} onClick={close}>
                   @{session.user.username}
                 </MenuLink>
+                <MenuLink
+                  href={`/u/${session.user.username}/mature`}
+                  onClick={close}
+                  testId="menu-uncensored-share"
+                >
+                  Uncensored share (18+)
+                </MenuLink>
                 <MenuLink href="/settings" onClick={close}>
                   Settings
                 </MenuLink>

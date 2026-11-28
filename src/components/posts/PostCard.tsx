@@ -27,9 +27,11 @@ type PostCardData = {
 export function PostCard({
   post,
   thumbVariant = "md",
+  revealMature = false,
 }: {
   post: PostCardData;
   thumbVariant?: "sm" | "md";
+  revealMature?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const thumb = post.media[0];
@@ -112,9 +114,14 @@ export function PostCard({
 
         {thumb ? (
           thumb.mimeType.startsWith("video/") && src ? (
-            <video src={src} className={`h-full w-full object-cover ${thumb.mature ? "blur-md" : ""}`} muted playsInline />
+            <video src={src} className={`h-full w-full object-cover ${thumb.mature && !revealMature ? "blur-md" : ""}`} muted playsInline />
           ) : (
-            <PostMediaImage media={thumb} variant={thumbVariant} className="transition group-hover:scale-[1.02]" />
+            <PostMediaImage
+              media={thumb}
+              variant={thumbVariant}
+              defaultRevealed={revealMature}
+              className="transition group-hover:scale-[1.02]"
+            />
           )
         ) : null}
       </div>

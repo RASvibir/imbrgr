@@ -1,7 +1,15 @@
-/** Posts in public feeds must have at least one image media row attached. */
-export const feedPostHasImageMedia = {
-  media: { some: { mimeType: { startsWith: "image/" } } },
-} as const;
+import type { Prisma } from "@/generated/prisma/client";
+
+/** Posts in public feeds must have at least one image or video media row attached. */
+export const feedPostHasMedia: Prisma.PostWhereInput = {
+  media: {
+    some: {
+      OR: [{ mimeType: { startsWith: "image/" } }, { mimeType: { startsWith: "video/" } }],
+    },
+  },
+};
+
+export const feedPostHasImageMedia = feedPostHasMedia;
 
 export type PostWithMediaSlice = { media: unknown[] };
 
@@ -9,6 +17,8 @@ export function filterPostsWithVisibleMedia<T extends PostWithMediaSlice>(items:
   return items.filter((p) => p.media.length > 0);
 }
 
-export function postHasImageMedia(media: { mimeType: string }[]): boolean {
-  return media.some((m) => m.mimeType.startsWith("image/"));
+export function postHasVisibleMedia(media: { mimeType: string }[]): boolean {
+  return media.some((m) => m.mimeType.startsWith("image/") || m.mimeType.startsWith("video/"));
 }
+
+export const postHasImageMedia = postHasVisibleMedia;
