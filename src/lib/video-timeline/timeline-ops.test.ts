@@ -7,6 +7,7 @@ import {
   findActiveVisualClips,
   clipMotionProgress,
   computeMotionTransform,
+  shouldSeekPreviewVideo,
 } from "@/lib/video-timeline/timeline-ops";
 import type { VisualClip } from "@/lib/video-timeline/timeline-types";
 
@@ -124,5 +125,35 @@ describe("Timeline Operations", () => {
     expect(clipMotionProgress(4, 0, 8, { loop: true, loopPeriodSec: 4 })).toBeCloseTo(0);
     // One-shot path still maps linearly across the clip.
     expect(clipMotionProgress(2, 0, 8)).toBeCloseTo(0.25);
+  });
+
+  it("avoids re-seeking a paused video to the same clamped EOF target on seeked", () => {
+    expect(
+      shouldSeekPreviewVideo({
+        currentTime: 0,
+        expectedVideoTime: 4.98,
+        isPlaying: false,
+      }),
+    ).toBe(true);
+
+    // Browser clamped seek to 4.90s (> 0.05s away from 4.98s): do not re-seek to 4.98s.
+    expect(
+      shouldSeekPreviewVideo({
+        currentTime: 4.9,
+        expectedVideoTime: 4.98,
+        isPlaying: false,
+        lastPausedSeekTarget: 4.98,
+      }),
+    ).toBe(false);
+
+    // Scrubbing to a new position seeks again.
+    expect(
+      shouldSeekPreviewVideo({
+        currentTime: 4.9,
+        expectedVideoTime: 2.5,
+        isPlaying: false,
+        lastPausedSeekTarget: 4.98,
+      }),
+    ).toBe(true);
   });
 });

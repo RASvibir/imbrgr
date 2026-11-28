@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import sharp from "sharp";
 
-const { findUnique, updateMany, update, create, putObjectMock } = vi.hoisted(() => ({
+const { findUnique, updateMany, update, create, putObjectMock, deleteObjectMock } = vi.hoisted(() => ({
   findUnique: vi.fn(),
   updateMany: vi.fn(),
   update: vi.fn(),
@@ -14,6 +14,9 @@ const { findUnique, updateMany, update, create, putObjectMock } = vi.hoisted(() 
       url: `/api/media/file/${key}`,
     };
   }),
+  deleteObjectMock: vi.fn(async (key: string) => {
+    void key;
+  }),
 }));
 
 vi.mock("@/lib/ai/gpu/cap", () => ({ checkGpuDailyCap: vi.fn().mockResolvedValue(undefined) }));
@@ -21,6 +24,7 @@ vi.mock("@/lib/db", () => ({ prisma: { videoJob: { findUnique, updateMany, updat
 vi.mock("@/lib/storage", () => ({
   newStorageKey: (ext: string) => `captured-frame.${ext}`,
   putObject: putObjectMock,
+  deleteObject: deleteObjectMock,
 }));
 vi.mock("@/lib/ai/usage", () => ({
   recordAiGenerationSuccess: vi.fn(),
@@ -522,6 +526,7 @@ describe("last-frame capture and honest continuation labels", () => {
     // The write is guarded on the nextShot we read, like commit() in stepVideoJob.
     expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "j1", nextShot: 1 } }));
     expect(update).not.toHaveBeenCalled();
+    expect(deleteObjectMock).toHaveBeenCalledWith("captured-frame.jpg");
   });
 
   describe("continuation flags per shot", () => {

@@ -133,43 +133,13 @@ export type PollinationsVideoModelCapabilities = {
 };
 
 /**
- * Audited against https://gen.pollinations.ai/image/models (video output models).
- * Unknown models default conservatively to `supportsInitImage: false` unless
- * `AI_VIDEO_MODEL_SUPPORTS_INIT_IMAGE=true` is set, so we never pretend to chain.
+ * Tested Pollinations video models only. Keep this list limited to models verified
+ * against `https://gen.pollinations.ai/image/models` so we never claim `supportsInitImage`
+ * for an unverified or non-video model. Unknown models default conservatively to
+ * `supportsInitImage: false` unless `AI_VIDEO_MODEL_SUPPORTS_INIT_IMAGE=true` is set.
  */
 const POLLINATIONS_VIDEO_MODEL_CATALOG: Record<string, PollinationsVideoModelCapabilities> = {
   "prunaai/p-video": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
-  "pruna-video": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
-  "p-video": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
-  "p-video-720p": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
-  "p-video-1080p": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 10 },
-  "google/veo-3.1-fast": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 8 },
-  "google/gemini-omni-1.1-flash": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 10 },
-  "google/gemini-omni-1.2-flash": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 15 },
-  "bytedance/seedance-1-pro-fast": { supportsInitImage: true, minDurationSec: 2, maxDurationSec: 10 },
-  "bytedance/seedance-2.0": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 15 },
-  "bytedance/seedance-2.0-mini": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 10 },
-  "bytedance/seedance-2.0-fast": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 5 },
-  "bytedance/seedance-2.5": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 4 },
-  "bytedance/seedance-2.5-flash": { supportsInitImage: true, minDurationSec: 4, maxDurationSec: 30 },
-  "alibaba/wan-2.2-fast": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 5 },
-  "alibaba/wan-2.6": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 15 },
-  "alibaba/wan-2.7": { supportsInitImage: true, minDurationSec: 2, maxDurationSec: 15 },
-  "alibaba/wan-3.0": { supportsInitImage: true, minDurationSec: 2, maxDurationSec: 15 },
-  "alibaba/happyhorse-1.1": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 15 },
-  "x-ai/grok-imagine-video": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 15 },
-  "x-ai/grok-imagine-video-1.5": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 15 },
-  "x-ai/grok-imagine-video-1.5-lite": { supportsInitImage: true, minDurationSec: 1, maxDurationSec: 15 },
-  "kwaivgi/kling-v3.0-std": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 15 },
-  "kwaivgi/kling-v3.0-pro": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 15 },
-  "kwaivgi/kling-v4.0-flash": { supportsInitImage: true, minDurationSec: 3, maxDurationSec: 20 },
-  "lightricks/ltx-2.5-pro": { supportsInitImage: true, minDurationSec: 6, maxDurationSec: 10 },
-  "black-forest-labs/flux-3-max": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 20 },
-  "kandinskylab/kandinsky-6.0-lite": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 5 },
-  "minimax/minimax-h3": { supportsInitImage: false, minDurationSec: 5, maxDurationSec: 5 },
-  "minimax/minimax-h3-max": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 15 },
-  "minimax/minimax-h3-max-turbo": { supportsInitImage: true, minDurationSec: 5, maxDurationSec: 15 },
-  "mirelo/sfx-2.0": { supportsInitImage: false, minDurationSec: 1, maxDurationSec: 120 },
 };
 
 export function getPollinationsVideoModelCapabilities(

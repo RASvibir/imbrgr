@@ -3,7 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { recordAiGenerationSuccess, recordAnonymousAiSuccess } from "@/lib/ai/usage";
 import { resolveVideoDimensions } from "@/lib/ai/video-provider";
-import { newStorageKey, putObject } from "@/lib/storage";
+import { deleteObject, newStorageKey, putObject } from "@/lib/storage";
 import { friendlyError } from "@/lib/user-messages";
 import { gpuTimeoutMs } from "@/lib/ai/gpu/client";
 import { checkGpuDailyCap } from "@/lib/ai/gpu/cap";
@@ -364,7 +364,8 @@ export async function attachShotLastFrame(params: {
     return { ok: false, status: 400, error: "Invalid frame image data." };
   }
 
-  const stored = await putObject(newStorageKey("jpg"), out, "image/jpeg");
+  const key = newStorageKey("jpg");
+  const stored = await putObject(key, out, "image/jpeg");
   const updatedShots = shots.map((s, i) =>
     i === idx ? { ...s, lastFrame: stored.url, lastFrameSource: "client" as const } : s,
   );
@@ -374,6 +375,9 @@ export async function attachShotLastFrame(params: {
     data: { shots: updatedShots as unknown as Prisma.InputJsonValue },
   });
   if (claimed.count !== 1) {
+    await deleteObject(stored.key).catch((err) => {
+      console.warn("[imbrgr/ai-video] failed to clean up orphaned last-frame", { jobId: job.id, key: stored.key }, err);
+    });
     return { ok: false, status: 409, error: "Job advanced while capturing the frame; retry." };
   }
   const updated = { ...job, shots: updatedShots as unknown as JobRow["shots"] };

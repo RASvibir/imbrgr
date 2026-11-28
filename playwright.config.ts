@@ -28,6 +28,8 @@ export default defineConfig({
       NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3000",
       SUPERADMIN_USERNAMES: "e2eadmin,vibir",
       STORAGE_DRIVER: "local",
+      PIXABAY_API_KEY: "",
+      PEXELS_API_KEY: "",
     },
   },
 });

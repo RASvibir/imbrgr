@@ -13,14 +13,51 @@ type MediaRow = {
   post: { userId: string | null; visibility: string; hiddenByAdmin: boolean } | null;
 };
 
+const VIDEO_JOB_FILE_CACHE_TTL_MS = 60_000;
+const MAX_VIDEO_JOB_FILE_CACHE = 512;
+const videoJobFileCache = new Map<string, number>();
+
+/** Clears the in-process VideoJob file ownership cache (used in tests). */
+export function clearVideoJobFileCache(): void {
+  videoJobFileCache.clear();
+}
+
+function getCachedVideoJobOwnership(cacheKey: string, now: number): boolean {
+  const expiresAt = videoJobFileCache.get(cacheKey);
+  if (expiresAt === undefined) return false;
+  if (now >= expiresAt) {
+    videoJobFileCache.delete(cacheKey);
+    return false;
+  }
+  return true;
+}
+
+function setCachedVideoJobOwnership(cacheKey: string, now: number): void {
+  if (videoJobFileCache.size >= MAX_VIDEO_JOB_FILE_CACHE) {
+    const oldest = videoJobFileCache.keys().next().value;
+    if (oldest !== undefined) videoJobFileCache.delete(oldest);
+  }
+  videoJobFileCache.set(cacheKey, now + VIDEO_JOB_FILE_CACHE_TTL_MS);
+}
+
 async function ownsVideoJobFile(storageKey: string, actor: Actor): Promise<boolean> {
+  const ownerKey = ownerKeyFor(actor);
   const expectedPath = mediaFilePath(storageKey);
-  const jobs = await prisma.videoJob.findMany({
-    where: { ownerKey: ownerKeyFor(actor) },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-    select: { shots: true },
-  });
+  const cacheKey = `${ownerKey}\0${expectedPath}`;
+  const now = Date.now();
+  if (getCachedVideoJobOwnership(cacheKey, now)) {
+    return true;
+  }
+
+  const escaped = expectedPath.replace(/[\\%_]/g, "\\$&");
+  const jobs = await prisma.$queryRaw<Array<{ shots: unknown }>>`
+    SELECT "shots"
+    FROM "VideoJob"
+    WHERE "ownerKey" = ${ownerKey}
+      AND "shots"::text LIKE ${`%${escaped}%`} ESCAPE '\'
+    ORDER BY "createdAt" DESC
+    LIMIT 10
+  `;
   for (const job of jobs) {
     if (!Array.isArray(job.shots)) continue;
     for (const raw of job.shots) {
@@ -28,6 +65,7 @@ async function ownsVideoJobFile(storageKey: string, actor: Actor): Promise<boole
       if (!shot) continue;
       for (const candidate of [shot.videoUrl, shot.imageUrl, shot.lastFrame, shot.seedImage]) {
         if (typeof candidate === "string" && candidate.split("?")[0] === expectedPath) {
+          setCachedVideoJobOwnership(cacheKey, now);
           return true;
         }
       }

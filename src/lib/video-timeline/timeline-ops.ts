@@ -197,3 +197,28 @@ export function computeMotionTransform(motion?: CameraMotion, progress = 0): Mot
       return base;
   }
 }
+
+/**
+ * Decides whether a preview `<video>` needs `vid.currentTime = expectedVideoTime`.
+ * When paused, skips re-seeking to the same target already sought so a browser
+ * that snaps/clamps near EOF cannot trigger an infinite `seeked` -> render loop.
+ */
+export function shouldSeekPreviewVideo(params: {
+  currentTime: number;
+  expectedVideoTime: number;
+  isPlaying: boolean;
+  lastPausedSeekTarget?: number;
+}): boolean {
+  const tolerance = params.isPlaying ? 0.3 : 0.05;
+  if (Math.abs(params.currentTime - params.expectedVideoTime) <= tolerance) {
+    return false;
+  }
+  if (
+    !params.isPlaying &&
+    params.lastPausedSeekTarget !== undefined &&
+    Math.abs(params.lastPausedSeekTarget - params.expectedVideoTime) < 0.005
+  ) {
+    return false;
+  }
+  return true;
+}

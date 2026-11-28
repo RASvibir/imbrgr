@@ -321,32 +321,39 @@ describe("assembledBackend", () => {
     });
   });
 
-  it("never passes a raw data URL seedImage to Pollinations", async () => {
+  it("never passes a raw data URL or local storage path seedImage to Pollinations", async () => {
     vi.stubEnv("AI_VIDEO_MODEL", "prunaai/p-video");
     pollinationsEnabledMock.mockReturnValue(true);
-    fetchPollinationsVideoMock.mockResolvedValueOnce({
+    fetchPollinationsVideoMock.mockResolvedValue({
       buffer: Buffer.from("mp4-bytes"),
       mimeType: "video/mp4",
     });
 
-    const res = await assembledBackend.renderShot({
-      prompt: "Continuing from the previous frame, pan right",
-      width: 1280,
-      height: 720,
-      seed: 1,
-      mature: false,
-      durationSec: 5,
-      seedImage: "data:image/jpeg;base64,/9j/4AAQ",
-      isContinuation: true,
-    });
+    for (const seedImage of [
+      "data:image/jpeg;base64,/9j/4AAQ",
+      "/api/media/file/local-frame.jpg",
+    ]) {
+      fetchPollinationsVideoMock.mockClear();
+      const res = await assembledBackend.renderShot({
+        prompt: "Continuing from the previous frame, pan right",
+        width: 1280,
+        height: 720,
+        seed: 1,
+        mature: false,
+        durationSec: 5,
+        seedImage,
+        seedImageSource: "client",
+        isContinuation: true,
+      });
 
-    expect(fetchPollinationsVideoMock).toHaveBeenCalledWith(
-      expect.not.objectContaining({ image: expect.anything() }),
-    );
-    expect(res).toMatchObject({
-      frameChained: false,
-      continuationFallback: NOT_FRAME_CHAINED_LABEL,
-    });
+      expect(fetchPollinationsVideoMock).toHaveBeenCalledWith(
+        expect.not.objectContaining({ image: expect.anything() }),
+      );
+      expect(res).toMatchObject({
+        frameChained: false,
+        continuationFallback: NOT_FRAME_CHAINED_LABEL,
+      });
+    }
   });
 
   it("falls back to a still seeded from lastFrame only when generative video fails", async () => {

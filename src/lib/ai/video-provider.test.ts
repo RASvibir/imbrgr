@@ -87,7 +87,7 @@ describe("AI Video Provider", () => {
       supportsInitImage: true,
       maxDurationSec: 10,
     });
-    expect(getPollinationsVideoModelCapabilities("minimax/minimax-h3", {})).toMatchObject({
+    expect(getPollinationsVideoModelCapabilities("black-forest-labs/flux-3-max", {})).toMatchObject({
       supportsInitImage: false,
     });
     expect(getPollinationsVideoModelCapabilities("unknown/custom-video", {})).toMatchObject({

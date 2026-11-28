@@ -5,6 +5,7 @@ import {
   formatTimecode,
   clipMotionProgress,
   computeMotionTransform,
+  shouldSeekPreviewVideo,
   transitionState,
   UNDERLAY_TAIL_SEC,
 } from "@/lib/video-timeline/timeline-ops";
@@ -43,6 +44,7 @@ export function VideoPreviewPlayer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const loadedImagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const loadedVideosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const lastPausedSeekTargetRef = useRef<WeakMap<HTMLVideoElement, number>>(new WeakMap());
   // URLs that would not load with CORS; they still play, but taint the canvas so plugins are skipped.
   const noCorsUrlsRef = useRef<Set<string>>(new Set());
   const warnedTaintRef = useRef(false);
@@ -167,8 +169,20 @@ export function VideoPreviewPlayer({
             maxSourceTime,
             Math.max(0, clip.sourceStartSec + (clipTime - clip.startSec)),
           );
-          const tolerance = isPlayingRef.current ? 0.3 : 0.05;
-          if (Math.abs(vid.currentTime - expectedVideoTime) > tolerance) {
+          const lastPausedSeekTarget = isPlayingRef.current
+            ? undefined
+            : lastPausedSeekTargetRef.current.get(vid);
+          if (
+            shouldSeekPreviewVideo({
+              currentTime: vid.currentTime,
+              expectedVideoTime,
+              isPlaying: isPlayingRef.current,
+              lastPausedSeekTarget,
+            })
+          ) {
+            if (!isPlayingRef.current) {
+              lastPausedSeekTargetRef.current.set(vid, expectedVideoTime);
+            }
             vid.currentTime = expectedVideoTime;
           }
           drawCover(ctx, vid, vid.videoWidth, vid.videoHeight, canvas.width, canvas.height);
@@ -292,6 +306,7 @@ export function VideoPreviewPlayer({
   // Playback Loop
   useEffect(() => {
     if (!isPlaying) return;
+    lastPausedSeekTargetRef.current = new WeakMap();
 
     lastTimeRef.current = performance.now();
     let currentT = currentTimeRef.current;

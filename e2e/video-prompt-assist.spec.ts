@@ -21,8 +21,9 @@ test.describe("Studio Video Prompt Assist (/studio?tab=video)", () => {
     await expect(counter).toContainText("500/500");
     await expect(page.getByTestId("prompt-char-warning")).toContainText(/limit reached/i);
 
-    // Improve -> Accept -> Undo
-    const originalPrompt = "2 red cats without collars";
+    // Improve -> Accept -> Undo (unique prompt per run so AiPromptCache never turns "local" into "cache")
+    const runTag = Math.random().toString(36).slice(2, 8);
+    const originalPrompt = `2 red cats without collars ${runTag}`;
     await input.fill(originalPrompt);
     await expect(counter).toContainText(`${originalPrompt.length}/500`);
 
@@ -90,7 +91,7 @@ test.describe("Studio Video Prompt Assist (/studio?tab=video)", () => {
     await input.fill("sunset burger");
     await page.getByTestId("ai-video-generate-button").click();
     await expect(promptUsedSection).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId("prompt-used-text")).toHaveText("sunset burger");
-    await expect(page.getByTestId("prompt-used-source")).toContainText(/user/i);
+    await expect(page.getByTestId("prompt-used-text")).toHaveText("sunset burger", { timeout: 30_000 });
+    await expect(page.getByTestId("prompt-used-source")).toContainText(/user/i, { timeout: 30_000 });
   });
 });
